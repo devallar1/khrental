@@ -8,16 +8,16 @@ This document provides a comprehensive overview of the major modules in the KH R
 
 **Primary Files:**
 - `src/hooks/useAuth.jsx`
-- `src/services/supabaseClient.js` (auth-related functions)
+- `src/services/platformClient.js` (auth-related functions)
 - `src/pages/Login.jsx`, `src/pages/Register.jsx`, etc.
 
 **Purpose:**
-Manages user authentication, registration, password reset, and session management using Supabase Authentication. Provides role-based access control and permission checking.
+Manages user authentication, registration, password reset, and session management using the platform auth compatibility layer. Provides role-based access control and permission checking.
 
 **Relationships:**
 - Used by all protected routes via the `ProtectedRoute` component
 - Provides user data to components through the `useAuth` hook
-- Integrates with Supabase for backend authentication
+- Integrates with the backend platform API for authentication
 
 ### 2. Property Management Module
 
@@ -151,7 +151,7 @@ Manages integration with the Evia Sign digital signature service. Handles authen
 - `src/components/common/ImageUpload.jsx`
 
 **Purpose:**
-Manages file uploads, storage, and retrieval using Supabase Storage. Supports images, documents, and other file types.
+Manages file uploads, storage, and retrieval using the application's storage layer. Supports images, documents, and other file types.
 
 **Relationships:**
 - Used by multiple modules for file management
@@ -257,7 +257,7 @@ Handles API endpoints and external service integration.
 **Relationships:**
 - Provides webhook endpoints
 - Interfaces with external services
-- Supplements Supabase backend functionality
+- Supplements the primary platform API and database functionality
 
 ## Module Relationships Diagram
 
@@ -281,7 +281,7 @@ Handles API endpoints and external service integration.
                                 │
                                 ▼
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│ Document Service│◀───▶│  Supabase API   │◀───▶│ File Storage    │
+│ Document Service│◀───▶│  Platform API   │◀───▶│ File Storage    │
 └────────┬────────┘     └─────────────────┘     └─────────────────┘
          │                                                ▲
          ▼                                                │

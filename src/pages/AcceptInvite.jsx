@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { toast } from 'react-hot-toast';
+import { fetchAppUser, linkAppUser } from '../services/appUserService';
 
 const AcceptInvite = () => {
   const navigate = useNavigate();
@@ -13,6 +14,19 @@ const AcceptInvite = () => {
   const [error, setError] = useState(null);
   const [userData, setUserData] = useState(null);
   const [success, setSuccess] = useState(false);
+
+  const linkAcceptedUser = async (authId, appUserId) => {
+    if (!authId || !appUserId) {
+      return;
+    }
+
+    const linkResult = await linkAppUser(authId, appUserId);
+
+    if (!linkResult.success) {
+      console.error('Failed to link invited user:', linkResult.error);
+      toast.error('Account created but user record update failed. Please contact support.');
+    }
+  };
 
   useEffect(() => {
     // Parse the URL parameters
@@ -59,7 +73,7 @@ const AcceptInvite = () => {
         console.log('Using token from URL parameter:', token);
         
         // First, verify if we can use the token to get a session
-        const { data: sessionData, error: sessionError } = await supabase.auth.verifyOtp({
+        const { data: sessionData, error: sessionError } = await platformClient.auth.verifyOtp({
           token_hash: token,
           type: 'recovery'
         });
@@ -67,7 +81,7 @@ const AcceptInvite = () => {
         if (sessionError) {
           console.error('Error verifying token:', sessionError);
           // Fall back to getting the current user
-          const { data, error } = await supabase.auth.getUser();
+          const { data, error } = await platformClient.auth.getUser();
           
           if (error || !data.user) {
             throw new Error('Invalid token or session expired');
@@ -84,7 +98,7 @@ const AcceptInvite = () => {
           console.log('Session established with token:', sessionData);
           
           // If we got a session, check the user data
-          const { data: userData, error: userError } = await supabase.auth.getUser();
+          const { data: userData, error: userError } = await platformClient.auth.getUser();
           
           if (userError || !userData.user) {
             throw new Error('Could not get user data after verifying token');
@@ -136,7 +150,7 @@ const AcceptInvite = () => {
       
       if (userId) {
         // For magic link approach, we need to sign up the user
-        const { data, error } = await supabase.auth.signUp({
+        const { data, error } = await platformClient.auth.signUp({
           email,
           password,
           options: {
@@ -156,56 +170,14 @@ const AcceptInvite = () => {
         // Update the app_users table
         console.log(`Attempting to update app_user with ID: ${userId} and auth_id: ${data.user.id}`);
         
-        // First get the current user data to check the fields
-        const { data: currentUserData, error: getUserError } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('id', userId)
-          .single();
-          
-        if (getUserError) {
-          console.error('Error getting user data:', getUserError);
-          // Continue with the direct update approach
-        } else {
+        try {
+          const currentUserData = await fetchAppUser(userId);
           console.log('Current user data:', currentUserData);
+        } catch (getUserError) {
+          console.error('Error getting user data:', getUserError);
         }
-        
-        // Create update object with all required fields
-        const updateData = {
-          auth_id: data.user.id, // Primary field from schema
-          invited: true,
-          updatedat: new Date().toISOString()
-        };
-        
-        console.log('Updating app_user with:', updateData);
-        
-        // Try updating with eq() first
-        const { data: updateResult, error: updateError } = await supabase
-          .from('app_users')
-          .update(updateData)
-          .eq('id', userId)
-          .select();
-          
-        if (updateError) {
-          console.error('Regular update failed:', updateError);
-          console.log('Trying alternative update approach with match()...');
-          
-          // Try an alternative approach with match
-          const { data: altUpdateResult, error: altUpdateError } = await supabase
-            .from('app_users')
-            .update(updateData)
-            .match({ id: userId })
-            .select();
-            
-          if (altUpdateError) {
-            console.error('Alternative update also failed:', altUpdateError);
-            toast.error('Account created but user record update failed. Please contact support.');
-          } else {
-            console.log('Alternative update succeeded:', altUpdateResult);
-          }
-        } else {
-          console.log('Update succeeded:', updateResult);
-        }
+
+        await linkAcceptedUser(data.user.id, userId);
         
         setSuccess(true);
         toast.success('Account setup completed successfully!');
@@ -218,7 +190,7 @@ const AcceptInvite = () => {
         console.log('Attempting to update password using token:', token);
         
         // First verify/login with the token
-        const { data: sessionData, error: sessionError } = await supabase.auth.verifyOtp({
+        const { data: sessionData, error: sessionError } = await platformClient.auth.verifyOtp({
           token_hash: token,
           type: 'recovery',
           options: {
@@ -234,7 +206,7 @@ const AcceptInvite = () => {
         console.log('Session established, now updating password');
         
         // Now update the password
-        const { error } = await supabase.auth.updateUser({
+        const { error } = await platformClient.auth.updateUser({
           password: password
         });
         
@@ -248,56 +220,14 @@ const AcceptInvite = () => {
           
           console.log(`Attempting to update app_user with ID: ${appUserId} and auth_id: ${userData.id}`);
           
-          // First get the current user data to check the fields
-          const { data: currentUserData, error: getUserError } = await supabase
-            .from('app_users')
-            .select('*')
-            .eq('id', appUserId)
-            .single();
-            
-          if (getUserError) {
-            console.error('Error getting user data:', getUserError);
-            // Continue with the direct update approach
-          } else {
+          try {
+            const currentUserData = await fetchAppUser(appUserId);
             console.log('Current user data:', currentUserData);
+          } catch (getUserError) {
+            console.error('Error getting user data:', getUserError);
           }
-          
-          // Create update object with all required fields
-          const updateData = {
-            auth_id: userData.id, // Primary field from schema
-            invited: true,
-            updatedat: new Date().toISOString()
-          };
-          
-          console.log('Updating app_user with:', updateData);
-          
-          // Try updating with eq() first
-          const { data: updateResult, error: updateError } = await supabase
-            .from('app_users')
-            .update(updateData)
-            .eq('id', appUserId)
-            .select();
-            
-          if (updateError) {
-            console.error('Regular update failed:', updateError);
-            console.log('Trying alternative update approach with match()...');
-            
-            // Try an alternative approach with match
-            const { data: altUpdateResult, error: altUpdateError } = await supabase
-              .from('app_users')
-              .update(updateData)
-              .match({ id: appUserId })
-              .select();
-              
-            if (altUpdateError) {
-              console.error('Alternative update also failed:', altUpdateError);
-              toast.error('Account created but user record update failed. Please contact support.');
-            } else {
-              console.log('Alternative update succeeded:', altUpdateResult);
-            }
-          } else {
-            console.log('Update succeeded:', updateResult);
-          }
+
+          await linkAcceptedUser(userData.id, appUserId);
           
           setSuccess(true);
           toast.success('Account setup completed successfully!');

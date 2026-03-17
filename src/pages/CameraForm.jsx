@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchData, insertData, updateData } from '../services/supabaseClient';
+import { fetchData, insertData, updateData } from '../services/platformClient';
 
 // UI Components
 import FormInput from '../components/ui/FormInput';

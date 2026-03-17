@@ -9,9 +9,12 @@
  * Provides a consistent interface for sending invitations regardless of source.
  */
 
-import { supabase } from './supabaseClient';
+import { platform as platformClient } from './platformClient';
 import { sendDirectEmail } from './directEmailService';
 import { getAppBaseUrl } from '../utils/env';
+import { isMssqlApiEnabled, requestMssqlApi } from './mssqlApiClient';
+
+const loadAppUserService = () => import('./appUserService');
 
 // Add a debug helper to log even in production
 const logInvitationDebug = (requestId, message, data = {}) => {
@@ -55,13 +58,32 @@ export const inviteUser = async (userDetails, simulated = false) => {
     logInvitationDebug(requestId, `Inviting user ${userDetails.name} (${userDetails.email}) with ID ${userDetails.id}`);
     
     // Update the app_users table to mark as invited
-    const { error: updateError } = await supabase
-      .from('app_users')
-      .update({
+    let updateError = null;
+
+    if (isMssqlApiEnabled()) {
+      try {
+        await requestMssqlApi(`/api/mssql/app-users/${userDetails.id}`, {
+          method: 'PUT',
+          body: {
+            invited: true,
+            updatedat: new Date().toISOString()
+          }
+        });
+      } catch (mssqlError) {
+        updateError = mssqlError;
+        logInvitationDebug(requestId, 'Error updating invitation status via MSSQL, falling back to the local compatibility layer:', { error: mssqlError.message });
+      }
+    }
+
+    if (!isMssqlApiEnabled() || updateError) {
+      const { updateAppUser } = await loadAppUserService();
+      const updateResult = await updateAppUser(userDetails.id, {
         invited: true,
         updatedat: new Date().toISOString()
-      })
-      .eq('id', userDetails.id);
+      });
+
+      updateError = updateResult.success ? null : new Error(updateResult.error);
+    }
     
     if (updateError) {
       logInvitationDebug(requestId, 'Error updating invitation status:', updateError);
@@ -75,8 +97,8 @@ export const inviteUser = async (userDetails, simulated = false) => {
     const redirectUrl = `${baseUrl}/accept-invite`;
     logInvitationDebug(requestId, 'Using redirect URL:', { redirectUrl });
     
-    // Try to use Supabase Auth to send the invitation
-    logInvitationDebug(requestId, 'Attempting to send invitation via Supabase Auth to:', { email: userDetails.email });
+    // Try to use the local auth compatibility layer to send the invitation
+    logInvitationDebug(requestId, 'Attempting to send invitation via the local auth compatibility layer to:', { email: userDetails.email });
     
     const resetOptions = {
       redirectTo: redirectUrl,
@@ -88,14 +110,14 @@ export const inviteUser = async (userDetails, simulated = false) => {
     };
     logInvitationDebug(requestId, 'Reset options:', resetOptions);
     
-    const { data: resetData, error: resetError } = await supabase.auth.resetPasswordForEmail(
+    const { data: resetData, error: resetError } = await platformClient.auth.resetPasswordForEmail(
       userDetails.email,
       resetOptions
     );
     
-    logInvitationDebug(requestId, 'Supabase auth reset result:', { data: resetData, error: resetError });
+    logInvitationDebug(requestId, 'Auth reset result:', { data: resetData, error: resetError });
     
-    // If Supabase invitation fails or is simulated, use direct email
+    // If the platform auth invitation flow fails or is simulated, use direct email
     // Generate a magic link to the accept-invite page with parameters
     const inviteLink = `${baseUrl}/accept-invite?email=${encodeURIComponent(userDetails.email)}&user_id=${userDetails.id}&name=${encodeURIComponent(userDetails.name || '')}&type=invite`;
     logInvitationDebug(requestId, 'Created invite link:', { inviteLink });
@@ -150,11 +172,27 @@ export const resendInvitation = async (userId, simulated = false) => {
     console.log(`[InvitationService] Resending invitation for user ${userId}`);
     
     // Get user details from app_users table
-    const { data: userData, error: userError } = await supabase
-      .from('app_users')
-      .select('id, email, name, role, user_type')
-      .eq('id', userId)
-      .single();
+    let userData = null;
+    let userError = null;
+
+    if (isMssqlApiEnabled()) {
+      try {
+        userData = await requestMssqlApi(`/api/mssql/app-users/${userId}`);
+      } catch (mssqlError) {
+        userError = mssqlError;
+        console.error('[InvitationService] Error fetching user data via MSSQL, falling back to the local compatibility layer:', mssqlError);
+      }
+    }
+
+    if (!userData) {
+      try {
+        const { fetchAppUser } = await loadAppUserService();
+        userData = await fetchAppUser(userId);
+        userError = null;
+      } catch (fallbackError) {
+        userError = fallbackError;
+      }
+    }
     
     if (userError || !userData) {
       console.error('[InvitationService] Error fetching user data:', userError);
@@ -200,11 +238,36 @@ export const checkInvitationStatus = async (userId) => {
     }
     
     // Query the app_users table to get auth_id and invited status
-    const { data: userData, error: userError } = await supabase
-      .from('app_users')
-      .select('id, auth_id, invited')
-      .eq('id', userId)
-      .single();
+    let userData = null;
+    let userError = null;
+
+    if (isMssqlApiEnabled()) {
+      try {
+        const statusData = await requestMssqlApi(`/api/mssql/app-users/${userId}/invitation-status`);
+        return {
+          success: true,
+          status: statusData.status,
+          hasAuthId: !!statusData.auth_id
+        };
+      } catch (mssqlError) {
+        userError = mssqlError;
+        console.error(`[InvitationService] Error fetching invitation status for ${userId} via MSSQL, falling back to the local compatibility layer:`, mssqlError);
+      }
+    }
+
+    try {
+      const { checkAppUserInvitationStatus } = await loadAppUserService();
+      const statusResult = await checkAppUserInvitationStatus(userId);
+
+      if (!statusResult.success) {
+        throw new Error(statusResult.error);
+      }
+
+      userData = statusResult.data;
+      userError = null;
+    } catch (fallbackError) {
+      userError = fallbackError;
+    }
     
     if (userError) {
       console.error(`[InvitationService] Error fetching invitation status for ${userId}:`, userError);

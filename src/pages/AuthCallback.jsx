@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { toast } from 'react-hot-toast';
 
 /**
  * Auth Callback Handler
  * 
- * This component handles all auth-related redirects from Supabase:
+ * This component handles all auth-related redirects from the platform auth provider:
  * - Magic link logins
  * - Invitation redemption
  * - Password recovery
@@ -28,7 +28,7 @@ const AuthCallback = () => {
         const type = params.get('type'); // Can be 'recovery', 'invite', 'magiclink', etc.
         
         // Check if we have an active session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await platformClient.auth.getSession();
         
         if (sessionError) {
           throw sessionError;
@@ -37,7 +37,7 @@ const AuthCallback = () => {
         // Handle different callback types
         if (type === 'invite') {
           // For invitation flow, redirect to accept-invite page
-          // The token is already in the URL and processed by Supabase
+          // The token is already in the URL and processed by the auth client
           navigate('/accept-invite' + location.search, { replace: true });
           return;
         } else if (type === 'recovery') {
@@ -68,7 +68,7 @@ const AuthCallback = () => {
             // Regular magic link handling code...
             // If no session, attempt to get one from the URL
             // This happens automatically in getSession above in most cases
-            const { error: signInError } = await supabase.auth.signInWithOtp({
+            const { error: signInError } = await platformClient.auth.signInWithOtp({
               email: params.get('email') || '',
               options: {
                 shouldCreateUser: false,
@@ -80,7 +80,7 @@ const AuthCallback = () => {
             }
             
             // Try again to get the session
-            const { data: refreshData, error: refreshError } = await supabase.auth.getSession();
+            const { data: refreshData, error: refreshError } = await platformClient.auth.getSession();
             
             if (refreshError) {
               throw refreshError;

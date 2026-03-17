@@ -12,21 +12,19 @@ const envPath = path.join(rootDir, '.env');
 const envExamplePath = path.join(rootDir, '.env.example');
 
 // Default values for required environment variables
-const defaultEnv = `# Supabase Configuration
-VITE_SUPABASE_URL=https://vcorwfilylgtvzktszvi.supabase.co
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+const defaultEnv = `# API Configuration
+VITE_API_ENDPOINT=https://khrentals.kubeira.com
+VITE_USE_MSSQL_API=true
+VITE_APP_BASE_URL=https://khrentals.kubeira.com
 
-# API Endpoints
-VITE_API_ENDPOINT=https://khrentals.kubeira.com/api
-
-# Email Configuration
-VITE_SENDGRID_API_KEY=your_sendgrid_api_key_here
+# Server Email Configuration
+SENDGRID_API_KEY=your_sendgrid_api_key_here
 VITE_EMAIL_FROM=noreply@khrentals.kubeira.com
 VITE_EMAIL_FROM_NAME=KH Rentals
 
-# evia Sign Configuration (if used)
+# Evia Sign Configuration
 VITE_EVIA_SIGN_CLIENT_ID=
-VITE_EVIA_SIGN_CLIENT_SECRET=
+EVIA_SIGN_CLIENT_SECRET=
 `;
 
 // Create readline interface
@@ -62,30 +60,31 @@ async function setupEnv() {
     console.log('Creating new .env file with default values.');
   }
   
-  // Get Supabase URL
-  const supabaseUrl = await question(`Enter your Supabase URL [${envContent.match(/VITE_SUPABASE_URL=(.+)/)?.[1] || ''}]: `);
-  if (supabaseUrl) {
-    envContent = envContent.replace(/VITE_SUPABASE_URL=.+/, `VITE_SUPABASE_URL=${supabaseUrl}`);
+  const apiEndpoint = await question(`Enter your API endpoint [${envContent.match(/VITE_API_ENDPOINT=(.+)/)?.[1] || ''}]: `);
+  if (apiEndpoint) {
+    envContent = envContent.replace(/VITE_API_ENDPOINT=.+/, `VITE_API_ENDPOINT=${apiEndpoint}`);
   }
-  
-  // Get Supabase Anon Key
-  const supabaseAnonKey = await question('Enter your Supabase Anon Key: ');
-  if (supabaseAnonKey) {
-    envContent = envContent.replace(/VITE_SUPABASE_ANON_KEY=.+/, `VITE_SUPABASE_ANON_KEY=${supabaseAnonKey}`);
+
+  const appBaseUrl = await question(`Enter your app base URL [${envContent.match(/VITE_APP_BASE_URL=(.+)/)?.[1] || ''}]: `);
+  if (appBaseUrl) {
+    envContent = envContent.replace(/VITE_APP_BASE_URL=.+/, `VITE_APP_BASE_URL=${appBaseUrl}`);
   }
   
   // Get SendGrid API Key
-  const sendgridApiKey = await question('Enter your SendGrid API Key: ');
+  const sendgridApiKey = await question('Enter your SendGrid API Key (server only): ');
   if (sendgridApiKey) {
-    envContent = envContent.replace(/VITE_SENDGRID_API_KEY=.+/, `VITE_SENDGRID_API_KEY=${sendgridApiKey}`);
+    envContent = envContent.replace(/SENDGRID_API_KEY=.+/, `SENDGRID_API_KEY=${sendgridApiKey}`);
+  }
+
+  const eviaClientSecret = await question('Enter your Evia Sign client secret (server only, optional): ');
+  if (eviaClientSecret) {
+    envContent = envContent.replace(/EVIA_SIGN_CLIENT_SECRET=.*/, `EVIA_SIGN_CLIENT_SECRET=${eviaClientSecret}`);
   }
   
   // Write the .env file
   fs.writeFileSync(envPath, envContent);
   console.log('.env file has been created successfully!');
-  console.log('\nNOTE: The SendGrid API key must also be configured in your Supabase Edge Functions.');
-  console.log('To deploy the sendgrid-email function to Supabase, run:');
-  console.log('npm run deploy:functions');
+  console.log('\nNOTE: Keep SENDGRID_API_KEY and EVIA_SIGN_CLIENT_SECRET on the server only.');
   console.log('\nTo start the development server with these settings, run:');
   console.log('npm run dev:with-proxy');
   

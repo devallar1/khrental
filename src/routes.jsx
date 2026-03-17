@@ -4,7 +4,6 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 import { PERMISSIONS, ROLES } from './utils/permissions.jsx';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from './services/supabaseClient';
 import NotFound from './pages/NotFound';
 
 // Layout components
@@ -780,7 +779,12 @@ const routes = [
 // Export the RouterProvider component
 export default function AppRouter() {
   // Create the router instance inside the component
-  const router = createBrowserRouter(routes);
+  const router = createBrowserRouter(routes, {
+    future: {
+      v7_startTransition: true,
+      v7_relativeSplatPath: true
+    }
+  });
   return <RouterProvider router={router} />;
 }
 

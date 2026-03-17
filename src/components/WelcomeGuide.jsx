@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
@@ -16,7 +16,7 @@ const WelcomeGuide = () => {
 
   // Check if this is a first-time login that needs to change password
   useEffect(() => {
-    // Check for invitation flow (from Supabase email)
+    // Check for invitation flow from the auth email
     const params = new URLSearchParams(location.search);
     const inviteToken = params.get('token');
     
@@ -67,7 +67,7 @@ const WelcomeGuide = () => {
       
       if (success) {
         // Update the user metadata to remove force_password_change flag
-        const { error: updateError } = await supabase.auth.updateUser({
+        const { error: updateError } = await platformClient.auth.updateUser({
           data: { force_password_change: false }
         });
         

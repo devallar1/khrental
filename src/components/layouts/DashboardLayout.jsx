@@ -5,7 +5,7 @@ import { USER_ROLES } from '../../utils/constants';
 import { useState, useEffect } from 'react';
 import NavigationRegistrar from './NavigationRegistrar';
 import UserLanguageSelector from '../forms/UserLanguageSelector';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { toast } from 'react-toastify';
 
 const DashboardLayout = () => {
@@ -78,7 +78,7 @@ const DashboardLayout = () => {
   // Handle language change
   const handleLanguageChange = async (language) => {
     try {
-      const { error } = await supabase
+      const { error } = await platformClient
         .from('user_profiles')
         .upsert({
           user_id: user.id,

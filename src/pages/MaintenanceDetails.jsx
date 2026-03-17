@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { fetchData, supabase, checkUserExists } from '../services/supabaseClient';
+import { fetchData, platform as platformClient, checkUserExists } from '../services/platformClient';
 import { 
   updateMaintenanceRequest, 
   assignMaintenanceRequest, 
@@ -73,7 +73,7 @@ const MaintenanceDetails = () => {
       setLoading(true);
       
       // Fetch maintenance request with all related data
-      const { data: requestData, error: requestError } = await supabase
+      const { data: requestData, error: requestError } = await platformClient
         .from('maintenance_requests')
         .select(`
           *,
@@ -457,7 +457,7 @@ const MaintenanceDetails = () => {
     try {
       console.log('Fetching images directly from database for debugging');
       
-      const { data: images, error } = await supabase
+      const { data: images, error } = await platformClient
         .from('maintenance_request_images')
         .select('*')
         .eq('maintenance_request_id', id);

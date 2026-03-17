@@ -37,7 +37,7 @@ The Multi-Property Invoicing System integrates with the KH Rentals application t
                               │
                     ┌─────────▼─────────┐
                     │  Data Storage     │
-                    │  Supabase Tables  │
+                    │ Application Tables│
                     └───────────────────┘
 ```
 

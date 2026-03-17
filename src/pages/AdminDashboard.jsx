@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { useAuth } from '../hooks/useAuth';
 import { fetchData, insertData, deleteData } from '../services/databaseService';
 import { STORAGE_BUCKETS, BUCKET_FOLDERS, listFiles } from '../services/fileService';
 import { toast } from 'react-hot-toast';
 import { inviteUser, resendInvitation, checkInvitationStatus } from '../services/invitationService';
+import { createAppUser, fetchAppUsers, updateAppUser } from '../services/appUserService';
+import { listTemplates } from '../services/agreementService';
 import { Outlet, useLocation } from 'react-router-dom';
 // import InvitationStatus from '../components/ui/InvitationStatus';
 import EmailDiagnostic from '../components/diagnostics/EmailDiagnostic';
@@ -75,7 +77,7 @@ const AdminDashboard = () => {
     if (selectedBucket) {
       const checkAndLoadBucket = async () => {
         try {
-          const { error } = await supabase.storage
+          const { error } = await platformClient.storage
             .from(selectedBucket)
             .list('', { limit: 1 });
           
@@ -112,106 +114,32 @@ const AdminDashboard = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      
-      let query = supabase.from('app_users');
-      
-      // Create filter conditions
-      let filterConditions = [];
-      
-      // Apply status filter
-      if (filterStatus === 'active') {
-        filterConditions.push("active.eq.true");
-      } else if (filterStatus === 'inactive') {
-        filterConditions.push("active.eq.false");
-      }
-      
-      // Apply search filter
-      if (searchTerm) {
-        filterConditions.push(`email.ilike.%${searchTerm}%`);
-        filterConditions.push(`name.ilike.%${searchTerm}%`);
-      }
-      
-      // Get total count first with a separate query
-      let countQuery = query.select('*', { count: 'exact', head: true });
-      
-      // Only add OR filters if we have any
-      if (filterConditions.length > 0) {
-        // For search terms, we want OR between email and name
-        if (searchTerm) {
-          // The last two conditions are for email and name search
-          const searchConditions = filterConditions.slice(-2).join(',');
-          filterConditions = filterConditions.slice(0, -2);
-          
-          // Add status filter if it exists
-          if (filterConditions.length > 0) {
-            countQuery = countQuery.filter(filterConditions[0]);
-          }
-          
-          // Add search as OR
-          countQuery = countQuery.or(searchConditions);
-        } else {
-          // Just apply the status filter directly
-          countQuery = countQuery.filter(filterConditions[0]);
-        }
-      }
-      
-      // Execute count query
-      const { count, error: countError } = await countQuery;
-      
-      if (countError) {
-        console.error('Error getting count:', countError);
-        throw countError;
-      }
-      
-      setTotalUsers(count || 0);
-      
-      // Then get paginated results with a clean query
+
+      const allUsers = await fetchAppUsers();
+      const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+      const filteredUsers = (allUsers || []).filter((appUser) => {
+        const matchesStatus = filterStatus === 'all'
+          ? true
+          : filterStatus === 'active'
+            ? appUser.active !== false
+            : appUser.active === false;
+
+        const matchesSearch = !normalizedSearchTerm
+          ? true
+          : [appUser.email, appUser.name]
+              .filter(Boolean)
+              .some((value) => value.toLowerCase().includes(normalizedSearchTerm));
+
+        return matchesStatus && matchesSearch;
+      });
+
+      setTotalUsers(filteredUsers.length);
+
       const from = (currentPage - 1) * pageSize;
-      const to = from + pageSize - 1;
-      
-      // Start with base data query
-      let dataQuery = query.select('*');
-      
-      // Apply the same filters as the count query
-      if (filterConditions.length > 0) {
-        // For search terms, we want OR between email and name
-        if (searchTerm) {
-          // The last two conditions are for email and name search
-          const searchConditions = `email.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%`;
-          
-          // Add status filter if it exists
-          if (filterStatus === 'active') {
-            dataQuery = dataQuery.filter('active.eq.true');
-          } else if (filterStatus === 'inactive') {
-            dataQuery = dataQuery.filter('active.eq.false');
-          }
-          
-          // Add search as OR
-          if (searchTerm) {
-            dataQuery = dataQuery.or(searchConditions);
-          }
-        } else if (filterStatus === 'active') {
-          dataQuery = dataQuery.filter('active.eq.true');
-        } else if (filterStatus === 'inactive') {
-          dataQuery = dataQuery.filter('active.eq.false');
-        }
-      }
-      
-      // Add pagination and ordering
-      dataQuery = dataQuery
-        .range(from, to)
-        .order('createdat', { ascending: false });
-      
-      // Execute data query
-      const { data, error } = await dataQuery;
-      
-      if (error) {
-        console.error('Error fetching users:', error);
-        throw error;
-      }
-      
-      console.log('[AdminDashboard] Loaded users:', data);
-      setUsers(data || []);
+      const pagedUsers = filteredUsers.slice(from, from + pageSize);
+
+      console.log('[AdminDashboard] Loaded users:', pagedUsers);
+      setUsers(pagedUsers);
     } catch (err) {
       console.error('Error loading users:', err);
       setError(err.message);
@@ -240,18 +168,14 @@ const AdminDashboard = () => {
         user_type: newUserRole === 'rentee' ? 'rentee' : 'staff'
       };
       
-      // Insert user into app_users table
-      const { data: newUser, error: createError } = await supabase
-        .from('app_users')
-        .insert(userData)
-        .select()
-        .single();
-      
-      if (createError) {
-        console.error('Error creating user:', createError);
-        toast.error(`Failed to create user: ${createError.message}`);
+      const createResult = await createAppUser(userData, userData.user_type);
+
+      if (!createResult.success) {
+        console.error('Error creating user:', createResult.error);
+        toast.error(`Failed to create user: ${createResult.error}`);
         return;
       }
+      const newUser = createResult.data;
       
       // Now invite the user using our new invitation service
       const result = await inviteUser({
@@ -331,7 +255,7 @@ const AdminDashboard = () => {
       setLoading(true);
       
       // First check if the bucket exists
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+      const { data: buckets, error: listError } = await platformClient.storage.listBuckets();
       
       if (listError) {
         console.error('Error listing buckets:', listError);
@@ -361,7 +285,7 @@ const AdminDashboard = () => {
         console.warn('No buckets returned from API, attempting direct bucket access');
         
         // Try to list files in the bucket to see if it exists
-        const { data: filesCheck, error: filesError } = await supabase.storage
+        const { data: filesCheck, error: filesError } = await platformClient.storage
           .from(bucketName)
           .list('', { limit: 1 });
         
@@ -385,7 +309,7 @@ const AdminDashboard = () => {
       const bucket = buckets.find(b => b.name === bucketName);
       if (!bucket) {
         // Check if we can still access the bucket directly
-        const { data: filesCheck, error: filesError } = await supabase.storage
+        const { data: filesCheck, error: filesError } = await platformClient.storage
           .from(bucketName)
           .list('', { limit: 1 });
         
@@ -428,10 +352,7 @@ const AdminDashboard = () => {
   const loadTemplates = async () => {
     try {
       setLoading(true);
-      const { data, error } = await fetchData('agreement_templates');
-      if (error) {
-        throw error;
-      }
+      const data = await listTemplates();
       setTemplates(data || []);
     } catch (err) {
       setError(err.message);
@@ -628,16 +549,7 @@ const AdminDashboard = () => {
   const debugShowInvited = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('app_users')
-        .select('*')
-        .order('createdat', { ascending: false });
-        
-      if (error) {
-        console.error('Error fetching users:', error);
-        toast.error('Error fetching users');
-        return;
-      }
+      const data = await fetchAppUsers();
       
       console.log('All users in database:', data);
       console.log('Invited users:', data.filter(user => user.invited === true));
@@ -667,17 +579,14 @@ const AdminDashboard = () => {
       console.log(`Updating user ${userId} active status to ${newStatus}`);
       
       // First step: update the user without selecting the result
-      const { error } = await supabase
-        .from('app_users')
-        .update({ 
-          active: newStatus,
-          updatedat: new Date().toISOString()
-        })
-        .eq('id', userId);
-      
-      if (error) {
-        console.error('Error updating user status:', error);
-        toast.error(`Failed to update user status: ${error.message}`);
+      const result = await updateAppUser(userId, {
+        active: newStatus,
+        updatedat: new Date().toISOString()
+      });
+
+      if (!result.success) {
+        console.error('Error updating user status:', result.error);
+        toast.error(`Failed to update user status: ${result.error}`);
         return;
       }
       

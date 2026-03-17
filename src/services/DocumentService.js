@@ -1,5 +1,5 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { supabase } from './supabaseClient';
+import { platform as platformClient } from './platformClient';
 import { toast } from 'react-toastify';
 import { STORAGE_BUCKETS, BUCKET_FOLDERS } from './fileService';
 
@@ -336,16 +336,35 @@ export const saveMergedDocument = async (content, agreementId) => {
       throw new Error('Document content is empty');
     }
     
+    // Check if content is actually HTML and not a URL
+    const isHtmlContent = content && (
+      content.trim().startsWith('<') || 
+      content.includes('<!DOCTYPE') || 
+      content.includes('<html') ||
+      content.includes('<body') ||
+      content.includes('<div') ||
+      content.includes('<p')
+    );
+    
+    if (!isHtmlContent) {
+      console.log('Content appears to be a URL, not HTML content');
+      // If it's already a URL, just return it
+      if (content.startsWith('http')) {
+        return content;
+      }
+      throw new Error('Invalid content format - not HTML and not a URL');
+    }
+    
     console.log('Converting content to PDF format...');
     
     // Get agreement data to ensure we have all required merge fields
-    const { data: agreement, error: agreementError } = await supabase
+    const { data: agreement, error: agreementError } = await platformClient
       .from('agreements')
       .select(`
         *,
         property:propertyid(name, address),
         unit:unitid(unitnumber, description, floor, bedrooms, bathrooms, rentalvalues),
-        rentee:renteeid(fullname, email, idnumber)
+        rentee:renteeid(name, email, national_id)
       `)
       .eq('id', agreementId)
       .single();
@@ -358,6 +377,7 @@ export const saveMergedDocument = async (content, agreementId) => {
         hasUnit: !!agreement.unit,
         unitNumber: agreement.unit?.unitnumber || 'None',
         hasRentee: !!agreement.rentee,
+        renteeInfo: agreement.rentee ? `${agreement.rentee.name} (${agreement.rentee.email})` : 'None',
         hasRentalValues: agreement.unit?.rentalvalues ? 'Yes' : 'No'
       });
     }
@@ -436,8 +456,8 @@ export const saveMergedDocument = async (content, agreementId) => {
         font: helveticaBold
       });
       
-      const propertyName = agreement.property?.name || 'N/A';
-      const unitName = agreement.unit?.unitnumber || agreement.unit?.name || '';
+      const propertyName = String(agreement.property?.name || 'N/A');
+      const unitName = String(agreement.unit?.unitnumber || agreement.unit?.name || '');
       
       const propertyText = unitName ? `${propertyName}, Unit ${unitName}` : propertyName;
       
@@ -456,7 +476,7 @@ export const saveMergedDocument = async (content, agreementId) => {
         font: helveticaBold
       });
       
-      page.drawText(agreement.rentee?.fullname || 'N/A', {
+      page.drawText(String(agreement.rentee?.name || 'N/A'), {
         x: margin + 120,
         y: infoBoxY - 40,
         size: 10,
@@ -489,7 +509,8 @@ export const saveMergedDocument = async (content, agreementId) => {
         font: helveticaBold
       });
       
-      const monthlyRent = agreement.terms?.monthlyRent || 'Not specified';
+      // Ensure monthlyRent is a string
+      const monthlyRent = String(agreement.terms?.monthlyRent || 'Not specified');
       
       page.drawText(monthlyRent, {
         x: margin + 120,
@@ -507,7 +528,8 @@ export const saveMergedDocument = async (content, agreementId) => {
         font: helveticaBold
       });
       
-      const securityDeposit = agreement.terms?.depositAmount || 'Not specified';
+      // Ensure securityDeposit is a string
+      const securityDeposit = String(agreement.terms?.depositAmount || 'Not specified');
       
       page.drawText(securityDeposit, {
         x: width - margin - 90,
@@ -527,7 +549,10 @@ export const saveMergedDocument = async (content, agreementId) => {
     const addWrappedText = (text, fontSize, isHeading = false) => {
       const font = isHeading ? helveticaBold : helveticaFont;
       const maxWidth = width - (margin * 2);
-      const words = text.split(' ');
+      
+      // Ensure text is a string
+      const textStr = String(text || '');
+      const words = textStr.split(' ');
       
       let currentLine = '';
       
@@ -590,7 +615,9 @@ export const saveMergedDocument = async (content, agreementId) => {
         
         // Add the paragraph text with proper wrapping
         const maxWidth = width - (margin * 2);
-        const words = item.text.split(' ');
+        // Ensure text is a string
+        const itemText = String(item.text || '');
+        const words = itemText.split(' ');
         let currentLine = '';
         
         words.forEach(word => {
@@ -635,8 +662,8 @@ export const saveMergedDocument = async (content, agreementId) => {
         const indentation = margin + (item.level * 20);
         const fontSize = 12;
         
-        // Draw the bullet or number prefix
-        page.drawText(item.prefix, {
+        // Draw the bullet or number prefix - ensure it's a string
+        page.drawText(String(item.prefix || '• '), {
           x: indentation - 15,
           y: y,
           size: fontSize,
@@ -645,7 +672,9 @@ export const saveMergedDocument = async (content, agreementId) => {
         
         // Add the list item text with proper wrapping
         const maxWidth = width - (indentation + 20) - margin;
-        const words = item.text.split(' ');
+        // Ensure text is a string
+        const itemText = String(item.text || '');
+        const words = itemText.split(' ');
         let currentLine = '';
         let firstLine = true;
         
@@ -830,33 +859,42 @@ export const saveMergedDocument = async (content, agreementId) => {
     
     console.log('Uploading PDF to storage path:', filePath);
     
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from(STORAGE_BUCKETS.FILES)
-      .upload(filePath, pdfBlob, {
-        contentType: 'application/pdf',
-        upsert: true
-      });
+    // Standard upload options
+    const uploadOptions = {
+      contentType: 'application/pdf',
+      upsert: true
+    };
     
-    if (error) {
-      console.error('Error saving document:', error);
+    try {
+      // Standard upload via local storage compatibility client
+      const { data, error } = await platformClient.storage
+        .from(STORAGE_BUCKETS.FILES)
+        .upload(filePath, pdfBlob, uploadOptions);
+      
+      if (error) {
+        console.error('Error saving document:', error);
+        throw error;
+      }
+      
+      console.log('PDF uploaded successfully:', data);
+      
+      // Get the public URL
+      const { data: urlData } = platformClient.storage
+        .from(STORAGE_BUCKETS.FILES)
+        .getPublicUrl(filePath);
+      
+      const publicUrl = urlData?.publicUrl;
+      console.log('Document public URL generated:', publicUrl);
+      
+      return publicUrl;
+    } catch (error) {
+      console.error('Error saving merged document:', error);
+      toast.error('Error saving document: ' + (error.message || 'Unknown error'));
       throw error;
     }
-    
-    console.log('PDF uploaded successfully:', data);
-    
-    // Get the public URL
-    const { data: urlData } = supabase.storage
-      .from(STORAGE_BUCKETS.FILES)
-      .getPublicUrl(filePath);
-    
-    const publicUrl = urlData.publicUrl;
-    console.log('Document public URL generated:', publicUrl);
-    
-    return publicUrl;
   } catch (error) {
     console.error('Error saving merged document:', error);
-    toast.error('Error saving document: ' + error.message);
+    toast.error('Error saving document: ' + (error.message || 'Unknown error'));
     throw error;
   }
 };
@@ -879,7 +917,7 @@ export const convertDocxToPdf = async (agreementId) => {
     console.log('Downloading DOCX from storage path:', docxPath);
     
     // List files in directory to debug any issues
-    const { data: fileData, error: fileError } = await supabase.storage
+    const { data: fileData, error: fileError } = await platformClient.storage
       .from(STORAGE_BUCKETS.FILES)
       .list(`${BUCKET_FOLDERS[STORAGE_BUCKETS.FILES].AGREEMENTS}/${agreementId}`);
     
@@ -890,7 +928,7 @@ export const convertDocxToPdf = async (agreementId) => {
     }
     
     // Download the DOCX file from storage
-    const { data: docxData, error: docxError } = await supabase.storage
+    const { data: docxData, error: docxError } = await platformClient.storage
       .from(STORAGE_BUCKETS.FILES)
       .download(docxPath);
       
@@ -943,7 +981,7 @@ export const convertDocxToPdf = async (agreementId) => {
     });
     
     // Add a link to the original DOCX
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = platformClient.storage
       .from(STORAGE_BUCKETS.FILES)
       .getPublicUrl(docxPath);
       
@@ -1014,8 +1052,8 @@ export const generatePdf = async (formData) => {
     // Define the PDF file path in storage
     const pdfPath = `${BUCKET_FOLDERS[STORAGE_BUCKETS.FILES].AGREEMENTS}/${agreementId}/final_agreement.pdf`;
     
-    // Upload PDF to Supabase Storage
-    const { data, error } = await supabase.storage
+    // Upload PDF to platform storage
+    const { data, error } = await platformClient.storage
       .from(STORAGE_BUCKETS.FILES)
       .upload(pdfPath, pdfBlob, {
         contentType: 'application/pdf',
@@ -1028,7 +1066,7 @@ export const generatePdf = async (formData) => {
     }
     
     // Get the public URL for the PDF
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = platformClient.storage
       .from(STORAGE_BUCKETS.FILES)
       .getPublicUrl(pdfPath);
     
@@ -1534,8 +1572,8 @@ async function createDocument(html, fileName, agreementId) {
     const timestamp = new Date().getTime();
     const filePath = `agreements/${agreementId}/${fileName.replace(/\s+/g, '_')}_${timestamp}.pdf`;
     
-    // Upload the file to Supabase Storage
-    const { data, error } = await supabase.storage
+    // Upload the file to platform storage
+    const { data, error } = await platformClient.storage
       .from('documents')
       .upload(filePath, pdfBlob, {
         contentType: 'application/pdf',
@@ -1548,7 +1586,7 @@ async function createDocument(html, fileName, agreementId) {
     }
     
     // Get the public URL for the file
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = platformClient.storage
       .from('documents')
       .getPublicUrl(filePath);
     
@@ -1567,6 +1605,26 @@ async function createDocument(html, fileName, agreementId) {
     };
   }
 }
+
+// Map Evia status to our status format
+const mapStatusForTracker = (eviaStatus) => {
+  if (!eviaStatus) {
+    return null;
+  }
+  
+  switch (String(eviaStatus)) {
+    case 'pending':
+    case 'pending_signature':
+      return 'pending_signature';
+    case 'in_progress':
+    case 'partially_signed':
+      return 'partially_signed';
+    case 'completed':
+      return 'signed';
+    default:
+      return String(eviaStatus);
+  }
+};
 
 export {
   processHtmlContent,

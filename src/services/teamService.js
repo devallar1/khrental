@@ -1,6 +1,7 @@
-import { supabase } from './supabaseClient';
+import { platform as platformClient } from './platformClient';
 import { notifyUser } from './notificationService';
 import { toDatabaseFormat, fromDatabaseFormat } from '../utils/databaseUtils';
+import { createAppUser, deleteAppUser, fetchAppUser, updateAppUser } from './appUserService';
 
 /**
  * Create a new team member
@@ -17,18 +18,16 @@ export const createTeamMember = async (memberData) => {
     dbData.updatedat = new Date().toISOString();
     dbData.user_type = 'staff';
     
-    const { data, error } = await supabase
-      .from('app_users')
-      .insert(dbData)
-      .select()
-      .single();
-    
-    if (error) throw error;
+    const result = await createAppUser(dbData, 'staff');
+
+    if (!result.success) {
+      throw new Error(result.error);
+    }
     
     // Convert database format back to camelCase for frontend
     return {
       success: true,
-      data: fromDatabaseFormat(data),
+      data: fromDatabaseFormat(result.data),
       error: null
     };
   } catch (error) {
@@ -55,20 +54,16 @@ export const updateTeamMember = async (id, memberData) => {
     // Update timestamp
     dbData.updatedat = new Date().toISOString();
     
-    const { data, error } = await supabase
-      .from('app_users')
-      .update(dbData)
-      .eq('id', id)
-      .eq('user_type', 'staff')
-      .select()
-      .single();
-    
-    if (error) throw error;
+    const result = await updateAppUser(id, dbData);
+
+    if (!result.success) {
+      throw new Error(result.error);
+    }
     
     // Convert database format back to camelCase for frontend
     return {
       success: true,
-      data: fromDatabaseFormat(data),
+      data: fromDatabaseFormat(result.data),
       error: null
     };
   } catch (error) {
@@ -89,7 +84,7 @@ export const updateTeamMember = async (id, memberData) => {
 export const deleteTeamMember = async (id) => {
   try {
     // Check if team member has assigned tasks
-    const { data: assignments, error: assignmentsError } = await supabase
+    const { data: assignments, error: assignmentsError } = await platformClient
       .from('task_assignments')
       .select('id')
       .eq('teammemberid', id);
@@ -103,14 +98,10 @@ export const deleteTeamMember = async (id) => {
     }
     
     // Delete from database
-    const { error } = await supabase
-      .from('app_users')
-      .delete()
-      .eq('id', id)
-      .eq('user_type', 'staff');
-    
-    if (error) {
-      throw error;
+    const result = await deleteAppUser(id);
+
+    if (!result.success) {
+      throw new Error(result.error);
     }
     
     return { success: true };
@@ -132,15 +123,19 @@ export const assignTask = async (assignmentData) => {
     
     // Add timestamp and default status if not provided
     dbData.createdat = new Date().toISOString();
-    if (!dbData.status) dbData.status = 'assigned';
+    if (!dbData.status) {
+      dbData.status = 'assigned';
+    }
     
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('task_assignments')
       .insert(dbData)
       .select()
       .single();
     
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
     
     // Notify team member about the assignment
     await notifyTeamMemberAboutAssignment(data);
@@ -175,19 +170,21 @@ export const updateTaskAssignment = async (id, assignmentData) => {
     // Add update timestamp
     dbData.updatedat = new Date().toISOString();
     
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('task_assignments')
       .update(dbData)
       .eq('id', id)
       .select()
       .single();
     
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
     
     // If task is completed and it's a maintenance task, update the maintenance request
     if (dbData.status === 'completed' && data.tasktype === 'maintenance' && data.relatedentityid) {
       try {
-        await supabase
+        await platformClient
           .from('maintenance_requests')
           .update({ 
             status: 'completed', 
@@ -224,7 +221,7 @@ export const updateTaskAssignment = async (id, assignmentData) => {
 export const getTeamMemberMetrics = async (teamMemberId) => {
   try {
     // Get all assignments for the team member
-    const { data: assignments, error: assignmentsError } = await supabase
+    const { data: assignments, error: assignmentsError } = await platformClient
       .from('task_assignments')
       .select('*')
       .eq('teammemberid', teamMemberId);
@@ -278,22 +275,17 @@ const notifyTeamMemberAboutAssignment = async (assignmentData) => {
     console.log(`Notifying team member ${assignmentData.teammemberid} about new assignment`);
     
     // Get team member details
-    const { data: teamMember, error: teamMemberError } = await supabase
-      .from('app_users')
-      .select('*')
-      .eq('id', assignmentData.teammemberid)
-      .eq('user_type', 'staff')
-      .single();
-    
-    if (teamMemberError) {
-      throw teamMemberError;
+    const teamMember = await fetchAppUser(assignmentData.teammemberid);
+
+    if (teamMember?.user_type !== 'staff') {
+      throw new Error('Assigned user is not a staff member');
     }
     
     // Get task details based on task type
     let taskDetails = null;
     
     if (assignmentData.tasktype === 'maintenance' && assignmentData.relatedentityid) {
-      const { data: maintenanceRequest, error: maintenanceError } = await supabase
+      const { data: maintenanceRequest, error: maintenanceError } = await platformClient
         .from('maintenance_requests')
         .select('*')
         .eq('id', assignmentData.relatedentityid)
@@ -313,8 +305,20 @@ const notifyTeamMemberAboutAssignment = async (assignmentData) => {
     };
     
     // Send notification
-    if (teamMember.contactdetails && teamMember.contactdetails.email) {
-      await notifyUser(teamMember.contactdetails.email, message);
+    const teamMemberContactDetails = teamMember.contact_details || teamMember.contactDetails;
+
+    if (teamMemberContactDetails?.email) {
+      await notifyUser(teamMember.id, {
+        message: message.body,
+        title: message.title,
+        type: 'team_assignment',
+        data: {
+          assignmentId: assignmentData.id,
+          taskType: assignmentData.tasktype,
+          relatedEntityId: assignmentData.relatedentityid,
+          details: message.details
+        }
+      });
     }
     
     return true;

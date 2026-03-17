@@ -1,4 +1,4 @@
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 
 const BUCKET_POLICIES = {
   'images': {
@@ -58,7 +58,7 @@ async function setupStoragePolicies() {
 
   try {
     // Enable RLS on storage.objects table
-    const { error: rlsError } = await supabase.rpc('enable_rls', {
+    const { error: rlsError } = await platformClient.rpc('enable_rls', {
       table_name: 'storage.objects'
     });
 
@@ -79,7 +79,7 @@ async function setupStoragePolicies() {
         
         console.log(`Creating policy ${policyName}...`);
 
-        const { error: policyError } = await supabase.rpc('create_policy', {
+        const { error: policyError } = await platformClient.rpc('create_policy', {
           table_name: 'storage.objects',
           policy_name: policyName,
           definition: policy.definition,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { createAppUser, fetchAppUser, updateAppUser } from '../services/appUserService';
 import { inviteUser } from '../services/invitationService';
 import { toast } from 'react-toastify';
 
@@ -47,15 +47,7 @@ const TeamMemberForm = () => {
           setFetchLoading(true);
           
           // Fetch from app_users table
-          const { data, error } = await supabase
-            .from('app_users')
-            .select('*')
-            .eq('id', id)
-            .single();
-          
-          if (error) {
-            throw error;
-          }
+          const data = await fetchAppUser(id);
           
           if (data) {
             setFormData({
@@ -147,24 +139,15 @@ const TeamMemberForm = () => {
       
       let userId;
       if (id) {
-        const { data, error } = await supabase
-          .from('app_users')
-          .update(processedFormData)
-          .eq('id', id)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        userId = data.id;
+        const result = await updateAppUser(id, processedFormData);
+
+        if (!result.success) throw new Error(result.error || 'Failed to update team member');
+        userId = result.data.id;
       } else {
-        const { data, error } = await supabase
-          .from('app_users')
-          .insert([processedFormData])
-          .select()
-          .single();
-        
-        if (error) throw error;
-        userId = data.id;
+        const result = await createAppUser(processedFormData, 'staff');
+
+        if (!result.success) throw new Error(result.error || 'Failed to create team member');
+        userId = result.data.id;
       }
       
       if (userId && processedFormData.contact_details.email) {

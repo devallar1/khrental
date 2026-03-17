@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { fetchData, deleteData, updateData, supabase } from '../../services/supabaseClient';
+import { fetchData, deleteData, updateData, platform as platformClient } from '../../services/platformClient';
 import { formatDate } from '../../utils/helpers';
 import { toast } from 'react-toastify';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import Spinner from '../../components/common/Spinner';
 import InvitationStatus from '../../components/InvitationStatus';
+import { deleteAppUser, fetchAppUser } from '../../services/appUserService';
 
 const TeamMemberDetails = () => {
   const { id } = useParams();
@@ -24,18 +25,9 @@ const TeamMemberDetails = () => {
         setLoading(true);
         
         // Fetch team member details from app_users table
-        const { data: teamMemberData, error: teamMemberError } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('id', id)
-          .eq('user_type', 'staff')
-          .single();
+        const teamMemberData = await fetchAppUser(id);
 
-        if (teamMemberError) {
-          throw teamMemberError;
-        }
-
-        if (teamMemberData) {
+        if (teamMemberData && teamMemberData.user_type === 'staff') {
           setTeamMember(teamMemberData);
         } else {
           toast.error('Team member not found');
@@ -93,13 +85,10 @@ const TeamMemberDetails = () => {
       setDeleteLoading(true);
       
       // Delete team member from app_users table
-      const { error } = await supabase
-        .from('app_users')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        throw error;
+      const result = await deleteAppUser(id);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete team member');
       }
       
       toast.success('Team member deleted successfully');

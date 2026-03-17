@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { saveFile, deleteFile, STORAGE_BUCKETS, BUCKET_FOLDERS } from '../services/fileService';
-import { createAppUser, updateAppUser, inviteAppUser, fetchAppUser, storeStructuredAssociations, getStructuredAssociations } from '../services/appUserService';
+import { createAppUser, updateAppUser, inviteAppUser, fetchAppUser, findAppUserByEmail, storeStructuredAssociations, getStructuredAssociations } from '../services/appUserService';
 import { toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { inviteUser, resendInvitation } from '../services/invitationService';
@@ -56,7 +56,7 @@ const RenteeForm = () => {
         setLoading(true);
         
         // Fetch available properties
-        const { data: propertiesData, error: propertiesError } = await supabase
+        const { data: propertiesData, error: propertiesError } = await platformClient
           .from('properties')
           .select('*');
         
@@ -146,7 +146,7 @@ const RenteeForm = () => {
     const fileName = `${uuidv4()}-${file.name}`;
     const filePath = `${STORAGE_BUCKETS.IMAGES}/id-copies/${fileName}`;
     
-    const { data, error } = await supabase.storage
+    const { data, error } = await platformClient.storage
       .from(STORAGE_BUCKETS.IMAGES.split('/')[0])
       .upload(`id-copies/${fileName}`, file);
     
@@ -154,7 +154,7 @@ const RenteeForm = () => {
       throw error;
     }
     
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = platformClient.storage
       .from(STORAGE_BUCKETS.IMAGES.split('/')[0])
       .getPublicUrl(`id-copies/${fileName}`);
     
@@ -185,17 +185,18 @@ const RenteeForm = () => {
     try {
       if (existingIdCopy) {
         const fileName = existingIdCopy.split('/').pop();
-        await supabase.storage
+        await platformClient.storage
           .from(STORAGE_BUCKETS.IMAGES.split('/')[0])
           .remove([`id-copies/${fileName}`]);
         
         setExistingIdCopy(null);
         
         if (isEditMode) {
-          await supabase
-            .from('app_users')
-            .update({ id_copy_url: null })
-            .eq('id', id);
+          const result = await updateAppUser(id, { id_copy_url: null });
+
+          if (!result.success) {
+            throw new Error(result.error || 'Failed to update rentee ID copy');
+          }
         }
       }
       
@@ -299,7 +300,7 @@ const RenteeForm = () => {
   // Fetch units for a property
   const fetchPropertyUnits = async (propertyId) => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await platformClient
         .from('property_units')
         .select('*')
         .eq('propertyid', propertyId)
@@ -415,15 +416,12 @@ const RenteeForm = () => {
       
       if (!userIdToUse) {
         // If we're in create mode and just created a user, we need to find their ID
-        const { data: foundUser, error } = await supabase
-          .from('app_users')
-          .select('id')
-          .eq('email', formData.contactDetails.email.toLowerCase())
-          .single();
-          
-        if (error || !foundUser) {
+        const lookupResult = await findAppUserByEmail(formData.contactDetails.email.toLowerCase());
+        const foundUser = lookupResult.data;
+
+        if (!lookupResult.success || !foundUser) {
           toast.error('Could not find user record. Please try again.');
-          console.error('Error finding user by email:', error);
+          console.error('Error finding user by email:', lookupResult.error);
           return;
         }
         

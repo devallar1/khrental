@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { platform as platformClient } from './platformClient';
 
 // Define the allowed folders for each bucket
 const BUCKET_FOLDERS = {
@@ -13,11 +13,11 @@ const BUCKET_FOLDERS = {
 export const listAllBuckets = async () => {
   console.log('listAllBuckets: Starting to fetch buckets...');
   try {
-    const { data: buckets, error } = await supabase.storage.listBuckets();
-    console.log('listAllBuckets: Supabase response:', { buckets, error });
+    const { data: buckets, error } = await platformClient.storage.listBuckets();
+    console.log('listAllBuckets: Storage API response:', { buckets, error });
     
     if (error) {
-      console.error('listAllBuckets: Error from Supabase:', error);
+      console.error('listAllBuckets: Error from storage API:', error);
       throw error;
     }
     
@@ -40,7 +40,7 @@ export const listBucketContents = async (bucketName, folderPath = '') => {
   console.log('listBucketContents: Starting to fetch contents for bucket:', bucketName, 'path:', folderPath);
   try {
     // Validate bucket exists
-    const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+    const { data: buckets, error: bucketError } = await platformClient.storage.listBuckets();
     console.log('listBucketContents: Bucket validation result:', { buckets, error: bucketError });
     
     if (bucketError) {
@@ -59,7 +59,7 @@ export const listBucketContents = async (bucketName, folderPath = '') => {
       console.warn('listBucketContents: Warning - Accessing non-standard folder:', { bucketName, folderPath });
     }
     
-    const { data: files, error } = await supabase.storage
+    const { data: files, error } = await platformClient.storage
       .from(bucketName)
       .list(folderPath);
       
@@ -74,7 +74,7 @@ export const listBucketContents = async (bucketName, folderPath = '') => {
     const publicUrls = {};
     for (const file of files || []) {
       if (file.id !== null) { // Skip folders
-        const { data } = supabase.storage
+        const { data } = platformClient.storage
           .from(bucketName)
           .getPublicUrl(folderPath ? `${folderPath}/${file.name}` : file.name);
           
@@ -100,7 +100,7 @@ export const listBucketContents = async (bucketName, folderPath = '') => {
 export const listAllFilesInBucket = async (bucketName) => {
   try {
     // Validate bucket exists
-    const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+    const { data: buckets, error: bucketError } = await platformClient.storage.listBuckets();
     
     if (bucketError) {
       throw bucketError;
@@ -131,7 +131,7 @@ export const listAllFilesInBucket = async (bucketName) => {
 };
 
 const listFilesRecursively = async (bucketName, path, accumulator) => {
-  const { data: contents, error } = await supabase.storage
+  const { data: contents, error } = await platformClient.storage
     .from(bucketName)
     .list(path);
     
@@ -183,7 +183,7 @@ export const uploadFileToBucket = async (file, bucketName, folderPath = '', cust
     const filePath = folderPath ? `${folderPath}/${fileName}` : fileName;
     
     // Upload file
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await platformClient.storage
       .from(bucketName)
       .upload(filePath, file);
     
@@ -193,7 +193,7 @@ export const uploadFileToBucket = async (file, bucketName, folderPath = '', cust
     }
     
     // Get public URL
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = platformClient.storage
       .from(bucketName)
       .getPublicUrl(filePath);
     
@@ -226,7 +226,7 @@ export const deleteFileFromBucket = async (bucketName, filePath) => {
       throw new Error(`Invalid folder for bucket ${bucketName}: ${folder}`);
     }
     
-    const { error } = await supabase.storage
+    const { error } = await platformClient.storage
       .from(bucketName)
       .remove([filePath]);
     

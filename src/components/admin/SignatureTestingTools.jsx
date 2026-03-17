@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { toast } from 'react-toastify';
 
 const SignatureTestingTools = () => {
@@ -24,7 +24,7 @@ const SignatureTestingTools = () => {
 
       // 1. Upload the file to get document token
       const fileName = `test_documents/${Date.now()}_${selectedFile.name}`;
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await platformClient.storage
         .from('files')
         .upload(fileName, selectedFile);
 
@@ -33,7 +33,7 @@ const SignatureTestingTools = () => {
       }
 
       // Get the file URL
-      const { data: urlData } = supabase.storage
+      const { data: urlData } = platformClient.storage
         .from('files')
         .getPublicUrl(fileName);
 
@@ -42,7 +42,7 @@ const SignatureTestingTools = () => {
       }
 
       // 2. Create signature request
-      const { data: signatureRequest, error: signatureError } = await supabase.functions.invoke('send-to-evia-sign', {
+      const { data: signatureRequest, error: signatureError } = await platformClient.functions.invoke('send-to-evia-sign', {
         body: {
           documentUrl: urlData.publicUrl,
           webhookUrl: webhookUrl,
@@ -80,7 +80,7 @@ const SignatureTestingTools = () => {
 
     try {
       setLoading(true);
-      const { data: response, error } = await supabase.functions.invoke('check-signature-status', {
+      const { data: response, error } = await platformClient.functions.invoke('check-signature-status', {
         body: { requestId }
       });
 

@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../services/supabaseClient';
-import { linkUserRecord } from '../services/userService';
+import { fetchAppUsers, linkAppUser, mapAppUserToTeamMember } from '../services/appUserService';
 import { toast } from 'react-toastify';
 
 const AuthUserLinking = () => {
@@ -18,23 +17,10 @@ const AuthUserLinking = () => {
       setError(null);
       
       // Fetch team members from app_users table
-      const { data: teamMembers, error: teamError } = await supabase
-        .from('app_users')
-        .select('id, name, contact_details, auth_id, role')
-        .eq('user_type', 'staff');
-      
-      if (teamError) {
-        throw new Error(`Error fetching team members: ${teamError.message}`);
-      }
+      const teamMembers = await fetchAppUsers('staff');
       
       // Format team members data
-      const formattedTeamMembers = teamMembers.map(member => ({
-        id: member.id,
-        name: member.name,
-        contactDetails: member.contact_details,
-        authId: member.auth_id,
-        role: member.role
-      }));
+      const formattedTeamMembers = teamMembers.map(mapAppUserToTeamMember);
       
       setTeamMembers(formattedTeamMembers);
 
@@ -79,14 +65,10 @@ const AuthUserLinking = () => {
       setLoading(true);
       setError(null);
       
-      // Update the app_users record with the auth ID
-      const { error } = await supabase
-        .from('app_users')
-        .update({ auth_id: selectedAuthId, invited: true })
-        .eq('id', selectedTeamMemberId);
-      
-      if (error) {
-        throw new Error(`Error linking user: ${error.message}`);
+      const result = await linkAppUser(selectedAuthId, selectedTeamMemberId);
+
+      if (!result.success) {
+        throw new Error(`Error linking user: ${result.error}`);
       }
       
       // Update the local state to reflect the change
@@ -116,7 +98,7 @@ const AuthUserLinking = () => {
     <div className="bg-white rounded-lg shadow p-6 mb-6">
       <h2 className="text-xl font-medium mb-4">Auth User Linking Tool</h2>
       <p className="mb-4 text-gray-600">
-        This tool helps you manually link Supabase Auth users to team members or rentees. 
+        This tool helps you manually link auth users to team members or rentees. 
         This is useful if you're having login issues or need to fix auth connections.
       </p>
       

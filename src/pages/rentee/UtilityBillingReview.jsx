@@ -6,7 +6,7 @@ const fetchUtilityBills = async () => {
     }
 
     const userId = user.appUserId || user.id;
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('utility_readings')
       .select(`
         id,
@@ -29,7 +29,7 @@ const fetchUtilityBills = async () => {
     const readingsWithProperties = await Promise.all(
       data.map(async (reading) => {
         // Fetch property details for each reading
-        const { data: propData, error: propError } = await supabase
+        const { data: propData, error: propError } = await platformClient
           .from('properties')
           .select('name, electricity_rate, water_rate')
           .eq('id', reading.propertyid)

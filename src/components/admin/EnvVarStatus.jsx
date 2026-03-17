@@ -2,30 +2,21 @@ import React, { useEffect, useState } from 'react';
 
 const EnvVarStatus = () => {
   const [envStatus, setEnvStatus] = useState({
-    processEnv: {
+    publicEnv: {
       clientId: null,
-      clientSecret: null,
-      accessToken: null
-    },
-    importMetaEnv: {
-      clientId: null,
-      clientSecret: null,
-      accessToken: null
+      apiEndpoint: null,
+      appBaseUrl: null
     }
   });
 
   useEffect(() => {
-    // Check both process.env and import.meta.env
+    const runtimeEnv = typeof window !== 'undefined' ? window._env_ || {} : {};
+
     setEnvStatus({
-      processEnv: {
-        clientId: process.env.VITE_EVIA_SIGN_CLIENT_ID ? '✅ Set' : '❌ Not set',
-        clientSecret: process.env.VITE_EVIA_SIGN_CLIENT_SECRET ? '✅ Set' : '❌ Not set',
-        accessToken: process.env.VITE_EVIA_ACCESS_TOKEN ? '✅ Set' : '❌ Not set'
-      },
-      importMetaEnv: {
-        clientId: import.meta.env.VITE_EVIA_SIGN_CLIENT_ID ? '✅ Set' : '❌ Not set',
-        clientSecret: import.meta.env.VITE_EVIA_SIGN_CLIENT_SECRET ? '✅ Set' : '❌ Not set',
-        accessToken: import.meta.env.VITE_EVIA_ACCESS_TOKEN ? '✅ Set' : '❌ Not set'
+      publicEnv: {
+        clientId: (runtimeEnv.VITE_EVIA_SIGN_CLIENT_ID || import.meta.env.VITE_EVIA_SIGN_CLIENT_ID) ? '✅ Set' : '❌ Not set',
+        apiEndpoint: (runtimeEnv.VITE_API_ENDPOINT || import.meta.env.VITE_API_ENDPOINT) ? '✅ Set' : '⚪ Default origin',
+        appBaseUrl: (runtimeEnv.VITE_APP_BASE_URL || import.meta.env.VITE_APP_BASE_URL) ? '✅ Set' : '⚪ Fallback in use'
       }
     });
   }, []);
@@ -34,29 +25,21 @@ const EnvVarStatus = () => {
     <div className="p-4 bg-white rounded-lg shadow mb-6">
       <h2 className="text-lg font-semibold mb-3">Environment Variables Status</h2>
       
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <div>
-          <h3 className="font-medium mb-2">process.env</h3>
+          <h3 className="font-medium mb-2">Public browser configuration</h3>
           <ul className="space-y-1">
-            <li>VITE_EVIA_SIGN_CLIENT_ID: {envStatus.processEnv.clientId}</li>
-            <li>VITE_EVIA_SIGN_CLIENT_SECRET: {envStatus.processEnv.clientSecret}</li>
-            <li>VITE_EVIA_ACCESS_TOKEN: {envStatus.processEnv.accessToken}</li>
-          </ul>
-        </div>
-        
-        <div>
-          <h3 className="font-medium mb-2">import.meta.env</h3>
-          <ul className="space-y-1">
-            <li>VITE_EVIA_SIGN_CLIENT_ID: {envStatus.importMetaEnv.clientId}</li>
-            <li>VITE_EVIA_SIGN_CLIENT_SECRET: {envStatus.importMetaEnv.clientSecret}</li>
-            <li>VITE_EVIA_ACCESS_TOKEN: {envStatus.importMetaEnv.accessToken}</li>
+            <li>VITE_EVIA_SIGN_CLIENT_ID: {envStatus.publicEnv.clientId}</li>
+            <li>VITE_API_ENDPOINT: {envStatus.publicEnv.apiEndpoint}</li>
+            <li>VITE_APP_BASE_URL: {envStatus.publicEnv.appBaseUrl}</li>
+            <li>Server secrets: managed on the API server only</li>
           </ul>
         </div>
       </div>
       
       <div className="mt-4 text-sm bg-gray-50 p-3 rounded">
-        <p>This component helps diagnose environment variable issues. Both process.env and import.meta.env should show variables as set.</p>
-        <p className="mt-1"><strong>Note:</strong> React applications typically access environment variables through different methods depending on the build system.</p>
+        <p>This component shows only public browser-safe configuration.</p>
+        <p className="mt-1"><strong>Note:</strong> Secrets such as SendGrid and Evia client credentials should never be exposed in the browser.</p>
       </div>
     </div>
   );

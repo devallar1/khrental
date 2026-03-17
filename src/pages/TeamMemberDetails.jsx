@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { fetchData } from '../services/supabaseClient';
+import { fetchData } from '../services/platformClient';
 import { deleteTeamMember } from '../services/teamService';
+import { fetchAppUser, mapAppUserToTeamMember } from '../services/appUserService';
 import { toast } from 'react-toastify';
 import TaskAssignment from '../components/team/TaskAssignment';
 import PerformanceMetrics from '../components/team/PerformanceMetrics';
@@ -26,37 +27,13 @@ const TeamMemberDetails = () => {
         setLoading(true);
         
         // Fetch team member
-        const { data: memberData, error: memberError } = await fetchData({
-          table: 'app_users',
-          filters: [
-            { column: 'id', operator: 'eq', value: id },
-            { column: 'user_type', operator: 'eq', value: 'staff' }
-          ]
-        });
-        
-        if (memberError) {
-          throw memberError;
-        }
-        
-        if (!memberData || memberData.length === 0) {
+        const teamMemberData = await fetchAppUser(id);
+
+        if (!teamMemberData || teamMemberData.user_type !== 'staff') {
           throw new Error('Team member not found');
         }
-        
-        // Get the first item from the array response
-        const teamMemberData = Array.isArray(memberData) ? memberData[0] : memberData;
-        
-        // Transform the data to match frontend expectations
-        setTeamMember({
-          id: teamMemberData.id,
-          name: teamMemberData.name || 'Unnamed Member',
-          role: teamMemberData.role || 'staff',
-          contactDetails: teamMemberData.contact_details || {},
-          skills: teamMemberData.skills || [],
-          availability: teamMemberData.availability || {},
-          notes: teamMemberData.notes || '',
-          createdAt: teamMemberData.created_at || new Date().toISOString(),
-          updatedAt: teamMemberData.updated_at || teamMemberData.created_at || new Date().toISOString()
-        });
+
+        setTeamMember(mapAppUserToTeamMember(teamMemberData));
         
         // Fetch assignments
         const { data: assignmentsData, error: assignmentsError } = await fetchData({

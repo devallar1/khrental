@@ -1,18 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import platformClient from './platformClient.js';
 import dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config();
-
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing required environment variables');
-  process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function createExecSqlFunction() {
   try {
@@ -33,7 +23,7 @@ async function createExecSqlFunction() {
     `;
 
     // Execute the SQL
-    const { error } = await supabase.rpc('exec_sql', { sql });
+    const { error } = await platformClient.rpc('exec_sql', { sql });
 
     if (error) {
       console.error('Error creating exec_sql function:', error);

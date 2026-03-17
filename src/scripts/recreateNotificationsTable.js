@@ -2,7 +2,7 @@
  * Script to recreate the notifications table with the correct schema
  * Usage: node src/scripts/recreateNotificationsTable.js
  */
-import { supabase } from '../config/supabaseClient';
+import { platform as platformClient } from '../config/platformClient';
 import fs from 'fs';
 import path from 'path';
 
@@ -12,7 +12,7 @@ async function recreateNotificationsTable() {
 
     // First, check if the table exists
     try {
-      const { data, error } = await supabase
+      const { data, error } = await platformClient
         .from('notifications')
         .select('id')
         .limit(1);
@@ -21,7 +21,7 @@ async function recreateNotificationsTable() {
         console.log('Notifications table exists, dropping it...');
         
         // Drop the existing table
-        const { error: dropError } = await supabase.rpc('exec_sql', {
+        const { error: dropError } = await platformClient.rpc('exec_sql', {
           query: 'DROP TABLE IF EXISTS notifications CASCADE;'
         });
         
@@ -77,7 +77,7 @@ async function recreateNotificationsTable() {
     
     try {
       // Execute the create table query
-      const { error } = await supabase.rpc('exec_sql', {
+      const { error } = await platformClient.rpc('exec_sql', {
         query: createTableQuery
       });
       
@@ -94,7 +94,7 @@ async function recreateNotificationsTable() {
     
     // Verify the table was created successfully
     try {
-      const { data, error } = await supabase
+      const { data, error } = await platformClient
         .from('notifications')
         .select('id')
         .limit(1);

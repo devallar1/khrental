@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
-import { format } from 'date-fns';
+import { platform as platformClient } from '../services/platformClient';
 import { toast } from 'react-hot-toast';
-import { Link } from 'react-router-dom';
 import AgreementSummaryCard from '../components/agreements/AgreementSummaryCard';
+import { getApiBaseUrl, isMssqlApiEnabled } from '../utils/env';
+import { cancelAgreement } from '../services/agreementService';
 
 const AgreementList = () => {
   const navigate = useNavigate();
@@ -18,6 +18,19 @@ const AgreementList = () => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
 
+  const fetchAgreementsFromMssql = async () => {
+    const apiBaseUrl = getApiBaseUrl();
+    const response = await fetch(`${apiBaseUrl}/api/mssql/agreements?pageSize=500`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || `Agreement API request failed with status ${response.status}`);
+    }
+
+    const payload = await response.json();
+    return payload.data || [];
+  };
+
   useEffect(() => {
     fetchAgreements();
   }, []);
@@ -25,7 +38,19 @@ const AgreementList = () => {
   const fetchAgreements = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+
+      if (isMssqlApiEnabled()) {
+        try {
+          const data = await fetchAgreementsFromMssql();
+          setAgreements(data);
+          return;
+        } catch (mssqlError) {
+          console.error('Error fetching agreements from MSSQL, falling back to the local compatibility layer:', mssqlError);
+          toast.error('Failed to load agreements from MSSQL. Using the local compatibility layer instead.');
+        }
+      }
+
+      const { data, error } = await platformClient
         .from('agreements')
         .select(`
           *,
@@ -134,60 +159,23 @@ const AgreementList = () => {
     // For pending agreements, we've already confirmed in the card component
     
     try {
-      // First, get the agreement details to find the property ID
-      const { data: agreementData, error: fetchError } = await supabase
-        .from('agreements')
-        .select('propertyid, status')
-        .eq('id', agreementId)
-        .single();
-        
-      if (fetchError) {
-        throw fetchError;
-      }
-      
-      // Update the agreement to cancelled status
-      const { data, error } = await supabase
-        .from('agreements')
-        .update({
-          status: 'cancelled',
-          cancellation_reason: cancelReason,
-          updatedat: new Date().toISOString()
-        })
-        .eq('id', agreementId);
-        
-      if (error) {
-        throw error;
-      }
-      
-      // If we have a property ID and the agreement was active, update property status to available
-      if (agreementData.propertyid && 
-          (agreementData.status === 'active' || 
-           agreementData.status === 'signed' || 
-           agreementData.status === 'completed')) {
-        
-        const { error: propertyError } = await supabase
-          .from('properties')
-          .update({
-            status: 'available',
-            updatedat: new Date().toISOString()
-          })
-          .eq('id', agreementData.propertyid);
-          
-        if (propertyError) {
-          console.error('Error updating property status:', propertyError);
-          toast.error('Agreement cancelled but property status update failed');
-        } else {
-          toast.success('Agreement cancelled and property set as available');
-        }
-      } else {
-        toast.success('Agreement cancelled successfully');
-      }
+      const updatedAgreement = await cancelAgreement(agreementId, cancelReason);
+      const releasedProperty = ['active', 'signed', 'completed'].includes(agreements.find((agreement) => agreement.id === agreementId)?.status);
+
+      toast.success(releasedProperty
+        ? 'Agreement cancelled and property set as available'
+        : 'Agreement cancelled successfully');
       
       // Update the local state to reflect the change
       setAgreements(prevAgreements => 
         prevAgreements.map(agreement => 
           agreement.id === agreementId 
-            ? { ...agreement, status: 'cancelled', cancellation_reason: cancelReason } 
+            ? {
+                ...agreement,
+                ...updatedAgreement,
+                status: 'cancelled',
+                cancellation_reason: cancelReason
+              }
             : agreement
         )
       );

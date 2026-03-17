@@ -1,24 +1,5 @@
-import { supabase } from './supabaseClient.js';
+import { platform as platformClient } from './platformClient.js';
 import { isDefinedValue } from '../utils/validators.js';
-
-// Get Supabase anon key from environment
-const getSupabaseAnonKey = () => {
-  let anonKey = null;
-  
-  // Try window._env_ (for production)
-  if (window?._env_?.VITE_SUPABASE_ANON_KEY) {
-    anonKey = window._env_.VITE_SUPABASE_ANON_KEY;
-  }
-  
-  // Then try Vite's import.meta.env
-  if (!anonKey && import.meta.env?.VITE_SUPABASE_ANON_KEY) {
-    anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  }
-  
-  return anonKey;
-};
-
-const supabaseAnonKey = getSupabaseAnonKey();
 
 // Storage buckets
 const STORAGE_BUCKETS = {
@@ -27,7 +8,7 @@ const STORAGE_BUCKETS = {
   DOCUMENTS: 'documents'
 };
 
-// Folder structure for each bucket - matches exactly what exists in Supabase storage
+// Folder structure for each bucket in local storage
 const BUCKET_FOLDERS = {
   [STORAGE_BUCKETS.IMAGES]: {
     ID_COPIES: 'id-copies',
@@ -116,7 +97,7 @@ const isStorageAvailable = async (bucketName = null) => {
     
     // Try a simple list operation to check if the bucket exists
     if (bucketName) {
-      const { data, error } = await supabase.storage
+      const { data, error } = await platformClient.storage
         .from(bucketName)
         .list('', { limit: 1 });
       
@@ -141,7 +122,7 @@ const isStorageAvailable = async (bucketName = null) => {
     }
     
     // Fall back to listing all buckets
-    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    const { data: buckets, error: listError } = await platformClient.storage.listBuckets();
     
     if (listError) {
       console.error('Storage list buckets error:', listError.message);
@@ -159,7 +140,7 @@ const isStorageAvailable = async (bucketName = null) => {
       if (bucketName) {
         try {
           // Try a direct public URL check, which might work even with limited permissions
-          const { data: publicUrlData } = supabase.storage
+          const { data: publicUrlData } = platformClient.storage
             .from(bucketName)
             .getPublicUrl('test-path');
             
@@ -218,7 +199,7 @@ const resetStorageStatusCache = () => {
  * Helper function to ensure we have a valid session before making storage requests
  */
 const ensureAuthSession = async () => {
-  const { data: { session }, error } = await supabase.auth.getSession();
+  const { data: { session }, error } = await platformClient.auth.getSession();
   if (error || !session) {
     throw new Error('No valid authentication session found. Please log in again.');
   }
@@ -312,7 +293,7 @@ const saveFile = async (file, { bucket, folder }) => {
     const contentType = file.type || 'application/octet-stream';
 
     // Attempt the upload
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await platformClient.storage
       .from(bucket)
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -322,47 +303,11 @@ const saveFile = async (file, { bucket, folder }) => {
 
     if (uploadError) {
       console.error(`Error uploading to ${bucket}/${filePath}:`, uploadError);
-      
-      // If we're in development, try direct upload without the proxy
-      if (import.meta.env.DEV && window._SUPABASE_STORAGE_URL) {
-        console.log('Trying direct upload without CORS proxy...');
-        // Create a temporary client without the proxy
-        const { createClient } = await import('@supabase/supabase-js');
-        const directClient = createClient(
-          window._SUPABASE_STORAGE_URL,
-          supabaseAnonKey
-        );
-        
-        const { error: directError } = await directClient.storage
-          .from(bucket)
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType
-          });
-          
-        if (directError) {
-          console.error(`Direct upload also failed:`, directError);
-          throw directError;
-        } else {
-          console.log('Direct upload succeeded!');
-          // Get the public URL
-          const { data: { publicUrl } } = directClient.storage
-            .from(bucket)
-            .getPublicUrl(filePath);
-          
-          return {
-            success: true,
-            url: publicUrl
-          };
-        }
-      } else {
-        throw uploadError;
-      }
+      throw uploadError;
     }
 
     // Get the public URL for the uploaded file
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = platformClient.storage
       .from(bucket)
       .getPublicUrl(filePath);
 
@@ -390,7 +335,7 @@ const ensureFolderExists = async (bucket, folderPath) => {
     if (!folderPath) return { success: true }; // Root folder always exists
     
     // Try to list the folder to see if it exists
-    const { data, error } = await supabase.storage
+    const { data, error } = await platformClient.storage
       .from(bucket)
       .list(folderPath);
       
@@ -398,7 +343,7 @@ const ensureFolderExists = async (bucket, folderPath) => {
     if (!error) return { success: true };
     
     // Create a dummy file to create the folder
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await platformClient.storage
       .from(bucket)
       .upload(`${folderPath}/.folder`, new Blob([''], { type: 'text/plain' }), {
         upsert: true
@@ -426,7 +371,7 @@ const ensureFolderExists = async (bucket, folderPath) => {
  */
 const uploadFile = async (file, bucket, path) => {
   try {
-    const { data, error } = await supabase.storage
+    const { data, error } = await platformClient.storage
       .from(bucket)
       .upload(path, file);
 
@@ -446,7 +391,7 @@ const uploadFile = async (file, bucket, path) => {
  */
 const getFileUrl = async (bucket, path) => {
   try {
-    const { data: { publicUrl }, error } = await supabase.storage
+    const { data: { publicUrl }, error } = await platformClient.storage
       .from(bucket)
       .getPublicUrl(path);
 
@@ -473,7 +418,7 @@ const deleteFile = async (bucket, path) => {
     // Ensure we have a valid session
     await ensureAuthSession();
 
-    const { error } = await supabase.storage
+    const { error } = await platformClient.storage
       .from(bucket)
       .remove([path]);
 
@@ -507,7 +452,7 @@ const listFiles = async (bucket, path = '') => {
 
     // First try to check if bucket exists
     try {
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      const { data: buckets, error: bucketsError } = await platformClient.storage.listBuckets();
       
       if (!bucketsError && buckets && !buckets.some(b => b.name === bucket)) {
         console.warn(`Bucket "${bucket}" not found in available buckets`);
@@ -521,7 +466,7 @@ const listFiles = async (bucket, path = '') => {
     const safePath = path?.trim().replace(/^\/+|\/+$/g, '') || '';
 
     // Attempt to list files
-    const { data, error } = await supabase.storage
+    const { data, error } = await platformClient.storage
       .from(bucket)
       .list(safePath);
 
@@ -606,7 +551,7 @@ const cleanupUnusedFiles = async (category, usedUrls, bucketName = null) => {
     // Delete unused files
     for (const item of filesToDelete) {
       try {
-        const { error } = await supabase.storage
+        const { error } = await platformClient.storage
           .from(targetBucket)
           .remove([item.name]);
         

@@ -23,9 +23,9 @@ const SimpleEmailTest = () => {
           status: "configured",
           apiKeyPresent: true
         },
-        supabase: {
+        platformClient: {
           status: "configured",
-          url: "https://example.supabase.co"
+          url: "https://example.platformClient.co"
         },
         message: "This is a simulated response. For actual testing, use the real diagnostics page."
       };

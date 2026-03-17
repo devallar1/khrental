@@ -6,7 +6,7 @@ This guide explains how to set up continuous integration and deployment for the 
 
 - GitHub repository for your code
 - Web hosting environment (Azure App Service, Netlify, Vercel, etc.)
-- Supabase account and project
+- SQL Server / MSSQL connectivity details for the target environment
 
 ## Setting Up Main Application Deployment
 
@@ -15,8 +15,7 @@ This guide explains how to set up continuous integration and deployment for the 
 In your hosting platform:
 
 1. Add all required environment variables:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
+  - `VITE_API_ENDPOINT`
    - `VITE_SENDGRID_API_KEY` (if using SendGrid)
    - `VITE_EMAIL_FROM`
    - `VITE_EMAIL_FROM_NAME`
@@ -58,8 +57,7 @@ jobs:
     - name: Build
       run: npm run build
       env:
-        VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-        VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        VITE_API_ENDPOINT: ${{ secrets.VITE_API_ENDPOINT }}
         # Add other build-time env variables here
         
     - name: Deploy to hosting
@@ -75,8 +73,7 @@ jobs:
 1. Go to your GitHub repository
 2. Navigate to Settings → Secrets → Actions
 3. Add the following secrets:
-   - `VITE_SUPABASE_URL`: Your Supabase project URL
-   - `VITE_SUPABASE_ANON_KEY`: Your Supabase anon key
+  - `VITE_API_ENDPOINT`: Your deployed API base URL
    - `AZURE_PUBLISH_PROFILE`: Your Azure publish profile (if using Azure)
    - Any other secrets needed for deployment
 
@@ -105,4 +102,4 @@ For manual deployment:
 
 - [GitHub Actions documentation](https://docs.github.com/actions)
 - [Vite deployment guide](https://vitejs.dev/guide/static-deploy.html)
-- [Supabase hosting options](https://supabase.com/docs/guides/hosting) 
+- [Azure App Service documentation](https://learn.microsoft.com/azure/app-service/) 

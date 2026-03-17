@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
-import { supabase } from '../../services/supabaseClient';
+import { fetchAppUser } from '../../services/appUserService';
 import { resendInvitation } from '../../services/invitationService';
 
 /**
@@ -30,37 +30,7 @@ const InviteUserButton = ({ userId, onSuccess, size = 'md', fullWidth = false, s
       setLoading(true);
       setError(null);
       
-      // First check if the app_users table exists
-      try {
-        const { data: testData, error: testError } = await supabase
-          .from('app_users')
-          .select('id')
-          .limit(1);
-        
-        if (testError) {
-          console.error('Error checking app_users table:', testError);
-          throw new Error(`The app_users table might not exist: ${testError.message}`);
-        }
-      } catch (tableError) {
-        console.error('Error checking app_users table:', tableError);
-        throw new Error(`The app_users table might not exist: ${tableError.message}`);
-      }
-      
-      // First fetch the user details
-      const { data: userData, error: userError } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      if (userError) {
-        console.error('Error fetching user details:', userError);
-        throw new Error(`Failed to fetch user details: ${userError.message}`);
-      }
-      
-      if (!userData) {
-        throw new Error('User not found');
-      }
+      const userData = await fetchAppUser(userId);
       
       // Get email from contact_details or directly from the user object
       const email = userData.contact_details?.email || userData.email;

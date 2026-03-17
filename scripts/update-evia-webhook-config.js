@@ -8,21 +8,10 @@
  * Run with: node scripts/update-evia-webhook-config.js
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { platformClient } from '../src/services/platformClient.js';
 import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
-
-// Initialize Supabase client
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Error: Supabase URL and key are required');
-  process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 // The main webhook server URL
 const WEBHOOK_URL = 'https://kh-reantals-webhook.azurewebsites.net/webhook/evia-sign';
@@ -32,7 +21,7 @@ async function updateWebhookConfig() {
     console.log('Updating Evia Sign webhook configuration...');
     
     // 1. Update the webhook URL in the evia_sign_config table
-    const { data: configData, error: configError } = await supabase
+    const { data: configData, error: configError } = await platformClient
       .from('evia_sign_config')
       .update({ 
         config_value: WEBHOOK_URL,
@@ -49,7 +38,7 @@ async function updateWebhookConfig() {
       console.log('⚠️ No rows updated. Checking if config exists...');
       
       // Check if the config row exists
-      const { data: checkData, error: checkError } = await supabase
+      const { data: checkData, error: checkError } = await platformClient
         .from('evia_sign_config')
         .select('*')
         .eq('config_key', 'webhook_url');
@@ -58,7 +47,7 @@ async function updateWebhookConfig() {
         console.error('Error checking evia_sign_config:', checkError);
       } else if (checkData && checkData.length === 0) {
         // Need to insert the config
-        const { data: insertData, error: insertError } = await supabase
+        const { data: insertData, error: insertError } = await platformClient
           .from('evia_sign_config')
           .insert([{
             config_key: 'webhook_url',
@@ -78,7 +67,7 @@ async function updateWebhookConfig() {
     
     // 2. Check if the webhook_event_trigger is installed
     // Execute SQL to check if trigger exists
-    const { data: triggerCheck, error: triggerCheckError } = await supabase.rpc('exec_sql', {
+    const { data: triggerCheck, error: triggerCheckError } = await platformClient.rpc('exec_sql', {
       query: `
         SELECT EXISTS (
           SELECT 1 
@@ -220,7 +209,7 @@ async function updateWebhookConfig() {
         }
         
         // Execute the SQL to create the trigger
-        const { error: createTriggerError } = await supabase.rpc('exec_sql', {
+        const { error: createTriggerError } = await platformClient.rpc('exec_sql', {
           query: sql
         });
         

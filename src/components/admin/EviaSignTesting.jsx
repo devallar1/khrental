@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { toast } from 'react-toastify';
 import { sendDocumentForSignature, getSignatureStatus } from '../../services/eviaSignService';
 
@@ -25,14 +25,14 @@ const EviaSignTesting = () => {
 
       // 1. Upload the file to get document URL
       const fileName = `test_documents/${Date.now()}_${selectedFile.name}`;
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await platformClient.storage
         .from('files')
         .upload(fileName, selectedFile);
 
       if (uploadError) throw uploadError;
 
       // Get the file URL
-      const { data: urlData } = supabase.storage
+      const { data: urlData } = platformClient.storage
         .from('files')
         .getPublicUrl(fileName);
 

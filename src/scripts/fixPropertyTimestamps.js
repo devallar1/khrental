@@ -2,7 +2,7 @@
  * Script to fix missing timestamp fields in the properties table
  * Usage: node src/scripts/fixPropertyTimestamps.js
  */
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import dotenv from 'dotenv';
 
 // Load environment variables from .env file
@@ -13,7 +13,7 @@ async function fixPropertyTimestamps() {
     console.log('Starting properties table timestamp fix process');
     
     // Fetch all properties
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('properties')
       .select('id, createdat, updatedat');
       
@@ -47,7 +47,7 @@ async function fixPropertyTimestamps() {
           ...(record.updatedat ? {} : { updatedat: record.createdat || now })
         };
         
-        const { error: updateError } = await supabase
+        const { error: updateError } = await platformClient
           .from('properties')
           .update(updates)
           .eq('id', record.id);

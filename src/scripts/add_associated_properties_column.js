@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { supabase } from '../services/supabaseClient.js';
+import { platform as platformClient } from '../services/platformClient.js';
 
 // Get directory name in ESM
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -17,7 +17,7 @@ async function runMigration() {
     const sql = fs.readFileSync(sqlFilePath, 'utf8');
     
     console.log('Executing SQL migration...');
-    const { error } = await supabase.rpc('exec_sql', { sql_query: sql });
+    const { error } = await platformClient.rpc('exec_sql', { sql_query: sql });
     
     if (error) {
       console.error('Migration failed:', error);

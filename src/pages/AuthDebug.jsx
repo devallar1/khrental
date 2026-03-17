@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { Card, Row, Col, Button, Table, Badge, Alert } from 'react-bootstrap';
 import { getAppBaseUrl, ENV } from '../utils/env';
 
@@ -17,7 +17,7 @@ const AuthDebug = () => {
   useEffect(() => {
     // Get current session
     const getCurrentSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
+      const { data, error } = await platformClient.auth.getSession();
       if (error) {
         console.error('Error getting session:', error);
         setError(error.message);
@@ -37,10 +37,11 @@ const AuthDebug = () => {
 
       // Collect auth-related environment variables
       const authEnv = {
-        SUPABASE_URL: getEnvValue('SUPABASE_URL', env),
-        SUPABASE_ANON_KEY: getEnvValue('SUPABASE_ANON_KEY', env)?.substring(0, 10) + '...',
+        API_ENDPOINT: getEnvValue('API_ENDPOINT', env),
+        USE_MSSQL_API: getEnvValue('USE_MSSQL_API', env),
+        APP_BASE_URL: getEnvValue('APP_BASE_URL', env),
         SITE_URL: getEnvValue('SITE_URL', env),
-        APP_URL: getEnvValue('APP_URL', env),
+        APP_URL: getEnvValue('APP_URL', env) || getAppBaseUrl(),
         API_URL: getEnvValue('API_URL', env),
         NODE_ENV: getEnvValue('NODE_ENV', env),
         BASE_URL: getEnvValue('BASE_URL', env),
@@ -65,11 +66,11 @@ const AuthDebug = () => {
   };
 
   const testRedirect = () => {
-    window.location.href = supabase.auth.getUrl().redirectTo('/');
+    window.location.href = platformClient.auth.getUrl().redirectTo('/');
   };
 
   const logoutAndRedirect = async () => {
-    await supabase.auth.signOut();
+    await platformClient.auth.signOut();
     window.location.href = '/login';
   };
 

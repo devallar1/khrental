@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { fetchData, updateData, supabase } from '../services/supabaseClient';
 import { formatCurrency, formatDate } from '../utils/helpers';
 import { INVOICE_STATUS } from '../utils/constants';
+import { fetchAppUser } from '../services/appUserService';
+import { fetchProperty } from '../services/agreementService';
+import { fetchInvoice } from '../services/invoiceService';
+import { markInvoiceAsPaid, sendPaymentReminder } from '../services/paymentService';
 
 // Components
 import InvoiceComponentsTable from '../components/invoices/InvoiceComponentsTable';
@@ -65,43 +68,23 @@ const InvoiceDetails = () => {
         }
         
         // Fetch invoice details
-        const { data: invoiceData, error: invoiceError } = await fetchData('invoices', {
-          filters: [{ column: 'id', operator: 'eq', value: id }],
-        });
+        const invoiceData = await fetchInvoice(id);
         
-        if (invoiceError) {
-          throw invoiceError;
-        }
-        
-        if (invoiceData && invoiceData.length > 0) {
-          setInvoice(invoiceData[0]);
+        if (invoiceData) {
+          setInvoice(invoiceData);
           
           // Fetch property details
-          if (invoiceData[0].propertyid) {
-            const { data: propertyData, error: propertyError } = await fetchData('properties', {
-              filters: [{ column: 'id', operator: 'eq', value: invoiceData[0].propertyid }],
-            });
-            
-            if (propertyError) {
-              throw propertyError;
-            }
-            
-            if (propertyData && propertyData.length > 0) {
-              setProperty(propertyData[0]);
-            }
+          if (invoiceData.propertyid) {
+            const propertyData = await fetchProperty(invoiceData.propertyid);
+            setProperty(propertyData || null);
           }
           
           // Fetch rentee details from app_users table
-          if (invoiceData[0].renteeid) {
-            const { data: renteeData, error: renteeError } = await supabase
-              .from('app_users')
-              .select('*')
-              .eq('id', invoiceData[0].renteeid)
-              .eq('user_type', 'rentee')
-              .single();
-            
-            if (renteeError) {
-              throw renteeError;
+          if (invoiceData.renteeid) {
+            const renteeData = await fetchAppUser(invoiceData.renteeid);
+
+            if (renteeData?.user_type && renteeData.user_type !== 'rentee') {
+              throw new Error('Rentee not found');
             }
             
             setRentee(renteeData);
@@ -149,17 +132,14 @@ const InvoiceDetails = () => {
         updatedat: new Date().toISOString()
       };
       
-      const { data, error } = await updateData('invoices', id, updateFields);
+      const result = await markInvoiceAsPaid(id);
       
-      if (error) {
-        throw error;
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to mark invoice as paid');
       }
       
       // Update the local state with the changes
-      setInvoice({
-        ...invoice,
-        ...updateFields
-      });
+      setInvoice(result.data);
       
       alert('Invoice has been marked as paid.');
     } catch (error) {
@@ -179,19 +159,16 @@ const InvoiceDetails = () => {
       alert(`Reminder sent to ${rentee?.name || 'rentee'} for invoice #${invoice.id}`);
       
       // Update the invoice to record that a reminder was sent
-      const updatedInvoice = {
-        ...invoice,
-        reminderSent: true,
-        reminderDate: new Date().toISOString()
-      };
-      
-      const { data, error } = await updateData('invoices', id, updatedInvoice);
-      
-      if (error) {
-        throw error;
+      const result = await sendPaymentReminder(id);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to send reminder');
       }
-      
-      setInvoice(updatedInvoice);
+
+      setInvoice((currentInvoice) => currentInvoice ? {
+        ...currentInvoice,
+        reminderDate: new Date().toISOString()
+      } : currentInvoice);
     } catch (error) {
       console.error('Error sending reminder:', error.message);
       setError(error.message);

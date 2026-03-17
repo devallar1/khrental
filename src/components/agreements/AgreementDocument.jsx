@@ -6,10 +6,24 @@ import { FiDownload, FiX } from 'react-icons/fi';
  */
 const AgreementDocument = ({ documentUrl, onClose }) => {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Check if documentUrl is actually HTML content rather than a URL
+  const isHtmlContent = documentUrl && (
+    documentUrl.trim().startsWith('<') || 
+    documentUrl.includes('<!DOCTYPE') || 
+    documentUrl.includes('<html')
+  );
   
   // Handle loading state
   const handleIframeLoad = () => {
     setLoading(false);
+  };
+
+  // Handle load error
+  const handleIframeError = () => {
+    setLoading(false);
+    setError('Failed to load document. The URL may be invalid.');
   };
   
   return (
@@ -18,14 +32,16 @@ const AgreementDocument = ({ documentUrl, onClose }) => {
         <div className="p-4 border-b flex justify-between items-center">
           <h3 className="text-lg font-medium">Agreement Document</h3>
           <div className="flex items-center space-x-3">
-            <a 
-              href={documentUrl} 
-              download
-              className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors flex items-center"
-            >
-              <FiDownload className="mr-1 h-3 w-3" />
-              Download
-            </a>
+            {!isHtmlContent && (
+              <a 
+                href={documentUrl} 
+                download
+                className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors flex items-center"
+              >
+                <FiDownload className="mr-1 h-3 w-3" />
+                Download
+              </a>
+            )}
             <button 
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 focus:outline-none"
@@ -48,12 +64,31 @@ const AgreementDocument = ({ documentUrl, onClose }) => {
             </div>
           )}
           
-          <iframe 
-            src={documentUrl} 
-            className="w-full h-full border-0 rounded"
-            title="Agreement Document Viewer"
-            onLoad={handleIframeLoad}
-          />
+          {error && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white">
+              <div className="text-center p-6 bg-red-50 rounded-lg border border-red-200">
+                <div className="text-red-600 mb-4">
+                  <svg className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <h3 className="text-lg font-medium mt-2">Document Error</h3>
+                </div>
+                <p>{error}</p>
+              </div>
+            </div>
+          )}
+          
+          {isHtmlContent ? (
+            <div dangerouslySetInnerHTML={{ __html: documentUrl }} className="p-4 bg-white min-h-full" />
+          ) : (
+            <iframe 
+              src={documentUrl} 
+              className="w-full h-full border-0 rounded"
+              title="Agreement Document Viewer"
+              onLoad={handleIframeLoad}
+              onError={handleIframeError}
+            />
+          )}
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 
 const BUCKET_CONFIGS = {
   'images': {
@@ -20,7 +20,7 @@ async function setupStorageBuckets() {
 
   try {
     // List existing buckets
-    const { data: existingBuckets, error: listError } = await supabase.storage.listBuckets();
+    const { data: existingBuckets, error: listError } = await platformClient.storage.listBuckets();
     
     if (listError) {
       console.error('Error listing buckets:', listError);
@@ -37,7 +37,7 @@ async function setupStorageBuckets() {
         console.log(`Bucket ${bucketName} already exists, updating configuration...`);
         
         // Update bucket configuration
-        const { error: updateError } = await supabase.storage.updateBucket(bucketName, {
+        const { error: updateError } = await platformClient.storage.updateBucket(bucketName, {
           public: config.public,
           allowedMimeTypes: config.allowedMimeTypes,
           fileSizeLimit: config.fileSizeLimit
@@ -51,7 +51,7 @@ async function setupStorageBuckets() {
         console.log(`Creating new bucket ${bucketName}...`);
         
         // Create new bucket
-        const { error: createError } = await supabase.storage.createBucket(bucketName, {
+        const { error: createError } = await platformClient.storage.createBucket(bucketName, {
           public: config.public,
           allowedMimeTypes: config.allowedMimeTypes,
           fileSizeLimit: config.fileSizeLimit
@@ -69,7 +69,7 @@ async function setupStorageBuckets() {
         
         // Create a dummy file to ensure the folder exists
         const dummyFile = new Blob([''], { type: 'text/plain' });
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await platformClient.storage
           .from(bucketName)
           .upload(`${folder}/.folder`, dummyFile, {
             contentType: 'text/plain',
@@ -86,7 +86,7 @@ async function setupStorageBuckets() {
     console.log('Storage bucket setup completed successfully!');
     
     // List final bucket configuration
-    const { data: finalBuckets, error: finalListError } = await supabase.storage.listBuckets();
+    const { data: finalBuckets, error: finalListError } = await platformClient.storage.listBuckets();
     
     if (finalListError) {
       console.error('Error listing final bucket configuration:', finalListError);

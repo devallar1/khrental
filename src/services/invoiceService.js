@@ -1,6 +1,212 @@
-import { supabase } from './supabaseClient';
+import { platform as platformClient } from './platformClient';
 import { calculateUtilityAmount } from './utilityBillingService';
 import { formatErrorMessage } from '../utils/errorFormatting';
+import { isMssqlApiEnabled, requestMssqlApi } from './mssqlApiClient';
+
+const normalizeInvoiceRecord = (invoice) => {
+  if (!invoice) {
+    return invoice;
+  }
+
+  return {
+    ...invoice,
+    totalAmount: invoice.totalAmount ?? invoice.totalamount ?? invoice.amount ?? 0,
+    paymentProofUrl: invoice.paymentProofUrl ?? invoice.paymentproofurl ?? null,
+    reminderDate: invoice.reminderDate ?? invoice.reminderdate ?? invoice.remindersentat ?? null
+  };
+};
+
+const buildInvoiceQuery = (options = {}) => {
+  const query = new URLSearchParams();
+
+  if (options.propertyId) {
+    query.set('propertyId', options.propertyId);
+  }
+
+  if (options.renteeId) {
+    query.set('renteeId', options.renteeId);
+  }
+
+  if (options.status && !Array.isArray(options.status)) {
+    query.set('status', options.status);
+  }
+
+  if (options.billingPeriod) {
+    query.set('billingPeriod', options.billingPeriod);
+  }
+
+  if (options.fromDate) {
+    query.set('fromDate', options.fromDate);
+  }
+
+  if (options.toDate) {
+    query.set('toDate', options.toDate);
+  }
+
+  if (options.page) {
+    query.set('page', options.page);
+  }
+
+  if (options.pageSize) {
+    query.set('pageSize', options.pageSize);
+  }
+
+  return query.toString();
+};
+
+export const listInvoices = async (options = {}) => {
+  if (isMssqlApiEnabled()) {
+    try {
+      const query = buildInvoiceQuery(options);
+      const path = query ? `/api/mssql/invoices?${query}` : '/api/mssql/invoices';
+      const data = await requestMssqlApi(path);
+      const invoices = Array.isArray(data) ? data.map(normalizeInvoiceRecord) : [];
+
+      return { data: invoices, error: null };
+    } catch (mssqlError) {
+      console.error('Error loading invoices from MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  try {
+    let query = platformClient
+      .from('invoices')
+      .select('*');
+
+    if (options.propertyId) {
+      query = query.eq('propertyid', options.propertyId);
+    }
+
+    if (options.renteeId) {
+      query = query.eq('renteeid', options.renteeId);
+    }
+
+    if (options.status) {
+      if (Array.isArray(options.status)) {
+        query = query.in('status', options.status);
+      } else {
+        query = query.eq('status', options.status);
+      }
+    }
+
+    if (options.billingPeriod) {
+      query = query.eq('billingperiod', options.billingPeriod);
+    }
+
+    if (options.fromDate) {
+      query = query.gte('createdat', options.fromDate);
+    }
+
+    if (options.toDate) {
+      query = query.lte('createdat', options.toDate);
+    }
+
+    if (options.page && options.pageSize) {
+      const from = (options.page - 1) * options.pageSize;
+      const to = from + options.pageSize - 1;
+      query = query.range(from, to);
+    }
+
+    query = query.order(options.sortBy || 'createdat', {
+      ascending: options.sortOrder === 'asc'
+    });
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    return {
+      data: (data || []).map(normalizeInvoiceRecord),
+      error: null
+    };
+  } catch (error) {
+    console.error('Error loading invoices:', error);
+    return { data: null, error };
+  }
+};
+
+export const fetchInvoice = async (invoiceId) => {
+  if (isMssqlApiEnabled()) {
+    try {
+      const data = await requestMssqlApi(`/api/mssql/invoices/${invoiceId}`);
+      return normalizeInvoiceRecord(data);
+    } catch (mssqlError) {
+      console.error('Error loading invoice from MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  const { data, error } = await platformClient
+    .from('invoices')
+    .select('*')
+    .eq('id', invoiceId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeInvoiceRecord(data);
+};
+
+export const createInvoiceRecord = async (invoiceData = {}) => {
+  if (isMssqlApiEnabled()) {
+    try {
+      const data = await requestMssqlApi('/api/mssql/invoices', {
+        method: 'POST',
+        body: invoiceData
+      });
+
+      return normalizeInvoiceRecord(data);
+    } catch (mssqlError) {
+      console.error('Error creating invoice in MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  const { data, error } = await platformClient
+    .from('invoices')
+    .insert(invoiceData)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeInvoiceRecord(data);
+};
+
+export const updateInvoiceRecord = async (invoiceId, updates = {}) => {
+  if (isMssqlApiEnabled()) {
+    try {
+      const data = await requestMssqlApi(`/api/mssql/invoices/${invoiceId}`, {
+        method: 'PUT',
+        body: updates
+      });
+
+      return normalizeInvoiceRecord(data);
+    } catch (mssqlError) {
+      console.error('Error updating invoice in MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  const { data, error } = await platformClient
+    .from('invoices')
+    .update({
+      ...updates,
+      updatedat: updates.updatedat || new Date().toISOString()
+    })
+    .eq('id', invoiceId)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeInvoiceRecord(data);
+};
 
 /**
  * Fetch utility readings ready for invoicing, grouped by property and rentee
@@ -16,7 +222,7 @@ export const fetchReadingsForInvoiceByProperty = async (propertyIds, options = {
     const propertyIdsArray = Array.isArray(propertyIds) ? propertyIds : [propertyIds];
     
     // Start building the query
-    let query = supabase
+    let query = platformClient
       .from('utility_readings')
       .select(`
         *,
@@ -100,7 +306,7 @@ export const fetchReadingsForInvoiceByProperty = async (propertyIds, options = {
  */
 export async function fetchReadingsForInvoice(propertyIds, options = {}) {
   try {
-    let query = supabase
+    let query = platformClient
       .from('utility_readings')
       .select(`
         id,
@@ -213,7 +419,7 @@ export const generateInvoicesByProperty = async (readingsByProperty, options = {
           const totalAmount = Object.values(components).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
           
           // Create invoice record
-          const { data: invoice, error: invoiceError } = await supabase
+          const { data: invoice, error: invoiceError } = await platformClient
             .from('invoices')
             .insert({
               renteeid: renteeId,
@@ -234,7 +440,7 @@ export const generateInvoicesByProperty = async (readingsByProperty, options = {
           
           // Update readings with invoice ID
           const readingIds = renteeData.readings.map(reading => reading.id);
-          const { error: updateError } = await supabase
+          const { error: updateError } = await platformClient
             .from('utility_readings')
             .update({
               invoice_id: invoice.id,
@@ -332,7 +538,7 @@ export async function generateInvoices(readings, invoiceData) {
       });
       
       // Create invoice
-      const { data: invoice, error: invoiceError } = await supabase
+      const { data: invoice, error: invoiceError } = await platformClient
         .from('invoices')
         .insert({
           rentee_id: renteeId,
@@ -355,7 +561,7 @@ export async function generateInvoices(readings, invoiceData) {
       // Update readings with invoice ID
       const readingIds = renteeReadings.map(reading => reading.id);
       
-      const { error: updateError } = await supabase
+      const { error: updateError } = await platformClient
         .from('utility_readings')
         .update({
           invoice_id: invoice.id,
@@ -391,40 +597,24 @@ export async function getInvoiceSummaryByProperty(propertyIds, options = {}) {
     if (!propertyIds || propertyIds.length === 0) {
       return { data: {}, error: null };
     }
-    
-    let query = supabase
-      .from('invoices')
-      .select(`
-        id,
-        rentee_id,
-        property_id,
-        type,
-        status,
-        amount,
-        due_date,
-        issue_date,
-        properties:property_id (id, name, address)
-      `)
-      .in('property_id', propertyIds);
-    
-    // Apply filters
-    if (options.status && options.status !== 'all') {
-      query = query.eq('status', options.status);
-    }
-    
-    if (options.fromDate) {
-      query = query.gte('issue_date', options.fromDate);
-    }
-    
-    if (options.toDate) {
-      query = query.lte('issue_date', options.toDate);
-    }
-    
-    const { data, error } = await query;
-    
-    if (error) {
-      throw new Error(formatErrorMessage(error));
-    }
+
+    const invoiceGroups = await Promise.all(
+      propertyIds.map(async (propertyId) => {
+        const { data, error } = await listInvoices({
+          propertyId,
+          status: options.status && options.status !== 'all' ? options.status : undefined,
+          fromDate: options.fromDate,
+          toDate: options.toDate,
+          pageSize: 1000
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        return { propertyId, invoices: data || [] };
+      })
+    );
     
     // Group and summarize by property
     const summaryByProperty = {};
@@ -437,19 +627,20 @@ export async function getInvoiceSummaryByProperty(propertyIds, options = {}) {
         paidAmount: 0
       };
     });
-    
-    data.forEach(invoice => {
-      const propertyId = invoice.property_id;
-      const amount = parseFloat(invoice.amount) || 0;
+
+    invoiceGroups.forEach(({ propertyId, invoices }) => {
+      invoices.forEach((invoice) => {
+        const amount = parseFloat(invoice.totalamount ?? invoice.totalAmount ?? invoice.amount) || 0;
       
-      summaryByProperty[propertyId].totalInvoices += 1;
-      summaryByProperty[propertyId].totalAmount += amount;
+        summaryByProperty[propertyId].totalInvoices += 1;
+        summaryByProperty[propertyId].totalAmount += amount;
       
-      if (invoice.status === 'paid') {
-        summaryByProperty[propertyId].paidAmount += amount;
-      } else {
-        summaryByProperty[propertyId].pendingAmount += amount;
-      }
+        if (invoice.status === 'paid') {
+          summaryByProperty[propertyId].paidAmount += amount;
+        } else {
+          summaryByProperty[propertyId].pendingAmount += amount;
+        }
+      });
     });
     
     return { data: summaryByProperty, error: null };
@@ -466,7 +657,7 @@ export async function getInvoiceSummaryByProperty(propertyIds, options = {}) {
 export async function getPropertiesWithPendingReadings() {
   try {
     // First get properties with pending readings
-    const { data: propertiesData, error: propertiesError } = await supabase
+    const { data: propertiesData, error: propertiesError } = await platformClient
       .from('utility_readings')
       .select('property_id')
       .eq('billing_status', 'pending_invoice')
@@ -484,7 +675,7 @@ export async function getPropertiesWithPendingReadings() {
     const propertyIds = [...new Set(propertiesData.map(reading => reading.property_id))];
     
     // Get property details
-    const { data: properties, error: propDetailsError } = await supabase
+    const { data: properties, error: propDetailsError } = await platformClient
       .from('properties')
       .select('id, name, address')
       .in('id', propertyIds);
@@ -497,7 +688,7 @@ export async function getPropertiesWithPendingReadings() {
     const counts = {};
     
     for (const property of properties) {
-      const { count, error: countError } = await supabase
+      const { count, error: countError } = await platformClient
         .from('utility_readings')
         .select('id', { count: 'exact', head: false })
         .eq('property_id', property.id)
@@ -534,110 +725,25 @@ export async function getPropertiesWithPendingReadings() {
 export const getInvoicesByProperty = async (propertyIds, options = {}) => {
   try {
     console.log('Getting invoices by property:', { propertyIds, options });
-    
-    // Build query
-    let query = supabase
-      .from('invoices')
-      .select(`
-        *,
-        properties:propertyid(id, name, address),
-        app_users:renteeid(id, name, email, contact_details)
-      `);
-    
-    // Filter by property if provided
-    if (propertyIds) {
-      const propertyIdsArray = Array.isArray(propertyIds) ? propertyIds : [propertyIds];
-      query = query.in('propertyid', propertyIdsArray);
+    const propertyIdsArray = propertyIds
+      ? (Array.isArray(propertyIds) ? propertyIds : [propertyIds])
+      : [undefined];
+
+    const responses = await Promise.all(
+      propertyIdsArray.map((propertyId) => listInvoices({
+        ...options,
+        propertyId,
+        pageSize: options.pageSize || 1000
+      }))
+    );
+
+    const errors = responses.map((response) => response.error).filter(Boolean);
+    if (errors.length > 0) {
+      throw errors[0];
     }
-    
-    // Apply additional filters
-    if (options.status) {
-      if (Array.isArray(options.status)) {
-        query = query.in('status', options.status);
-      } else {
-        query = query.eq('status', options.status);
-      }
-    }
-    
-    if (options.renteeId) {
-      query = query.eq('renteeid', options.renteeId);
-    }
-    
-    if (options.fromDate) {
-      query = query.gte('createdat', options.fromDate);
-    }
-    
-    if (options.toDate) {
-      query = query.lte('createdat', options.toDate);
-    }
-    
-    if (options.billingPeriod) {
-      query = query.eq('billingperiod', options.billingPeriod);
-    }
-    
-    // Add pagination
-    if (options.page && options.pageSize) {
-      const from = (options.page - 1) * options.pageSize;
-      const to = from + options.pageSize - 1;
-      query = query.range(from, to);
-    }
-    
-    // Add sorting
-    if (options.sortBy) {
-      const order = options.sortOrder === 'asc' ? { ascending: true } : { ascending: false };
-      query = query.order(options.sortBy, order);
-    } else {
-      // Default sort by creation date descending
-      query = query.order('createdat', { ascending: false });
-    }
-    
-    // Execute query
-    const { data, error, count } = await query;
-    
-    if (error) {
-      throw error;
-    }
-    
-    // If we need a count for pagination, do a separate count query
-    let totalCount = null;
-    if (options.getTotalCount) {
-      const countQuery = supabase
-        .from('invoices')
-        .select('id', { count: 'exact' });
-      
-      // Apply the same filters
-      if (propertyIds) {
-        const propertyIdsArray = Array.isArray(propertyIds) ? propertyIds : [propertyIds];
-        countQuery.in('propertyid', propertyIdsArray);
-      }
-      
-      if (options.status) {
-        if (Array.isArray(options.status)) {
-          countQuery.in('status', options.status);
-        } else {
-          countQuery.eq('status', options.status);
-        }
-      }
-      
-      if (options.renteeId) {
-        countQuery.eq('renteeid', options.renteeId);
-      }
-      
-      if (options.fromDate) {
-        countQuery.gte('createdat', options.fromDate);
-      }
-      
-      if (options.toDate) {
-        countQuery.lte('createdat', options.toDate);
-      }
-      
-      if (options.billingPeriod) {
-        countQuery.eq('billingperiod', options.billingPeriod);
-      }
-      
-      const { count: totalRecords } = await countQuery;
-      totalCount = totalRecords;
-    }
+
+    const data = responses.flatMap((response) => response.data || []);
+    const totalCount = options.getTotalCount ? data.length : null;
     
     console.log(`Successfully fetched ${data?.length || 0} invoices`);
     
@@ -663,7 +769,7 @@ export const getInvoicesByProperty = async (propertyIds, options = {}) => {
  */
 export async function getCurrentUserPropertyAccess() {
   try {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
+    const { data: userData, error: userError } = await platformClient.auth.getUser();
     
     if (userError) {
       throw new Error(formatErrorMessage(userError));
@@ -674,7 +780,7 @@ export async function getCurrentUserPropertyAccess() {
     }
     
     // Try to get staff profile first
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await platformClient
       .from('staff')
       .select('id, user_id, role, properties_access')
       .eq('user_id', userData.user.id)
@@ -684,7 +790,7 @@ export async function getCurrentUserPropertyAccess() {
     if (profile && !profileError) {
       // If admin or has full access, get all property IDs
       if (profile.role === 'admin' || !profile.properties_access || profile.properties_access.length === 0) {
-        const { data: allProperties, error: propError } = await supabase
+        const { data: allProperties, error: propError } = await platformClient
           .from('properties')
           .select('id');
         
@@ -701,7 +807,7 @@ export async function getCurrentUserPropertyAccess() {
     
     // Fallback to getting all properties
     // In a real implementation, you would check app_users or other tables for permissions
-    const { data: allProperties, error: propError } = await supabase
+    const { data: allProperties, error: propError } = await platformClient
       .from('properties')
       .select('id');
     

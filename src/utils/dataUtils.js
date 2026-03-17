@@ -1,7 +1,7 @@
-import { supabase } from '../services/supabaseClient';
+import { platformClient } from '../services/platformClient';
 
 /**
- * Fetch data from a Supabase table
+ * Fetch data from a platform-backed table
  * @param {string} table - The name of the table to fetch from
  * @param {object} options - Additional options for the fetch
  * @returns {Promise<Array>} - Array of data objects
@@ -10,7 +10,7 @@ export const fetchData = async (table, options = {}) => {
   try {
     console.log(`Fetching data from ${table}`, options);
     
-    let query = supabase.from(table).select('*');
+    let query = platformClient.from(table).select('*');
     
     // Apply filters if provided
     if (options.filters && Array.isArray(options.filters)) {

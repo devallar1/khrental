@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { useAuth } from '../../hooks/useAuth';
 import { UTILITY_TYPES } from '../../utils/constants';
 import { formatCurrency, formatDate } from '../../utils/helpers';
 import { toast } from 'react-hot-toast';
 import { calculateUtilityAmount } from '../../services/utilityBillingService';
+import { findAppUserByAuthId } from '../../services/appUserService';
 
 const RenteeUtilities = () => {
   const { user } = useAuth();
@@ -23,22 +24,20 @@ const RenteeUtilities = () => {
       setError(null);
 
       // First get the app_user details for the current auth user
-      const { data: appUserData, error: appUserError } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('auth_id', user.id)
-        .single();
+      const appUserResult = await findAppUserByAuthId(user.id);
 
-      if (appUserError) {
-        throw appUserError;
+      if (!appUserResult.success) {
+        throw new Error(appUserResult.error || 'User profile not found');
       }
+
+      const appUserData = appUserResult.data;
 
       if (!appUserData) {
         throw new Error('User profile not found');
       }
 
       // Fetch recent utility readings with property rates for proper amount calculation
-      const { data: readingsData, error: readingsError } = await supabase
+      const { data: readingsData, error: readingsError } = await platformClient
         .from('utility_readings')
         .select(`
           *,
@@ -61,7 +60,7 @@ const RenteeUtilities = () => {
       if (readingsData && readingsData.length > 0) {
         // Instead of trying to query by billing_ids directly (which fails with JSON error)
         // We fetch all recent invoices for this rentee and match them client-side
-        const { data: invoiceData, error: invoiceError } = await supabase
+        const { data: invoiceData, error: invoiceError } = await platformClient
           .from('invoices')
           .select('*')
           .eq('renteeid', appUserData.id)

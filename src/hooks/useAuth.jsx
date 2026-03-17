@@ -1,5 +1,6 @@
 import React, { useState, useEffect, createContext, useContext, useRef } from 'react';
-import { getSupabaseClient, getCurrentUser, signIn, signUp, signOut, resetPassword, updatePassword } from '../services/supabaseClient';
+import { getPlatformClient, getCurrentUser, signIn, signUp, signOut, resetPassword, updatePassword } from '../services/platformClient';
+import { isMssqlApiEnabled, requestMssqlApi } from '../services/mssqlApiClient';
 import { hasPermission, hasAnyPermission, hasAllPermissions } from '../utils/permissions';
 
 // Add a debug flag at the top of the file
@@ -78,7 +79,7 @@ const AuthProvider = ({ children }) => {
   
   // Use refs to track initialization state
   const initialized = useRef(false);
-  const supabase = getSupabaseClient();
+  const platformClient = getPlatformClient();
 
   // Effect for development bypass
   useEffect(() => {
@@ -91,6 +92,9 @@ const AuthProvider = ({ children }) => {
         email: 'dev@example.com',
         role: devBypassRole,
         name: `Development ${devBypassRole.charAt(0).toUpperCase() + devBypassRole.slice(1)} User`,
+        userType: devBypassRole,
+        profileId: null,
+        isDevelopmentBypass: true,
       });
       setLoading(false);
       // Set initialized to prevent normal auth from running
@@ -114,8 +118,34 @@ const AuthProvider = ({ children }) => {
     logDebug('Fetching user profile for auth ID', authUser.id);
     
     try {
+      if (isMssqlApiEnabled()) {
+        try {
+          const appUser = await requestMssqlApi('/api/mssql/me', {
+            headers: {
+              'x-auth-id': authUser.id,
+              ...(authUser.email ? { 'x-user-email': authUser.email } : {})
+            }
+          });
+
+          if (appUser) {
+            logDebug('Found MSSQL app user profile', appUser);
+            return {
+              ...authUser,
+              role: appUser.role || authUser.role || 'authenticated',
+              name: appUser.name || authUser.email?.split('@')[0] || 'User',
+              profileId: appUser.id,
+              profileType: appUser.user_type,
+              contactDetails: appUser.contact_details || {},
+              userType: appUser.user_type
+            };
+          }
+        } catch (mssqlError) {
+          console.error('[Auth DEBUG] Error fetching app user from MSSQL:', mssqlError.message);
+        }
+      }
+
       // Check app_users table
-      const { data: appUser, error: appUserError } = await supabase
+      const { data: appUser, error: appUserError } = await platformClient
         .from('app_users')
         .select('*')
         .eq('auth_id', authUser.id)
@@ -180,7 +210,7 @@ const AuthProvider = ({ children }) => {
     const initializeAuth = async () => {
       try {
         // First check for existing session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await platformClient.auth.getSession();
         
         if (sessionError) {
           console.error('[Auth DEBUG] Error getting session:', sessionError);
@@ -194,7 +224,7 @@ const AuthProvider = ({ children }) => {
         
         // Set up auth state listener
         logDebug('Setting up auth state listener');
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        const { data: { subscription } } = platformClient.auth.onAuthStateChange(
           async (_event, session) => {
             logDebug('Auth state changed', {
               session: !!session,
@@ -243,8 +273,8 @@ const AuthProvider = ({ children }) => {
       console.log('[Auth] Environment check:', {
         window_env: window?._env_ ? "Available" : "Not available",
         import_meta: typeof import.meta !== 'undefined' ? "Available" : "Not available",
-        supabaseUrl: window?._env_?.VITE_SUPABASE_URL || import.meta.env?.VITE_SUPABASE_URL || 'not set',
-        hasAnonKey: !!(window?._env_?.VITE_SUPABASE_ANON_KEY || import.meta.env?.VITE_SUPABASE_ANON_KEY)
+        apiEndpoint: window?._env_?.VITE_API_ENDPOINT || import.meta.env?.VITE_API_ENDPOINT || window?.location?.origin || 'not set',
+        useMssqlApi: window?._env_?.VITE_USE_MSSQL_API || import.meta.env?.VITE_USE_MSSQL_API || 'not set'
       });
       
       console.log('[Auth] Calling signIn function...');

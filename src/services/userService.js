@@ -1,6 +1,7 @@
-import { supabase } from './supabaseClient';
+import { platform as platformClient } from './platformClient';
 import { sendEmailNotification } from './notificationService';
 import { USER_ROLES } from '../utils/constants';
+import { checkAppUserInvitationStatus, linkAppUser, updateAppUser } from './appUserService';
 
 /**
  * Invite a rentee to create an account
@@ -14,8 +15,8 @@ export const inviteRentee = async (email, name, renteeId) => {
     // Generate a secure temporary password
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
     
-    // Create user with Supabase Auth
-    const { data, error: authError } = await supabase.auth.signUp({
+    // Create user with the platform auth layer
+    const { data, error: authError } = await platformClient.auth.signUp({
       email,
       password: tempPassword,
       options: {
@@ -31,7 +32,7 @@ export const inviteRentee = async (email, name, renteeId) => {
     }
     
     // Update the rentee record to mark as invited and add auth_id
-    const { error: updateError } = await supabase
+    const { error: updateError } = await platformClient
       .from('rentees')
       .update({ 
         invited: true,
@@ -45,7 +46,7 @@ export const inviteRentee = async (email, name, renteeId) => {
     }
     
     // Send password reset email to let the user set their own password
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error: resetError } = await platformClient.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback`
     });
     
@@ -108,8 +109,8 @@ export const inviteTeamMember = async (email, name, role, teamMemberId) => {
     // Generate a secure temporary password
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
     
-    // Create user with Supabase Auth
-    const { data, error: authError } = await supabase.auth.signUp({
+    // Create user with the platform auth layer
+    const { data, error: authError } = await platformClient.auth.signUp({
       email,
       password: tempPassword,
       options: {
@@ -125,21 +126,18 @@ export const inviteTeamMember = async (email, name, role, teamMemberId) => {
     }
     
     // Update the team member record to mark as invited and add auth_id
-    const { error: updateError } = await supabase
-      .from('app_users')
-      .update({ 
-        invited: true,
-        auth_id: data.user.id
-      })
-      .eq('id', teamMemberId);
+    const updateResult = await updateAppUser(teamMemberId, {
+      invited: true,
+      auth_id: data.user.id
+    });
     
-    if (updateError) {
-      console.error('Error updating team member as invited:', updateError);
+    if (!updateResult.success) {
+      console.error('Error updating team member as invited:', updateResult.error);
       // Continue with the invitation process even if update fails
     }
     
     // Send password reset email to let the user set their own password
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error: resetError } = await platformClient.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback`
     });
     
@@ -178,8 +176,8 @@ KH Rentals Team
 };
 
 /**
- * Link a Supabase auth user to an existing rentee or team member record
- * @param {string} authId - Auth user ID from Supabase
+ * Link a platform auth user to an existing rentee or team member record
+ * @param {string} authId - Auth user ID from the platform auth layer
  * @param {string} recordId - ID of the rentee or team member record
  * @param {string} type - Type of record ('rentee' or 'team_member')
  * @returns {Promise<Object>} - Result of the linking operation
@@ -187,10 +185,12 @@ KH Rentals Team
 export const linkUserRecord = async (authId, recordId, type) => {
   try {
     // Update the appropriate record with the auth user ID
-    let table = type === 'rentee' ? 'rentees' : 'app_users';
+    if (type !== 'rentee') {
+      return linkAppUser(authId, recordId);
+    }
     
-    const { data, error } = await supabase
-      .from(table)
+    const { data, error } = await platformClient
+      .from('rentees')
       .update({ auth_id: authId, invited: true })
       .eq('id', recordId)
       .select();
@@ -214,10 +214,12 @@ export const linkUserRecord = async (authId, recordId, type) => {
  */
 export const checkInvitationStatus = async (id, type) => {
   try {
-    const table = type === 'rentee' ? 'rentees' : 'app_users';
+    if (type !== 'rentee') {
+      return checkAppUserInvitationStatus(id);
+    }
     
-    const { data, error } = await supabase
-      .from(table)
+    const { data, error } = await platformClient
+      .from('rentees')
       .select('id, email, invited, auth_id')
       .eq('id', id)
       .single();

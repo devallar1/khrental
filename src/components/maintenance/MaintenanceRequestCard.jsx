@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { formatDate } from '../../utils/helpers';
 import { MAINTENANCE_STATUS, MAINTENANCE_PRIORITY, MAINTENANCE_TYPES } from '../../utils/constants';
 import { format } from 'date-fns';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { toast } from 'react-hot-toast';
 import { STORAGE_BUCKETS, BUCKET_FOLDERS } from '../../services/fileService';
 import { useAuth } from '../../hooks/useAuth';
@@ -156,7 +156,7 @@ const MaintenanceRequestCard = ({ request, onCancelRequest }) => {
     
     // Otherwise, get the URL from storage
     try {
-      const { data } = supabase.storage.from('maintenance').getPublicUrl(path);
+      const { data } = platformClient.storage.from('maintenance').getPublicUrl(path);
       return data.publicUrl;
     } catch (error) {
       console.error('Error getting image URL:', error);

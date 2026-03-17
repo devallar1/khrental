@@ -144,7 +144,7 @@ export const hasPermission = (user, permission) => {
     return false;
   }
   
-  // Special case: if user has Supabase's default "authenticated" role
+  // Special case: if user has the default "authenticated" role
   // Allow access to admin-tools so they can link themselves properly
   if (user.role === 'authenticated' && permission === 'view_admin_tools') {
     return true;

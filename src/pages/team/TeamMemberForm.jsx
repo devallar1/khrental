@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../../services/supabaseClient';
+import { createAppUser, fetchAppUser, updateAppUser } from '../../services/appUserService';
 import { toast } from 'react-toastify';
 
 const TeamMemberForm = () => {
@@ -47,15 +47,10 @@ const TeamMemberForm = () => {
       setLoading(true);
       
       // Fetch team member from app_users table
-      const { data, error } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('id', id)
-        .eq('user_type', 'staff')
-        .single();
-      
-      if (error) {
-        throw error;
+      const data = await fetchAppUser(id);
+
+      if (data?.user_type && data.user_type !== 'staff') {
+        throw new Error('Team member not found');
       }
       
       if (data) {
@@ -154,21 +149,14 @@ const TeamMemberForm = () => {
       
       if (isEditMode) {
         // Update existing team member
-        result = await supabase
-          .from('app_users')
-          .update(teamMemberData)
-          .eq('id', id)
-          .select();
+        result = await updateAppUser(id, teamMemberData);
       } else {
         // Create new team member
-        result = await supabase
-          .from('app_users')
-          .insert(teamMemberData)
-          .select();
+        result = await createAppUser(teamMemberData, 'staff');
       }
       
-      if (result.error) {
-        throw result.error;
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save team member');
       }
       
       // Navigate back to team list

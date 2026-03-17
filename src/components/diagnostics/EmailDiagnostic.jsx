@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { testEmailConfiguration } from '../../services/directEmailService';
 import { inviteUser } from '../../services/invitationService';
-import { getAppBaseUrl } from '../../utils/env';
+import { getApiBaseUrl, getAppBaseUrl } from '../../utils/env';
 
 const EmailDiagnostic = () => {
   const [loading, setLoading] = useState(false);
@@ -82,30 +82,25 @@ const EmailDiagnostic = () => {
     }
   };
 
-  const testSupabaseFunction = async () => {
-    // Get the Supabase URL and anon key
-    const supabaseUrl = window._env_?.VITE_SUPABASE_URL || 
-                       import.meta.env?.VITE_SUPABASE_URL;
-    const supabaseAnonKey = window._env_?.VITE_SUPABASE_ANON_KEY || 
-                             import.meta.env?.VITE_SUPABASE_ANON_KEY;
-    
-    console.log('Testing Supabase Edge Function');
-    console.log('URL:', supabaseUrl);
+  const testEmailApi = async () => {
+    const apiBaseUrl = getApiBaseUrl();
+
+    console.log('Testing local email API');
+    console.log('URL:', apiBaseUrl);
     
     try {
-      const functionUrl = `${supabaseUrl}/functions/v1/sendgrid-email`;
+      const functionUrl = `${apiBaseUrl}/api/send-email`;
       
       const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           to: 'test@example.com', // Replace with your test email
-          subject: 'Test from Supabase Edge Function',
-          html: '<p>This is a test email from the Supabase Edge Function.</p>',
-          text: 'This is a test email from the Supabase Edge Function.'
+          subject: 'Test from Local Email API',
+          html: '<p>This is a test email from the local email API.</p>',
+          text: 'This is a test email from the local email API.'
         })
       });
       
@@ -120,7 +115,7 @@ const EmailDiagnostic = () => {
 
   // Make the function accessible from the window object for testing from the console
   if (typeof window !== 'undefined') {
-    window.testSupabaseFunction = testSupabaseFunction;
+    window.testEmailApi = testEmailApi;
   }
 
   return (
@@ -131,12 +126,12 @@ const EmailDiagnostic = () => {
         <button 
           type="button"
           className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          onClick={testSupabaseFunction}
+          onClick={testEmailApi}
         >
-          Test Supabase Edge Function
+          Test Local Email API
         </button>
         <small className="block mt-1 text-gray-500">
-          This will test the connection to your Supabase Edge Function directly.
+          This will test the connection to your local email API directly.
           Check the console for results.
         </small>
       </div>

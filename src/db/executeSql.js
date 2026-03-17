@@ -1,4 +1,4 @@
-import { supabase } from '../services/supabaseClient.js';
+import { platformClient } from '../services/platformClient.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -36,7 +36,7 @@ const main = async () => {
     console.log(`SQL script loaded (${sqlScript.length} characters)`);
     
     // Execute the SQL
-    const { error } = await supabase.rpc('exec_sql', { sql: sqlScript });
+    const { error } = await platformClient.rpc('exec_sql', { sql: sqlScript });
     
     if (error) {
       console.error('Error executing SQL via RPC:', error);
@@ -44,7 +44,7 @@ const main = async () => {
       // Try alternative approach with direct query
       console.log('Trying direct query approach...');
       try {
-        await supabase.query(sqlScript);
+        await platformClient.query(sqlScript);
         console.log('SQL script executed successfully via direct query');
       } catch (directError) {
         console.error('Direct query also failed:', directError);

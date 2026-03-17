@@ -25,8 +25,7 @@ This guide provides step-by-step instructions for setting up and configuring you
 
 1. In your GitHub repository, go to **Settings > Secrets and variables > Actions**
 2. Add the following secrets:
-   - `VITE_SUPABASE_URL`: Your Supabase project URL
-   - `VITE_SUPABASE_ANON_KEY`: Your Supabase anon key
+   - `VITE_API_ENDPOINT`: Your application API base URL
    - `VITE_EVIA_WEBHOOK_URL`: https://khrentals.kubeira.com/webhook/evia-sign
    - `AZURE_WEBAPP_PUBLISH_PROFILE`: The publish profile from Azure (see next section)
 
@@ -44,8 +43,7 @@ This guide provides step-by-step instructions for setting up and configuring you
 
 1. In your Azure Web App, go to **Settings > Configuration**
 2. Under **Application settings**, add the following:
-   - `VITE_SUPABASE_URL`: Your Supabase project URL
-   - `VITE_SUPABASE_ANON_KEY`: Your Supabase anon key
+   - `VITE_API_ENDPOINT`: Your application API base URL
    - `VITE_EVIA_WEBHOOK_URL`: https://khrentals.kubeira.com/webhook/evia-sign
    - `WEBSITE_NODE_DEFAULT_VERSION`: 22.0.0
 

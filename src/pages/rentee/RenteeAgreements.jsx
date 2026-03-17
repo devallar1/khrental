@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "../../services/supabaseClient";
+import { platform as platformClient } from "../../services/platformClient";
 import { useAuth } from "../../hooks/useAuth";
 import { format } from "date-fns";
 import AgreementActions from "../../components/agreements/AgreementActions";
+import { findAppUserByAuthId } from '../../services/appUserService';
 
 const RenteeAgreements = () => {
   const [agreements, setAgreements] = useState([]);
@@ -17,23 +18,27 @@ const RenteeAgreements = () => {
         setError(null);
 
         // First get the app_user details for the current auth user
-        const { data: appUserData, error: appUserError } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('auth_id', user.id)
-          .single();
+        const appUserResult = await findAppUserByAuthId(user.id);
 
-        if (appUserError) {
-          console.error('Error fetching user:', appUserError);
+        if (!appUserResult.success) {
+          console.error('Error fetching user:', appUserResult.error);
           throw new Error('Could not fetch user details');
         }
 
+        const appUserData = appUserResult.data;
+
         if (!appUserData) {
+          if (user?.isDevelopmentBypass) {
+            console.warn('No app_user found for development bypass auth user. Returning an empty agreement list.');
+            setAgreements([]);
+            return;
+          }
+
           throw new Error('User profile not found');
         }
 
         // Now fetch agreements using the app_user id
-        const { data: agreementsData, error: agreementsError } = await supabase
+        const { data: agreementsData, error: agreementsError } = await platformClient
           .from('agreements')
           .select(`
             *,

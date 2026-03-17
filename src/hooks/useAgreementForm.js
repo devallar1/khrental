@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
 import { toast } from 'react-hot-toast';
 import { AGREEMENT_STATUS } from '../constants/agreementStatus';
+import { fetchAppUser, fetchAppUsers } from '../services/appUserService';
+import {
+  fetchProperty,
+  fetchPropertyUnit,
+  getTemplate,
+  listTemplates,
+  listProperties,
+  listPropertyUnits
+} from '../services/agreementService';
 
 export const useAgreementForm = (initialData = null) => {
   const [formData, setFormData] = useState({
@@ -89,24 +97,14 @@ export const useAgreementForm = (initialData = null) => {
 
   // Load templates
   const loadTemplates = async () => {
-    const { data, error } = await supabase
-      .from('agreement_templates')
-      .select('*')
-      .order('name');
-    
-    if (error) {throw error;}
+    const data = await listTemplates();
     setTemplates(data);
   };
 
   // Load properties
   const loadProperties = async () => {
-    const { data, error } = await supabase
-      .from('properties')
-      .select('*')
-      .order('name');
-    
-    if (error) {throw error;}
-    setProperties(data);
+    const data = await listProperties();
+    setProperties((data || []).sort((a, b) => (a.name || '').localeCompare(b.name || '')));
   };
 
   // Load property units
@@ -116,26 +114,14 @@ export const useAgreementForm = (initialData = null) => {
       return;
     }
 
-    const { data, error } = await supabase
-      .from('property_units')
-      .select('*')
-      .eq('propertyid', propertyId)
-      .order('unitnumber');
-    
-    if (error) {throw error;}
+    const data = await listPropertyUnits(propertyId);
     setPropertyUnits(data);
   };
 
   // Load rentees
   const loadRentees = async () => {
-    const { data, error } = await supabase
-      .from('app_users')
-      .select('*')
-      .eq('role', 'rentee')
-      .order('name');
-    
-    if (error) {throw error;}
-    setRentees(data);
+    const data = await fetchAppUsers('rentee');
+    setRentees((data || []).sort((a, b) => (a.name || '').localeCompare(b.name || '')));
   };
 
   // Load and process template content
@@ -146,13 +132,8 @@ export const useAgreementForm = (initialData = null) => {
       return;
     }
 
-    const { data, error } = await supabase
-      .from('agreement_templates')
-      .select('content')
-      .eq('id', templateId)
-      .single();
-    
-    if (error) {throw error;}
+    const data = await getTemplate(templateId);
+    if (!data) {throw new Error('Template not found');}
     
     // Check for date placeholders in the template
     const { content } = data;
@@ -181,11 +162,7 @@ export const useAgreementForm = (initialData = null) => {
 
       // Get property details if needed
       if (formData.propertyid) {
-        const { data: property } = await supabase
-          .from('properties')
-          .select('*, property_units(*)')
-          .eq('id', formData.propertyid)
-          .single();
+        const property = await fetchProperty(formData.propertyid);
 
         if (property) {
           // Standard property placeholders
@@ -227,11 +204,7 @@ export const useAgreementForm = (initialData = null) => {
 
       // Get unit details if needed
       if (formData.unitid) {
-        const { data: unit } = await supabase
-          .from('property_units')
-          .select('*')
-          .eq('id', formData.unitid)
-          .single();
+        const unit = await fetchPropertyUnit(formData.unitid);
 
         if (unit) {
           // Standard unit placeholders
@@ -246,11 +219,7 @@ export const useAgreementForm = (initialData = null) => {
 
       // Enhanced rentee details processing
       if (formData.renteeid) {
-        const { data: rentee } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('id', formData.renteeid)
-          .single();
+        const rentee = await fetchAppUser(formData.renteeid);
 
         if (rentee) {
           // Standard rentee placeholders
@@ -361,6 +330,7 @@ export const useAgreementForm = (initialData = null) => {
       processed = processed.replace(/<td/g, '<td style="border:1px solid #ddd; padding:8px; vertical-align:top;"');
       processed = processed.replace(/<th/g, '<th style="border:1px solid #ddd; padding:8px; background-color:#f8f9fa; font-weight:bold; text-align:left;"');
       
+      // Encode the processed content for use in URLs
       setProcessedContent(processed);
     } catch (error) {
       console.error('Error processing template:', error);
@@ -394,19 +364,18 @@ export const useAgreementForm = (initialData = null) => {
       console.log('Loading unit details for ID:', unitId);
       
       // Get both the unit and its associated property
-      const { data: unitData, error: unitError } = await supabase
-        .from('property_units')
-        .select('*, property:properties(*)')
-        .eq('id', unitId)
-        .single();
+      const unitData = await fetchPropertyUnit(unitId);
+      const propertyData = unitData?.propertyid
+        ? await fetchProperty(unitData.propertyid).catch(() => null)
+        : null;
 
-      if (unitError) {throw unitError;}
+      if (!unitData) {throw new Error('Unit not found');}
       
       console.log('Unit data loaded:', {
         unitId: unitData.id,
         unitNumber: unitData.unitnumber,
         hasRentalValues: !!unitData.rentalvalues,
-        hasProperty: !!unitData.property
+        hasProperty: !!propertyData
       });
 
       // Extract rental values with fallbacks
@@ -421,26 +390,26 @@ export const useAgreementForm = (initialData = null) => {
                       unitData.rentalvalues.baseRent || '';
         depositAmount = unitData.rentalvalues.depositAmount || 
                        unitData.rentalvalues.deposit || '';
-      } else if (unitData.property?.rentalvalues) {
-        console.log('Using rental values from property:', unitData.property.rentalvalues);
-        monthlyRent = unitData.property.rentalvalues.monthlyRent || 
-                     unitData.property.rentalvalues.rent || 
-                     unitData.property.rentalvalues.baseRent || '';
-        depositAmount = unitData.property.rentalvalues.depositAmount || 
-                       unitData.property.rentalvalues.deposit || '';
+      } else if (propertyData?.rentalvalues) {
+        console.log('Using rental values from property:', propertyData.rentalvalues);
+        monthlyRent = propertyData.rentalvalues.monthlyRent || 
+                     propertyData.rentalvalues.rent || 
+                     propertyData.rentalvalues.baseRent || '';
+        depositAmount = propertyData.rentalvalues.depositAmount || 
+                       propertyData.rentalvalues.deposit || '';
       }
       
       // Extract terms from property (units don't have terms)
       let paymentDueDay = '5'; // Default value
       let noticePeriod = '30'; // Default value
       
-      if (unitData.property?.terms) {
-        console.log('Using terms from property:', unitData.property.terms);
-        if (unitData.property.terms.paymentDueDay) {
-          paymentDueDay = unitData.property.terms.paymentDueDay;
+      if (propertyData?.terms) {
+        console.log('Using terms from property:', propertyData.terms);
+        if (propertyData.terms.paymentDueDay) {
+          paymentDueDay = propertyData.terms.paymentDueDay;
         }
-        if (unitData.property.terms.noticePeriod) {
-          noticePeriod = unitData.property.terms.noticePeriod;
+        if (propertyData.terms.noticePeriod) {
+          noticePeriod = propertyData.terms.noticePeriod;
         }
       }
       
@@ -479,14 +448,8 @@ export const useAgreementForm = (initialData = null) => {
     // Load property details and set rental values
     try {
       console.log('Loading property details for ID:', propertyId);
-      
-      const { data: property, error } = await supabase
-        .from('properties')
-        .select('*')
-        .eq('id', propertyId)
-        .single();
-
-      if (error) {throw error;}
+      const property = await fetchProperty(propertyId);
+      if (!property) {throw new Error('Property not found');}
       
       console.log('Property data loaded:', {
         propertyId: property.id,

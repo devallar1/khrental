@@ -1,23 +1,49 @@
-import { supabase } from './supabaseClient';
 import { sendEmailNotification } from './notificationService';
 import { USER_ROLES } from '../utils/constants';
 import { inviteUser } from './invitationService';
+import {
+  checkAppUserInvitationStatusRecord,
+  createAppUserRecord,
+  deleteAppUserRecord,
+  fetchAppUserRecord,
+  fetchAppUsersRecord,
+  findAppUserByAuthIdRecord,
+  findAppUserByEmailRecord,
+  linkAppUserRecord,
+  updateAppUserRecord
+} from './appUserRepository';
 
-/**
- * Utility function to ensure a record has valid timestamp fields
- * @param {Object} record - Record to validate
- * @returns {Object} - Record with valid timestamp fields
- */
-export const ensureValidTimestamps = (record) => {
-  if (!record) { return record; }
-  
-  const now = new Date().toISOString();
-  return {
-    ...record,
-    createdat: record.createdat || now,
-    updatedat: record.updatedat || record.createdat || now
-  };
-};
+export const mapAppUserToTeamMember = (member) => ({
+  id: member.id,
+  name: member.name || 'Unnamed Member',
+  role: member.role || 'staff',
+  contactDetails: member.contact_details || member.contactDetails || {},
+  skills: member.skills || [],
+  availability: member.availability || {},
+  notes: member.notes || '',
+  active: member.status === 'active',
+  invited: member.invited,
+  authId: member.auth_id,
+  createdAt: member.createdat || member.created_at || new Date().toISOString(),
+  updatedAt: member.updatedat || member.updated_at || member.createdat || member.created_at || new Date().toISOString()
+});
+
+export const mapAppUserToRentee = (rentee) => ({
+  id: rentee.id,
+  name: rentee.name,
+  email: rentee.email,
+  contactDetails: rentee.contact_details || rentee.contactDetails || {},
+  idCopyURL: rentee.id_copy_url,
+  idCopyUrl: rentee.id_copy_url,
+  registrationDate: rentee.createdat || rentee.created_at,
+  associatedPropertyIds: rentee.associated_property_ids || [],
+  invited: rentee.invited,
+  authId: rentee.auth_id,
+  createdAt: rentee.createdat || rentee.created_at || new Date().toISOString(),
+  updatedAt: rentee.updatedat || rentee.updated_at || rentee.createdat || rentee.created_at || new Date().toISOString(),
+  national_id: rentee.national_id,
+  permanent_address: rentee.permanent_address
+});
 
 /**
  * Create a new app user (staff or rentee)
@@ -31,43 +57,27 @@ export const createAppUser = async (userData, userType) => {
   }
 
   try {
-    // Format data for insertion
-    const now = new Date().toISOString();
-    const dataToInsert = {
-      ...userData,
-      user_type: userType,
-      createdat: now,
-      updatedat: now,
-      // Extract email from contact_details if not directly provided
-      email: userData.email || (userData.contact_details && userData.contact_details.email) || (userData.contactDetails && userData.contactDetails.email)
-    };
+    const result = await createAppUserRecord(userData, userType);
 
-    // Validate email
-    if (!dataToInsert.email) {
-      return { success: false, error: 'Email is required' };
+    if (!result.success) {
+      return result;
     }
 
-    const { data, error } = await supabase
-      .from('app_users')
-      .insert(dataToInsert)
-      .select('*')
-      .single();
+    const email = result.data?.email
+      || userData.email
+      || userData.contact_details?.email
+      || userData.contactDetails?.email;
 
-    if (error) {
-      console.error('Error creating user:', error);
-      return { success: false, error: error.message };
-    }
-
-    if (userType === USER_ROLES.RENTEE && dataToInsert.email) {
+    if (userType === USER_ROLES.RENTEE && email) {
       // Send welcome email to new rentee
       await sendEmailNotification({
-        to: dataToInsert.email,
+        to: email,
         subject: 'Welcome to KH Rentals',
         body: `Welcome to KH Rentals, ${userData.name}! Your account has been created.`
       });
     }
 
-    return { success: true, data: ensureValidTimestamps(data) };
+    return { success: true, data: result.data };
   } catch (error) {
     console.error('Error in createAppUser:', error);
     return { success: false, error: error.message };
@@ -140,8 +150,8 @@ export const inviteAppUser = async (email, name, userType, userId, sendReal = fa
 };
 
 /**
- * Link a Supabase auth user to an app_user record
- * @param {string} authId - Auth user ID from Supabase
+ * Link a platform auth user to an app_user record
+ * @param {string} authId - Auth user ID from the platform auth layer
  * @param {string} appUserId - ID of the app_user record
  * @returns {Promise<Object>} - Result of the linking operation
  */
@@ -158,64 +168,12 @@ export const linkAppUser = async (authId, appUserId) => {
   }
 
   try {
-    // First check if the app_user record exists
-    const { data: existingUser, error: checkError } = await supabase
-      .from('app_users')
-      .select('id, auth_id')
-      .eq('id', appUserId)
-      .single();
-    
-    if (checkError) {
-      console.error(`[linkAppUser] Error checking app_user ${appUserId}:`, checkError);
-      return { 
-        success: false, 
-        error: `Error checking app_user: ${checkError.message}`,
-        debug: { checkError }
-      };
+    const result = await linkAppUserRecord(authId, appUserId);
+    if (result.success) {
+      console.log(`[linkAppUser] Successfully linked auth user ${authId} to app_user ${appUserId}`);
     }
-    
-    if (!existingUser) {
-      console.error(`[linkAppUser] App user ${appUserId} not found`);
-      return { 
-        success: false, 
-        error: 'App user not found',
-        debug: { appUserId }
-      };
-    }
-    
-    console.log(`[linkAppUser] Found app_user ${appUserId}, current auth_id:`, existingUser.auth_id);
-    
-    // Update the app_user record with the auth user ID
-    const { data, error } = await supabase
-      .from('app_users')
-      .update({ 
-        auth_id: authId, 
-        invited: true,
-        updatedat: new Date().toISOString()
-      })
-      .eq('id', appUserId)
-      .select();
-    
-    if (error) {
-      console.error(`[linkAppUser] Error updating app_user ${appUserId}:`, error);
-      return { 
-        success: false, 
-        error: `Error updating app_user: ${error.message}`,
-        debug: { error }
-      };
-    }
-    
-    if (!data || data.length === 0) {
-      console.error(`[linkAppUser] No data returned after update for app_user ${appUserId}`);
-      return { 
-        success: false, 
-        error: 'No data returned after update',
-        debug: { data }
-      };
-    }
-    
-    console.log(`[linkAppUser] Successfully linked auth user ${authId} to app_user ${appUserId}`);
-    return { success: true, data: data[0] };
+
+    return result;
   } catch (error) {
     console.error(`[linkAppUser] Exception linking user record:`, error);
     return { 
@@ -233,17 +191,7 @@ export const linkAppUser = async (authId, appUserId) => {
  */
 export const findAppUserByEmail = async (email) => {
   try {
-    const { data, error } = await supabase
-      .from('app_users')
-      .select('*')
-      .eq('email', email)
-      .maybeSingle();
-    
-    if (error) {
-      throw error;
-    }
-    
-    return { success: true, data };
+    return await findAppUserByEmailRecord(email);
   } catch (error) {
     console.error('Error finding user by email:', error.message);
     return { success: false, error: error.message };
@@ -257,17 +205,7 @@ export const findAppUserByEmail = async (email) => {
  */
 export const findAppUserByAuthId = async (authId) => {
   try {
-    const { data, error } = await supabase
-      .from('app_users')
-      .select('*')
-      .eq('auth_id', authId)
-      .maybeSingle();
-    
-    if (error) {
-      throw error;
-    }
-    
-    return { success: true, data };
+    return await findAppUserByAuthIdRecord(authId);
   } catch (error) {
     console.error('Error finding user by auth ID:', error.message);
     return { success: false, error: error.message };
@@ -287,55 +225,14 @@ export const checkAppUserInvitationStatus = async (userId) => {
       console.error('No userId provided to checkAppUserInvitationStatus');
       throw new Error('User ID is required');
     }
-    
-    // First check if the app_users table exists
-    try {
-      // Use a simpler query that's less likely to cause parsing errors
-      const { data: testData, error: testError } = await supabase
-        .from('app_users')
-        .select('id')
-        .limit(1);
-      
-      if (testError) {
-        console.error('Error checking app_users table:', testError);
-        throw new Error(`The app_users table might not exist: ${testError.message}`);
-      }
-    } catch (tableError) {
-      console.error('Error checking app_users table:', tableError);
-      throw new Error(`The app_users table might not exist: ${tableError.message}`);
+
+    const result = await checkAppUserInvitationStatusRecord(userId);
+    if (result.success) {
+      console.log(`User data for ${userId}:`, result.data);
+      console.log(`Determined status for ${userId}: ${result.data.status}`);
     }
-    
-    // If we get here, the table exists, so we can check the user
-    const { data, error } = await supabase
-      .from('app_users')
-      .select('id, email, invited, auth_id')
-      .eq('id', userId)
-      .single();
-    
-    if (error) {
-      console.error(`Error fetching user ${userId} from app_users:`, error);
-      throw error;
-    }
-    
-    console.log(`User data for ${userId}:`, data);
-    
-    // Determine status
-    let status = 'not_invited';
-    if (data.auth_id) {
-      status = 'registered';
-    } else if (data.invited) {
-      status = 'invited';
-    }
-    
-    console.log(`Determined status for ${userId}: ${status}`);
-    
-    return { 
-      success: true, 
-      data: {
-        ...data,
-        status
-      }
-    };
+
+    return result;
   } catch (error) {
     console.error(`Error checking invitation status for ${userId}:`, error.message);
     return { success: false, error: error.message };
@@ -354,25 +251,7 @@ export const updateAppUser = async (id, userData) => {
   }
 
   try {
-    // Always update the updatedat timestamp
-    const dataToUpdate = {
-      ...userData,
-      updatedat: new Date().toISOString()
-    };
-
-    const { data, error } = await supabase
-      .from('app_users')
-      .update(dataToUpdate)
-      .eq('id', id)
-      .select('*')
-      .single();
-
-    if (error) {
-      console.error('Error updating user:', error);
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, data: ensureValidTimestamps(data) };
+    return await updateAppUserRecord(id, userData);
   } catch (error) {
     console.error('Error in updateAppUser:', error);
     return { success: false, error: error.message };
@@ -390,22 +269,7 @@ export const fetchAppUser = async (id) => {
   }
 
   try {
-    const { data, error } = await supabase
-      .from('app_users')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) {
-      console.error('Error fetching user:', error);
-      throw error;
-    }
-
-    if (!data) {
-      throw new Error('User not found');
-    }
-
-    return ensureValidTimestamps(data);
+    return await fetchAppUserRecord(id);
   } catch (error) {
     console.error('Error in fetchAppUser:', error);
     throw error;
@@ -420,34 +284,23 @@ export const fetchAppUser = async (id) => {
  */
 export const fetchAppUsers = async (userType, filters = {}) => {
   try {
-    let query = supabase
-      .from('app_users')
-      .select('*');
-    
-    // Filter by user_type if provided
-    if (userType) {
-      query = query.eq('user_type', userType);
-    }
-    
-    // Apply any additional filters
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        query = query.eq(key, value);
-      }
-    });
-    
-    const { data, error } = await query;
-    
-    if (error) {
-      console.error('Error fetching users:', error);
-      throw error;
-    }
-    
-    // Apply timestamp validation to all records
-    return data ? data.map(record => ensureValidTimestamps(record)) : [];
+    return await fetchAppUsersRecord(userType, filters);
   } catch (error) {
     console.error('Error in fetchAppUsers:', error);
     throw error;
+  }
+};
+
+export const deleteAppUser = async (id) => {
+  if (!id) {
+    return { success: false, error: 'User ID is required' };
+  }
+
+  try {
+    return await deleteAppUserRecord(id);
+  } catch (error) {
+    console.error('Error in deleteAppUser:', error);
+    return { success: false, error: error.message };
   }
 };
 

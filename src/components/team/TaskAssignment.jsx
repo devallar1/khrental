@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchData } from '../../services/supabaseClient';
+import { fetchData } from '../../services/platformClient';
 import { formatDate } from '../../utils/helpers';
 
 const TaskAssignment = ({ 

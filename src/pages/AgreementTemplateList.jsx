@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { fetchData, deleteData } from '../services/supabaseClient';
 import { formatDate } from '../utils/helpers';
 import { toast } from 'react-hot-toast';
+import { deleteTemplate, listTemplates } from '../services/agreementService';
 
 const AgreementTemplateList = () => {
   const [templates, setTemplates] = useState([]);
@@ -46,12 +46,7 @@ const AgreementTemplateList = () => {
     const fetchTemplates = async () => {
       try {
         setLoading(true);
-        const { data, error } = await fetchData('agreement_templates');
-        
-        if (error) {
-          throw error;
-        }
-        
+        const data = await listTemplates();
         setTemplates(data || []);
       } catch (error) {
         console.error('Error fetching templates:', error.message);
@@ -91,11 +86,7 @@ const AgreementTemplateList = () => {
     
     try {
       setLoading(true);
-      const { error } = await deleteData('agreement_templates', templateToDelete.id);
-      
-      if (error) {
-        throw error;
-      }
+      await deleteTemplate(templateToDelete.id);
       
       // Remove the deleted template from the state
       setTemplates(templates.filter(t => t.id !== templateToDelete.id));

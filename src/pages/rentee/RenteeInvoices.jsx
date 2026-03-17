@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchData, supabase } from '../../services/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
 import { formatCurrency, formatDate } from '../../utils/helpers';
 import { INVOICE_STATUS } from '../../utils/constants';
+import { findAppUserByAuthId } from '../../services/appUserService';
+import { listProperties } from '../../services/agreementService';
+import { listInvoices } from '../../services/invoiceService';
 
 // Components
 import InvoiceCard from '../../components/invoices/InvoiceCard';
@@ -35,16 +37,13 @@ const RenteeInvoices = () => {
         setLoading(true);
         
         // First, fetch the rentee profile from app_users table to get the renteeId
-        const { data: renteeData, error: renteeError } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('user_type', 'rentee')
-          .eq('auth_id', user.id)
-          .single();
-        
-        if (renteeError) {
-          throw renteeError;
+        const renteeResult = await findAppUserByAuthId(user.id);
+
+        if (!renteeResult.success) {
+          throw new Error(renteeResult.error || 'No rentee profile found for your account. Please contact support.');
         }
+
+        const renteeData = renteeResult.data;
         
         if (!renteeData) {
           throw new Error('No rentee profile found for your account. Please contact support.');
@@ -53,9 +52,9 @@ const RenteeInvoices = () => {
         const renteeId = renteeData.id;
         
         // Fetch invoices for the current rentee
-        const { data: invoicesData, error: invoicesError } = await fetchData('invoices', {
-          filters: [{ column: 'renteeid', operator: 'eq', value: renteeId }],
-          order: { column: 'createdat', ascending: false },
+        const { data: invoicesData, error: invoicesError } = await listInvoices({
+          renteeId,
+          pageSize: 1000
         });
         
         if (invoicesError) {
@@ -66,18 +65,9 @@ const RenteeInvoices = () => {
         
         // Fetch properties for the invoices
         if (invoicesData && invoicesData.length > 0) {
-          const propertyIds = [...new Set(invoicesData.map(invoice => invoice.propertyid))];
-          
-          const { data: propertyData, error: propertyError } = await fetchData({
-            table: 'properties',
-            filters: [{ column: 'id', operator: 'in', value: propertyIds }],
-          });
-          
-          if (propertyError) {
-            throw propertyError;
-          }
-          
-          setProperties(propertyData || []);
+          const propertyIds = new Set(invoicesData.map(invoice => invoice.propertyid));
+          const propertyData = await listProperties();
+          setProperties((propertyData || []).filter((property) => propertyIds.has(property.id)));
         }
         
         // Mark data as fetched
@@ -223,7 +213,7 @@ const RenteeInvoices = () => {
           <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
             <h2 className="text-xl font-semibold mb-4">Upload Payment Proof</h2>
             <p className="mb-4">
-              Invoice #{selectedInvoice.id} - {formatCurrency(selectedInvoice.totalAmount)}
+              Invoice #{selectedInvoice.id} - {formatCurrency(selectedInvoice.totalamount || selectedInvoice.totalAmount || 0)}
             </p>
             
             <PaymentProofUpload

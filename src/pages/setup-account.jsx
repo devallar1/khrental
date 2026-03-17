@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { verifyToken } from '../utils/tokenUtils';
 import { toast } from 'react-hot-toast';
+import { fetchAppUser, linkAppUser } from '../services/appUserService';
 
 /**
  * Setup Account Page
  * 
- * This page handles the direct invitation links without requiring Supabase auth first.
+ * This page handles the direct invitation links without requiring platform auth first.
  * It allows users to set up their account and create credentials.
  */
 const SetupAccount = () => {
@@ -46,14 +47,15 @@ const SetupAccount = () => {
           }
           
           // Check if user exists in the database
-          const { data: userData, error: userError } = await supabase
-            .from('app_users')
-            .select('*')
-            .eq('id', decodedToken.userId)
-            .single();
-            
-          if (userError || !userData) {
+          let fetchedUser = null;
+
+          try {
+            fetchedUser = await fetchAppUser(decodedToken.userId);
+          } catch (userError) {
             console.error('User not found:', userError);
+          }
+
+          if (!fetchedUser) {
             setError('User not found or invitation expired.');
             setLoading(false);
             return;
@@ -61,7 +63,7 @@ const SetupAccount = () => {
           
           // Set the user data and email
           setUserData({
-            ...userData,
+            ...fetchedUser,
             token: token
           });
           setEmail(decodedToken.email);
@@ -103,7 +105,7 @@ const SetupAccount = () => {
       setLoading(true);
       
       // Create a new auth user with the provided email and password
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await platformClient.auth.signUp({
         email,
         password,
         options: {
@@ -120,26 +122,17 @@ const SetupAccount = () => {
         throw error;
       }
       
-      // Update the app_user record with the auth_id
-      const { error: updateError } = await supabase
-        .from('app_users')
-        .update({
-          auth_id: data.user.id,
-          registered: true,
-          updatedat: new Date().toISOString()
-        })
-        .eq('id', userData.id);
-        
-      if (updateError) {
-        console.error('Error updating app_user record:', updateError);
-        // Continue anyway as this is not critical
+      const linkResult = await linkAppUser(data.user.id, userData.id);
+
+      if (!linkResult.success) {
+        console.error('Error updating app_user record:', linkResult.error);
       }
       
       setSuccess(true);
       toast.success('Account created successfully!');
       
       // Attempt to sign in right away
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { error: signInError } = await platformClient.auth.signInWithPassword({
         email,
         password
       });

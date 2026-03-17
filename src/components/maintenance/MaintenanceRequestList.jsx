@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { useAuth } from '../../hooks/useAuth';
 import { MAINTENANCE_STATUS, MAINTENANCE_PRIORITY } from '../../utils/constants';
 import { toast } from 'react-hot-toast';
@@ -29,7 +29,7 @@ const MaintenanceRequestList = () => {
       setError(null);
 
       // Determine query based on user role
-      let query = supabase
+      let query = platformClient
         .from('maintenance_requests')
         .select(`
           id,

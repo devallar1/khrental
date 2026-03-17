@@ -1,4 +1,4 @@
-import { supabase } from '../services/supabaseClient.js';
+import { platform as platformClient } from '../services/platformClient.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -20,7 +20,7 @@ const standardizeTimestampColumns = async () => {
     const sqlQuery = fs.readFileSync(sqlFilePath, 'utf8');
     
     // Execute the SQL
-    const { error } = await supabase.rpc('exec_sql', { sql: sqlQuery });
+    const { error } = await platformClient.rpc('exec_sql', { sql: sqlQuery });
     
     if (error) {
       console.error('Error executing SQL via RPC:', error);
@@ -28,7 +28,7 @@ const standardizeTimestampColumns = async () => {
       // Try alternative approach with direct query if RPC fails
       console.log('Trying direct query approach...');
       try {
-        await supabase.query(sqlQuery);
+        await platformClient.query(sqlQuery);
         console.log('Direct query succeeded');
       } catch (directError) {
         console.error('Direct query also failed:', directError);

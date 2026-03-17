@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { sendDocumentForSignature, getSignatureStatus, downloadSignedDocument } from '../../services/eviaSignService';
 import { STATUS } from '../../contexts/AgreementFormContext';
+import { fetchAppUser } from '../../services/appUserService';
+import { updateAgreementData } from '../../services/agreementService';
+import { isMssqlApiEnabled } from '../../services/mssqlApiClient';
 import Button from '../ui/Button';
 import SignatureStatusBadge from '../ui/SignatureStatusBadge';
 import SignatureStatusTracker from '../ui/SignatureStatusTracker';
@@ -71,13 +74,21 @@ const AgreementActions = ({ agreement, onStatusChange }) => {
 
   // Add real-time subscription to agreement updates
   useEffect(() => {
-    if (!agreement?.id) return;
+    if (!agreement?.id) {
+      return;
+    }
+
+    if (isMssqlApiEnabled()) {
+      return undefined;
+    }
     
     const handleAgreementUpdate = (payload) => {
       console.log('Real-time agreement update received:', payload);
       const updatedAgreement = payload.new;
       
-      if (!updatedAgreement) return;
+      if (!updatedAgreement) {
+        return;
+      }
       
       // Update local status
       if (updatedAgreement.signature_status !== signatureStatus) {
@@ -102,7 +113,7 @@ const AgreementActions = ({ agreement, onStatusChange }) => {
     };
     
     // Subscribe to agreement changes
-    const agreementSubscription = supabase
+    const agreementSubscription = platformClient
       .channel(`agreement_${agreement.id}`)
       .on('postgres_changes', { 
         event: 'UPDATE',
@@ -117,7 +128,7 @@ const AgreementActions = ({ agreement, onStatusChange }) => {
     // Cleanup
     return () => {
       if (agreementSubscription) {
-        supabase.removeChannel(agreementSubscription);
+        platformClient.removeChannel(agreementSubscription);
         console.log(`Unsubscribed from real-time updates for agreement ${agreement.id}`);
       }
     };
@@ -178,18 +189,11 @@ const AgreementActions = ({ agreement, onStatusChange }) => {
         }
         
         // Update agreement with signed document and status
-        const { error: updateError } = await supabase
-          .from('agreements')
-          .update({
-            status: STATUS.SIGNED,
-            documenturl: signedDoc.documentUrl,
-            updatedat: new Date().toISOString()
-          })
-          .eq('id', agreement.id);
-
-        if (updateError) {
-          throw updateError;
-        }
+        await updateAgreementData(agreement.id, {
+          status: STATUS.SIGNED,
+          documenturl: signedDoc.documentUrl,
+          updatedat: new Date().toISOString()
+        });
         
         // Notify parent component of status change
         if (onStatusChange) {
@@ -217,26 +221,10 @@ const AgreementActions = ({ agreement, onStatusChange }) => {
       }
 
       // Get rentee details for signature request
-      const { data: renteeData, error: renteeError } = await supabase
-        .from('app_users')
-        .select('name, email, contact_details')
-        .eq('id', agreement.renteeid)
-        .single();
-
-      if (renteeError) {
-        throw renteeError;
-      }
+      const renteeData = await fetchAppUser(agreement.renteeid);
 
       // Get landlord details
-      const { data: landlordData, error: landlordError } = await supabase
-        .from('app_users')
-        .select('name, email, contact_details')
-        .eq('id', agreement.landlordid)
-        .single();
-
-      if (landlordError) {
-        throw landlordError;
-      }
+      const landlordData = await fetchAppUser(agreement.landlordid);
 
       // Use our own webhook endpoint instead of relying on environment variable
       // Only use webhooks in production environment or if specifically configured
@@ -287,18 +275,11 @@ const AgreementActions = ({ agreement, onStatusChange }) => {
       }
 
       // Update agreement with signature request ID
-      const { error: updateError } = await supabase
-        .from('agreements')
-        .update({
-          status: STATUS.PENDING_SIGNATURE,
-          eviasignreference: result.requestId,
-          updatedat: new Date().toISOString()
-        })
-        .eq('id', agreement.id);
-
-      if (updateError) {
-        throw updateError;
-      }
+      await updateAgreementData(agreement.id, {
+        status: STATUS.PENDING_SIGNATURE,
+        eviasignreference: result.requestId,
+        updatedat: new Date().toISOString()
+      });
 
       // Notify parent component of status change
       if (onStatusChange) {
@@ -336,18 +317,11 @@ const AgreementActions = ({ agreement, onStatusChange }) => {
     try {
       setLoading(true);
       
-      const { error: updateError } = await supabase
-        .from('agreements')
-        .update({
-          status: STATUS.REVIEW,
-          eviasignreference: null,
-          updatedat: new Date().toISOString()
-        })
-        .eq('id', agreement.id);
-
-      if (updateError) {
-        throw updateError;
-      }
+      await updateAgreementData(agreement.id, {
+        status: STATUS.REVIEW,
+        eviasignreference: null,
+        updatedat: new Date().toISOString()
+      });
       
       // Clear local status state
       setSignatureStatus(null);
@@ -369,9 +343,14 @@ const AgreementActions = ({ agreement, onStatusChange }) => {
 
   // Map Evia status to our status format
   const mapStatusForTracker = (eviaStatus) => {
-    if (!eviaStatus) return null;
+    if (!eviaStatus) {
+      return null;
+    }
     
-    switch (eviaStatus) {
+    // Convert to string to ensure safe comparison
+    const statusStr = String(eviaStatus);
+    
+    switch (statusStr) {
       case 'pending':
       case 'pending_signature':
         return 'pending_signature';
@@ -381,7 +360,7 @@ const AgreementActions = ({ agreement, onStatusChange }) => {
       case 'completed':
         return 'signed';
       default:
-        return eviaStatus;
+        return statusStr;
     }
   };
 

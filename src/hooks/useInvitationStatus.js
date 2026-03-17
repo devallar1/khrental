@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../services/supabaseClient';
 import { checkUserAuthStatus } from '../services/userManagement';
+import { checkAppUserInvitationStatus } from '../services/appUserService';
 
 /**
  * Hook to check a user's invitation/registration status
@@ -41,18 +41,13 @@ const useInvitationStatus = (userId, skipCheck = false) => {
       if (result.registered) {
         setStatus('registered');
       } else {
-        // Check if the user is invited but not registered
-        const { data: userData } = await supabase
-          .from('app_users')
-          .select('invited')
-          .eq('id', userId)
-          .single();
-          
-        if (userData?.invited) {
-          setStatus('invited');
-        } else {
-          setStatus('not_invited');
+        const invitationResult = await checkAppUserInvitationStatus(userId);
+
+        if (!invitationResult.success) {
+          throw new Error(invitationResult.error || 'Failed to check invitation status');
         }
+
+        setStatus(invitationResult.data?.status || 'not_invited');
       }
       
       console.log(`Set status for ${userId} to:`, status);

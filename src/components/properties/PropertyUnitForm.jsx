@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { insertData, updateData } from '../../services/supabaseClient';
+import { insertData, updateData } from '../../services/platformClient';
 import FormInput from '../ui/FormInput';
 import FormTextarea from '../ui/FormTextarea';
 

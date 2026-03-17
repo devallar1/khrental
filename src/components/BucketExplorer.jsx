@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { useAuth } from '../hooks/useAuth';
 
 const BucketExplorer = () => {
@@ -43,12 +43,12 @@ const BucketExplorer = () => {
       setLoading(true);
       setError(null);
       
-      const { data: session } = await supabase.auth.getSession();
+      const { data: session } = await platformClient.auth.getSession();
       if (!session?.access_token) {
         throw new Error('No auth session found');
       }
 
-      const { data: buckets, error } = await supabase.storage.listBuckets();
+      const { data: buckets, error } = await platformClient.storage.listBuckets();
       
       if (error) {
         throw error;
@@ -77,7 +77,7 @@ const BucketExplorer = () => {
       setError(null);
 
       // Create the bucket
-      const { data: bucket, error: createError } = await supabase.storage.createBucket(newBucketName, {
+      const { data: bucket, error: createError } = await platformClient.storage.createBucket(newBucketName, {
         public: isPublic,
         fileSizeLimit: fileSizeLimit * 1024 * 1024, // Convert MB to bytes
       });
@@ -114,12 +114,12 @@ const BucketExplorer = () => {
       setLoading(true);
       setError(null);
       
-      const { data: session } = await supabase.auth.getSession();
+      const { data: session } = await platformClient.auth.getSession();
       if (!session?.access_token) {
         throw new Error('No auth session found');
       }
 
-      const { data: files, error } = await supabase.storage
+      const { data: files, error } = await platformClient.storage
         .from(bucketName)
         .list();
       
@@ -141,7 +141,7 @@ const BucketExplorer = () => {
   };
 
   const getFileUrl = (bucketName, fileName) => {
-    const { data } = supabase.storage
+    const { data } = platformClient.storage
       .from(bucketName)
       .getPublicUrl(fileName);
     return data?.publicUrl;
@@ -166,7 +166,7 @@ const BucketExplorer = () => {
         status: 'running'
       });
       
-      const { data: bucketData, error: bucketError } = await supabase.storage
+      const { data: bucketData, error: bucketError } = await platformClient.storage
         .from(selectedBucket)
         .list();
       
@@ -201,7 +201,7 @@ const BucketExplorer = () => {
       }
 
       const fileName = `test-${Date.now()}-${testFile.name}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await platformClient.storage
         .from(selectedBucket)
         .upload(fileName, testFile);
 
@@ -226,7 +226,7 @@ const BucketExplorer = () => {
         status: 'running'
       });
 
-      const { data: urlData } = supabase.storage
+      const { data: urlData } = platformClient.storage
         .from(selectedBucket)
         .getPublicUrl(fileName);
 
@@ -251,7 +251,7 @@ const BucketExplorer = () => {
         status: 'running'
       });
 
-      const { error: deleteError } = await supabase.storage
+      const { error: deleteError } = await platformClient.storage
         .from(selectedBucket)
         .remove([fileName]);
 
@@ -276,7 +276,7 @@ const BucketExplorer = () => {
         status: 'running'
       });
 
-      const { data: policies, error: policiesError } = await supabase
+      const { data: policies, error: policiesError } = await platformClient
         .from('storage.policies')
         .select('*')
         .eq('bucket_id', selectedBucket);
@@ -489,7 +489,7 @@ const BucketExplorer = () => {
                               onClick={async () => {
                                 if (window.confirm('Are you sure you want to delete this file?')) {
                                   try {
-                                    const { error } = await supabase.storage
+                                    const { error } = await platformClient.storage
                                       .from(selectedBucket)
                                       .remove([file.name]);
                                     

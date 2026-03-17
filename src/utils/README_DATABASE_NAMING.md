@@ -65,7 +65,7 @@ const userData = fromDatabaseFormat(dbData);
 Here's an example of a service function that follows these best practices:
 
 ```javascript
-import { supabase } from './supabaseClient';
+import { platform as databaseClient } from '../services/platformClient';
 import { toDatabaseFormat, fromDatabaseFormat } from '../utils/databaseUtils';
 
 export const createItem = async (itemData) => {
@@ -76,7 +76,7 @@ export const createItem = async (itemData) => {
     // Add timestamps
     dbData.createdat = new Date().toISOString();
     
-    const { data, error } = await supabase
+    const { data, error } = await databaseClient
       .from('items')
       .insert(dbData)
       .select()

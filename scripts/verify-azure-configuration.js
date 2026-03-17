@@ -6,7 +6,7 @@
  */
 
 import dotenv from 'dotenv';
-import { createClient } from '@supabase/supabase-js';
+import { platformClient } from '../src/services/platformClient.js';
 import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
@@ -40,20 +40,21 @@ const colors = {
 // Required environment variables
 const requiredVars = {
   main: [
-    'VITE_SUPABASE_URL',
-    'VITE_SUPABASE_ANON_KEY',
+    'VITE_API_ENDPOINT',
+    'VITE_USE_MSSQL_API',
     'VITE_EVIA_WEBHOOK_URL'
   ],
-  webhook: [
-    'SUPABASE_URL',
-    'SUPABASE_SERVICE_KEY',
-    'EVIA_SIGN_WEBHOOK_URL'
+  database: [
+    'MSSQL_SERVER',
+    'MSSQL_DATABASE',
+    'MSSQL_USER',
+    'MSSQL_PASSWORD'
   ]
 };
 
 // Test variables that should have the same values
 const matchingVars = [
-  ['VITE_SUPABASE_URL', 'SUPABASE_URL'],
+  ['VITE_API_ENDPOINT', 'APP_URL'],
   ['VITE_EVIA_WEBHOOK_URL', 'EVIA_SIGN_WEBHOOK_URL']
 ];
 
@@ -65,7 +66,7 @@ console.log(`${colors.cyan}========================================${colors.rese
 console.log(`${colors.magenta}Checking required environment variables...${colors.reset}`);
 
 let mainMissingVars = [];
-let webhookMissingVars = [];
+let databaseMissingVars = [];
 
 // Check main app vars
 console.log(`\n${colors.blue}Main Application Variables:${colors.reset}`);
@@ -78,14 +79,14 @@ requiredVars.main.forEach(varName => {
   }
 });
 
-// Check webhook server vars
-console.log(`\n${colors.blue}Webhook Server Variables:${colors.reset}`);
-requiredVars.webhook.forEach(varName => {
+// Check database vars
+console.log(`\n${colors.blue}Database Variables:${colors.reset}`);
+requiredVars.database.forEach(varName => {
   if (process.env[varName]) {
     console.log(`  ${colors.green}✅ ${varName} is set${colors.reset}`);
   } else {
     console.log(`  ${colors.red}❌ ${varName} is missing${colors.reset}`);
-    webhookMissingVars.push(varName);
+    databaseMissingVars.push(varName);
   }
 });
 
@@ -105,30 +106,21 @@ matchingVars.forEach(([var1, var2]) => {
   }
 });
 
-// Check Supabase connection
-console.log(`\n${colors.blue}Testing Supabase connection:${colors.reset}`);
-let supabaseTestResult = { success: false, message: 'Test not run' };
+// Check data connection
+console.log(`\n${colors.blue}Testing platform data connection:${colors.reset}`);
+let databaseTestResult = { success: false, message: 'Test not run' };
 
-async function testSupabaseConnection() {
+async function testDatabaseConnection() {
   try {
-    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
-      return { success: false, message: 'Supabase URL or service key missing' };
-    }
-    
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY
-    );
-    
     // Test database connection
-    const { data, error } = await supabase.from('webhook_events').select('id').limit(1);
+    const { data, error } = await platformClient.from('webhook_events').select('id').limit(1);
     
     if (error) {
       throw error;
     }
     
     // Also check if agreements table exists
-    const { data: agreementsData, error: agreementsError } = await supabase
+    const { data: agreementsData, error: agreementsError } = await platformClient
       .from('agreements')
       .select('id')
       .limit(1);
@@ -136,13 +128,13 @@ async function testSupabaseConnection() {
     if (agreementsError) {
       return { 
         success: false, 
-        message: `Connected to Supabase but couldn't access agreements table: ${agreementsError.message}` 
+        message: `Connected to the platform API but couldn't access agreements table: ${agreementsError.message}` 
       };
     }
     
-    return { success: true, message: 'Successfully connected to Supabase' };
+    return { success: true, message: 'Successfully connected to the platform API' };
   } catch (error) {
-    return { success: false, message: `Error connecting to Supabase: ${error.message}` };
+    return { success: false, message: `Error connecting to the platform API: ${error.message}` };
   }
 }
 
@@ -202,15 +194,15 @@ if (fs.existsSync(webhookWorkflowPath)) {
 
 // Run async tests
 async function runTests() {
-  supabaseTestResult = await testSupabaseConnection();
+  databaseTestResult = await testDatabaseConnection();
   webhookTestResult = await testWebhookEndpoint();
   
   // Log results of tests
-  console.log(`\n${colors.blue}Supabase connection test:${colors.reset}`);
-  if (supabaseTestResult.success) {
-    console.log(`  ${colors.green}✅ ${supabaseTestResult.message}${colors.reset}`);
+  console.log(`\n${colors.blue}Platform data connection test:${colors.reset}`);
+  if (databaseTestResult.success) {
+    console.log(`  ${colors.green}✅ ${databaseTestResult.message}${colors.reset}`);
   } else {
-    console.log(`  ${colors.red}❌ ${supabaseTestResult.message}${colors.reset}`);
+    console.log(`  ${colors.red}❌ ${databaseTestResult.message}${colors.reset}`);
   }
   
   console.log(`\n${colors.blue}Webhook URL test:${colors.reset}`);
@@ -227,17 +219,17 @@ async function runTests() {
   console.log(`${colors.cyan}========================================${colors.reset}\n`);
   
   const mainConfigReady = mainMissingVars.length === 0;
-  const webhookConfigReady = webhookMissingVars.length === 0;
+  const databaseConfigReady = databaseMissingVars.length === 0;
   const workflowsReady = fs.existsSync(mainWorkflowPath) && fs.existsSync(webhookWorkflowPath);
-  const supabaseReady = supabaseTestResult.success;
+  const databaseReady = databaseTestResult.success;
   
   console.log(`Main App Configuration: ${mainConfigReady ? colors.green + '✅ Ready' : colors.red + '❌ Not Ready'}${colors.reset}`);
-  console.log(`Webhook Configuration: ${webhookConfigReady ? colors.green + '✅ Ready' : colors.red + '❌ Not Ready'}${colors.reset}`);
+  console.log(`Database Configuration: ${databaseConfigReady ? colors.green + '✅ Ready' : colors.red + '❌ Not Ready'}${colors.reset}`);
   console.log(`GitHub Workflows: ${workflowsReady ? colors.green + '✅ Ready' : colors.red + '❌ Not Ready'}${colors.reset}`);
-  console.log(`Supabase Connection: ${supabaseReady ? colors.green + '✅ Ready' : colors.red + '❌ Not Ready'}${colors.reset}`);
+  console.log(`Platform Data Connection: ${databaseReady ? colors.green + '✅ Ready' : colors.red + '❌ Not Ready'}${colors.reset}`);
   
   console.log(`\n${colors.magenta}Overall Deployment Readiness:${colors.reset}`);
-  if (mainConfigReady && webhookConfigReady && workflowsReady && supabaseReady) {
+  if (mainConfigReady && databaseConfigReady && workflowsReady && databaseReady) {
     console.log(`${colors.green}✅ Your configuration is ready for deployment to Azure!${colors.reset}`);
   } else {
     console.log(`${colors.red}❌ Some issues need to be fixed before deployment.${colors.reset}`);

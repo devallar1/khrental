@@ -25,14 +25,14 @@ const PaymentProofUpload = ({ invoiceId, onSuccess, onError }) => {
       setLoading(true);
       setError(null);
       
-      const { success, url, error } = await uploadPaymentProof(invoiceId, paymentProof);
+      const { success, data, error } = await uploadPaymentProof(invoiceId, paymentProof);
       
       if (!success) {
         throw new Error(error || 'Failed to upload payment proof');
       }
       
       if (onSuccess) {
-        onSuccess(url);
+        onSuccess(data);
       }
       
       setPaymentProof(null);

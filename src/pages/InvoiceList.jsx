@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchData } from '../services/supabaseClient';
 import InvoiceCard from '../components/invoices/InvoiceCard';
 import { INVOICE_STATUS } from '../utils/constants';
-import { supabase } from '../services/supabaseClient';
+import { fetchAppUsers } from '../services/appUserService';
+import { listProperties } from '../services/agreementService';
+import { listInvoices } from '../services/invoiceService';
 
 const InvoiceList = () => {
   const [invoices, setInvoices] = useState([]);
@@ -22,7 +23,7 @@ const InvoiceList = () => {
         setLoading(true);
         
         // Fetch invoices
-        const { data: invoicesData, error: invoicesError } = await fetchData('invoices');
+        const { data: invoicesData, error: invoicesError } = await listInvoices({ pageSize: 1000 });
         
         if (invoicesError) {
           throw invoicesError;
@@ -31,24 +32,11 @@ const InvoiceList = () => {
         setInvoices(invoicesData || []);
         
         // Fetch properties for reference
-        const { data: propertiesData, error: propertiesError } = await fetchData('properties');
-        
-        if (propertiesError) {
-          throw propertiesError;
-        }
-        
+        const propertiesData = await listProperties();
         setProperties(propertiesData || []);
         
         // Fetch rentees from app_users table
-        const { data: appUsersData, error: appUsersError } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('user_type', 'rentee');
-        
-        if (appUsersError) {
-          throw appUsersError;
-        }
-        
+        const appUsersData = await fetchAppUsers('rentee');
         setRentees(appUsersData || []);
       } catch (error) {
         console.error('Error fetching invoices:', error.message);
@@ -111,9 +99,9 @@ const InvoiceList = () => {
     } else if (sortBy === 'date_asc') {
       return new Date(a.createdat) - new Date(b.createdat);
     } else if (sortBy === 'amount_desc') {
-      return b.totalAmount - a.totalAmount;
+      return (b.totalamount || b.totalAmount || 0) - (a.totalamount || a.totalAmount || 0);
     } else if (sortBy === 'amount_asc') {
-      return a.totalAmount - b.totalAmount;
+      return (a.totalamount || a.totalAmount || 0) - (b.totalamount || b.totalAmount || 0);
     }
     return 0;
   });

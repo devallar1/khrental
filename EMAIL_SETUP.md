@@ -1,29 +1,22 @@
 # KH Rentals - Email Setup Guide
 
-This guide explains how to set up email sending for KH Rentals using Supabase Authentication.
+This guide explains how to set up email sending for KH Rentals using the server-side email flow.
 
 ## Approach
 
-Our application uses Supabase Auth for user management, which handles the email sending process securely. This approach:
+Our application uses the backend email endpoint and server-side auth flow for secure email delivery. This approach:
 
 1. Keeps API keys and credentials secure on the server side
-2. Uses standard Supabase auth flows that are well-tested
+2. Uses the application's current platform auth flow
 3. Provides consistent user experiences for registration, login, and password resets
 
-## Setting Up Email in Supabase
+## Setting Up Email
 
 To enable email sending for invitations, password resets, and other auth-related emails:
 
-1. Log in to your Supabase dashboard at https://app.supabase.com
-2. Select your KH Rentals project
-3. Navigate to **Authentication** → **Email Templates**
-4. Customize the email templates for:
-   - Confirmation emails
-   - Invitation emails
-   - Magic link emails
-   - Password reset emails
-5. Navigate to **Authentication** → **Email Settings**
-6. Set up SMTP credentials:
+1. Set the required server environment variables
+2. Configure your sender identity in SendGrid
+3. Set up SMTP or API-based delivery details if required by your host:
    - **SMTP Host**: (from your email provider, e.g., `smtp.sendgrid.net` for SendGrid)
    - **SMTP Port**: Usually 587 for TLS
    - **SMTP Username**: (from your email provider)
@@ -31,19 +24,13 @@ To enable email sending for invitations, password resets, and other auth-related
    - **Sender Email**: The email address emails will be sent from (e.g., `no-reply@khrentals.com`)
    - **Sender Name**: The name that will appear (e.g., `KH Rentals`)
 
-## SendGrid SMTP Setup
+## SendGrid Setup
 
 If using SendGrid as your email provider:
 
 1. Create an account on [SendGrid](https://sendgrid.com/)
 2. Create an API key with "Mail Send" permissions
-3. Use the following settings in Supabase:
-   - **SMTP Host**: `smtp.sendgrid.net`
-   - **SMTP Port**: `587`
-   - **SMTP Username**: `apikey`
-   - **SMTP Password**: Your SendGrid API key
-   - **Sender Email**: A verified email in your SendGrid account
-   - **Sender Name**: KH Rentals
+3. Use the verified sender identity and API key in your server configuration
 
 ## Testing
 
@@ -58,10 +45,10 @@ After setup:
 
 If emails aren't being sent:
 
-1. Check that SMTP credentials are correct in Supabase
+1. Check that server email credentials are correct
 2. Verify that the sender email is authorized by your email provider
-3. Look for error messages in the Supabase logs (Authentication → Logs)
-4. Test using the "Send Test Email" feature in Supabase Email settings
+3. Look for error messages in application or hosting logs
+4. Test by calling the invitation or password-reset flow from the app
 
 ## Contact
 

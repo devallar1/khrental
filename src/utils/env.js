@@ -4,18 +4,45 @@
  */
 
 const getEnvVar = (key) => {
+  const browserWindow = typeof window !== 'undefined' ? window : undefined;
+  const processEnv = globalThis.process?.env;
+
   // Try window._env_ first (for Azure)
-  if (window._env_ && window._env_[key]) {
-    return window._env_[key];
+  if (browserWindow?._env_ && browserWindow._env_[key]) {
+    return browserWindow._env_[key];
   }
   // Then try import.meta.env (for local .env)
-  return import.meta.env[key] || '';
+  if (typeof import.meta !== 'undefined' && import.meta.env?.[key]) {
+    return import.meta.env[key] || '';
+  }
+
+  return processEnv?.[key] || '';
 };
+
+export const getApiBaseUrl = () => {
+  const configuredApiUrl = getEnvVar('VITE_API_ENDPOINT');
+
+  if (configuredApiUrl) {
+    return configuredApiUrl.endsWith('/')
+      ? configuredApiUrl.slice(0, -1)
+      : configuredApiUrl;
+  }
+
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+
+  return '';
+};
+
+export const isMssqlApiEnabled = () => getEnvVar('VITE_USE_MSSQL_API') === 'true';
 
 // Get the application base URL consistently
 export const getAppBaseUrl = () => {
+  const browserWindow = typeof window !== 'undefined' ? window : undefined;
+
   // Check for a configured base URL from environment variables first
-  const configuredBaseUrl = window._env_?.VITE_APP_BASE_URL || 
+  const configuredBaseUrl = browserWindow?._env_?.VITE_APP_BASE_URL || 
                            import.meta.env?.VITE_APP_BASE_URL;
   
   if (configuredBaseUrl) {
@@ -41,9 +68,8 @@ export const getAppBaseUrl = () => {
 
 // Export environment variables directly
 export const ENV = {
-  SUPABASE_URL: getEnvVar('VITE_SUPABASE_URL'),
-  SUPABASE_ANON_KEY: getEnvVar('VITE_SUPABASE_ANON_KEY'),
   EVIA_SIGN_CLIENT_ID: getEnvVar('VITE_EVIA_SIGN_CLIENT_ID'),
-  EVIA_SIGN_CLIENT_SECRET: getEnvVar('VITE_EVIA_SIGN_CLIENT_SECRET'),
   API_ENDPOINT: getEnvVar('VITE_API_ENDPOINT'),
+  APP_BASE_URL: getEnvVar('VITE_APP_BASE_URL'),
+  USE_MSSQL_API: getEnvVar('VITE_USE_MSSQL_API'),
 }; 

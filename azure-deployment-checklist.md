@@ -13,9 +13,7 @@ Use this checklist to ensure you've configured everything correctly for your Azu
 
 ## GitHub Secrets Configuration
 
-- [ ] `VITE_SUPABASE_URL` added
-- [ ] `VITE_SUPABASE_ANON_KEY` added
-- [ ] `SUPABASE_SERVICE_KEY` added
+- [ ] `VITE_API_ENDPOINT` added
 - [ ] `VITE_EVIA_WEBHOOK_URL` added
 - [ ] `AZURE_STATIC_WEB_APPS_API_TOKEN` added
 - [ ] `WEBHOOK_PUBLISH_PROFILE` added
@@ -47,8 +45,7 @@ Use this checklist to ensure you've configured everything correctly for your Azu
   - [ ] Choose branch (main)
 - [ ] Configure application settings:
   - [ ] `PORT`: 8080
-  - [ ] `SUPABASE_URL`: Your Supabase URL
-  - [ ] `SUPABASE_SERVICE_KEY`: Your Supabase service key
+  - [ ] SQL Server connection settings for the active environment
   - [ ] `EVIA_SIGN_WEBHOOK_URL`: Your webhook endpoint
 - [ ] Configure startup command:
   - [ ] `cd webhook-server && node server.js`
@@ -75,7 +72,7 @@ Use this checklist to ensure you've configured everything correctly for your Azu
 - [ ] Visit `https://your-app-name.azurewebsites.net/status`
 - [ ] Create a test agreement and sign it
 - [ ] Verify webhook events are processed correctly
-- [ ] Check Supabase for updated agreement records
+- [ ] Check the application database for updated agreement records
 
 ## Troubleshooting
 
@@ -85,13 +82,13 @@ If you encounter issues:
 2. Check GitHub Actions workflow runs
 3. Verify environment variables in Azure App Service
 4. Test webhook server locally before deployment
-5. Check Supabase logs for database errors
+5. Check SQL Server and application logs for database errors
 
 ## Post-Deployment Tasks
 
 - [ ] Configure custom domain (if needed)
 - [ ] Set up Azure Monitor alerts
 - [ ] Configure SSL certificates
-- [ ] Set up backup schedule for Supabase database
+- [ ] Set up backup schedule for the application database
 - [ ] Document APIs and endpoints
 - [ ] Configure rate limiting and security features 

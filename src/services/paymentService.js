@@ -1,7 +1,6 @@
-import { supabase } from './supabaseClient';
-import { sendEmailNotification } from './notificationService';
+import { platform as platformClient } from './platformClient';
 import { INVOICE_STATUS } from '../utils/constants';
-import { updateData, fetchData } from './supabaseClient';
+import { createInvoiceRecord, listInvoices, updateInvoiceRecord } from './invoiceService';
 
 /**
  * Generate a new invoice
@@ -52,16 +51,7 @@ export const generateInvoice = async (invoiceData) => {
     console.log('Submitting invoice data:', invoice);
     
     // Insert into database
-    const { data, error } = await supabase
-      .from('invoices')
-      .insert(invoice)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error('Supabase error:', error);
-      throw error;
-    }
+    const data = await createInvoiceRecord(invoice);
     
     // Send email notification if rentee email is provided
     if (renteeEmail) {
@@ -89,11 +79,7 @@ export const updateInvoice = async (id, invoiceData) => {
       updatedat: new Date().toISOString()
     };
     
-    const { data, error } = await updateData('invoices', id, updateFields);
-    
-    if (error) {
-      throw error;
-    }
+    const data = await updateInvoiceRecord(id, updateFields);
     
     return { success: true, data };
   } catch (error) {
@@ -115,7 +101,7 @@ export const uploadPaymentProof = async (invoiceId, file) => {
     const fileName = `${invoiceId}_${Date.now()}.${fileExt}`;
     const filePath = `payment_proofs/${fileName}`;
     
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await platformClient.storage
       .from('invoices')
       .upload(filePath, file);
     
@@ -124,7 +110,7 @@ export const uploadPaymentProof = async (invoiceId, file) => {
     }
     
     // Get public URL
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = platformClient.storage
       .from('invoices')
       .getPublicUrl(filePath);
     
@@ -138,13 +124,9 @@ export const uploadPaymentProof = async (invoiceId, file) => {
       updatedat: new Date().toISOString()
     };
     
-    const { data, error } = await updateData('invoices', invoiceId, updateFields);
+    const data = await updateInvoiceRecord(invoiceId, updateFields);
     
-    if (error) {
-      throw error;
-    }
-    
-    return { success: true, data };
+    return { success: true, data, url: paymentProofUrl };
   } catch (error) {
     console.error('Error uploading payment proof:', error.message);
     return { success: false, error: error.message };
@@ -174,11 +156,7 @@ export const verifyPaymentProof = async (invoiceId, isApproved, notes = '') => {
       updateFields.paymentdate = new Date().toISOString();
     }
     
-    const { data, error } = await updateData('invoices', invoiceId, updateFields);
-    
-    if (error) {
-      throw error;
-    }
+    const data = await updateInvoiceRecord(invoiceId, updateFields);
     
     return { success: true, data };
   } catch (error) {
@@ -207,11 +185,7 @@ export const markInvoiceAsPaid = async (invoiceId, paymentDetails = {}) => {
       updateFields.notes = paymentDetails.notes;
     }
     
-    const { data, error } = await updateData('invoices', invoiceId, updateFields);
-    
-    if (error) {
-      throw error;
-    }
+    const data = await updateInvoiceRecord(invoiceId, updateFields);
     
     return { success: true, data };
   } catch (error) {
@@ -228,15 +202,16 @@ export const markInvoiceAsPaid = async (invoiceId, paymentDetails = {}) => {
 export const sendPaymentReminder = async (invoiceId) => {
   try {
     // Get invoice details
-    const { data: invoice, error: fetchError } = await fetchData({
-      table: 'invoices',
-      id: invoiceId
+    const { data: invoices, error: fetchError } = await listInvoices({
+      pageSize: 1000
     });
-    
+
     if (fetchError) {
       throw fetchError;
     }
-    
+
+    const invoice = invoices?.find((record) => record.id === invoiceId);
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
@@ -245,12 +220,13 @@ export const sendPaymentReminder = async (invoiceId) => {
     console.log(`Payment reminder sent for invoice ${invoiceId}`);
     
     // Update the invoice to record that a reminder was sent
-    const updateFields = {
-      remindersentat: new Date().toISOString(),
-      updatedat: new Date().toISOString()
-    };
-    
-    await updateData('invoices', invoiceId, updateFields);
+    const reminderTimestamp = new Date().toISOString();
+    const existingNotes = invoice.notes ? `${invoice.notes}\n` : '';
+
+    await updateInvoiceRecord(invoiceId, {
+      notes: `${existingNotes}Reminder sent at ${reminderTimestamp}`,
+      updatedat: reminderTimestamp
+    });
     
     return { success: true };
   } catch (error) {
@@ -268,19 +244,21 @@ export const checkOverdueInvoices = async () => {
     const today = new Date().toISOString();
     
     // Get all unpaid invoices that are past due
-    const { data, error } = await fetchData({
-      table: 'invoices',
-      filters: [
-        { column: 'status', operator: 'neq', value: INVOICE_STATUS.PAID },
-        { column: 'duedate', operator: 'lt', value: today }
-      ]
-    });
-    
+    const { data, error } = await listInvoices({ pageSize: 1000 });
+
     if (error) {
       throw error;
     }
+
+    const overdueInvoices = (data || []).filter((invoice) => {
+      if (invoice.status === INVOICE_STATUS.PAID) {
+        return false;
+      }
+
+      return invoice.duedate && invoice.duedate < today;
+    });
     
-    return { success: true, data };
+    return { success: true, data: overdueInvoices };
   } catch (error) {
     console.error('Error checking overdue invoices:', error.message);
     return { success: false, error: error.message };
@@ -310,7 +288,7 @@ export const generateMonthlyInvoices = async (options = {}) => {
     }
     
     // 1. Get all properties with active rentees
-    const { data: properties, error: propertiesError } = await supabase
+    const { data: properties, error: propertiesError } = await platformClient
       .from('properties')
       .select('id, name')
       .eq('status', 'active');

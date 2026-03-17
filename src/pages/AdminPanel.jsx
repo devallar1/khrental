@@ -1,10 +1,10 @@
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 
 const AdminPanel = () => {
   async function testStorageUpload() {
     try {
       // First, check if we're authenticated
-      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      const { data: { session }, error: authError } = await platformClient.auth.getSession();
       
       if (authError || !session) {
         console.error('Authentication error:', authError || 'No session found');
@@ -17,7 +17,7 @@ const AdminPanel = () => {
       const fileName = `agreements/test-file-${new Date().toISOString()}.txt`;
 
       // Upload the file
-      const { data, error } = await supabase.storage
+      const { data, error } = await platformClient.storage
         .from('files')
         .upload(fileName, blob, {
           cacheControl: '3600',
@@ -34,7 +34,7 @@ const AdminPanel = () => {
       alert('Test file uploaded successfully!');
 
       // Test reading the file back
-      const { data: files, error: listError } = await supabase.storage
+      const { data: files, error: listError } = await platformClient.storage
         .from('files')
         .list('agreements');
 

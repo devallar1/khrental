@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 
 // Create context
 export const WebhookContext = createContext();
@@ -20,7 +20,7 @@ export const WebhookProvider = ({ children }) => {
     loadWebhookEvents();
     
     // Set up real-time subscription for new webhook events
-    const subscription = supabase
+    const subscription = platformClient
       .channel('webhook_events_channel')
       .on('postgres_changes', { 
         event: 'INSERT', 
@@ -36,13 +36,13 @@ export const WebhookProvider = ({ children }) => {
     };
   }, []);
 
-  // Load webhook events from Supabase
+  // Load webhook events from the platform backend
   const loadWebhookEvents = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const { data, error } = await supabase
+      const { data, error } = await platformClient
         .from(WEBHOOK_TABLE)
         .select('*')
         .order('createdat', { ascending: false })
@@ -64,7 +64,7 @@ export const WebhookProvider = ({ children }) => {
   // Store a new webhook event
   const storeWebhookEvent = async (event) => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await platformClient
         .from(WEBHOOK_TABLE)
         .insert([{
           event_type: event.EventDescription || 'unknown',
@@ -95,7 +95,7 @@ export const WebhookProvider = ({ children }) => {
       setIsLoading(true);
       
       // Delete all webhook events
-      const { error } = await supabase
+      const { error } = await platformClient
         .from(WEBHOOK_TABLE)
         .delete()
         .neq('id', 'placeholder'); // Delete all rows

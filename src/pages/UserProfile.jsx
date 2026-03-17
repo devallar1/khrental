@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import UserLanguageSelector from '../components/forms/UserLanguageSelector';
@@ -30,7 +30,7 @@ const UserProfile = () => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await platformClient
         .from('user_profiles')
         .select('*')
         .eq('user_id', user.id)
@@ -103,7 +103,7 @@ const UserProfile = () => {
       }
       
       // Update profile in database
-      const { error } = await supabase
+      const { error } = await platformClient
         .from('user_profiles')
         .upsert({
           user_id: user.id,

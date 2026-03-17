@@ -4,13 +4,13 @@
  * Use invitationService.js directly for all user invitation and management.
  * =========================================================================
  */
-
-import { supabase } from './supabaseClient';
 import { 
   inviteUser, 
   resendInvitation as resendInvite,
   checkInvitationStatus as checkStatus
 } from './invitationService';
+import { createAppUser } from './createAppUser';
+import { findAppUserByEmail } from './appUserService';
 
 // Re-export the functions from invitationService.js
 export const sendInvitation = inviteUser;
@@ -22,11 +22,8 @@ export const inviteTeamMember = async (email, name, role) => {
   
   try {
     // First check if user already exists
-    const { data: existingUser } = await supabase
-      .from('app_users')
-      .select('id, email')
-      .eq('email', email.toLowerCase())
-      .maybeSingle();
+    const existingUserResult = await findAppUserByEmail(email.toLowerCase());
+    const existingUser = existingUserResult.success ? existingUserResult.data : null;
       
     if (existingUser) {
       return {
@@ -36,30 +33,26 @@ export const inviteTeamMember = async (email, name, role) => {
     }
     
     // Create app_user record first
-    const { data: newUser, error: createError } = await supabase
-      .from('app_users')
-      .insert({
+    const createResult = await createAppUser({
         email: email.toLowerCase(),
         name: name,
         role: role,
-        user_type: 'staff',
         invited: false,
         createdat: new Date().toISOString(),
         updatedat: new Date().toISOString()
-      })
-      .select();
+      }, 'staff');
       
-    if (createError) {
-      console.error(`[Invitation] Failed to create app_user:`, createError);
+    if (!createResult.success) {
+      console.error(`[Invitation] Failed to create app_user:`, createResult.error);
       return {
         success: false,
-        error: createError.message
+        error: createResult.error
       };
     }
     
     // Send the invitation and return the result directly
     return await inviteUser(
-      newUser[0]
+      createResult.data
     );
   } catch (error) {
     console.error(`[Invitation] Unexpected error:`, error);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchData, supabase } from '../services/supabaseClient';
+import { fetchData, platform as platformClient } from '../services/platformClient';
+import { fetchAppUsers } from '../services/appUserService';
 import { formatCurrency, formatDate } from '../utils/helpers';
 import { INVOICE_STATUS } from '../utils/constants';
 
@@ -28,9 +29,7 @@ const Dashboard = () => {
         setLoading(true);
         
         // DEBUG: Check user counts by type directly
-        const { data: usersByType, error: usersError } = await supabase
-          .from('app_users')
-          .select('user_type');
+        const usersByType = await fetchAppUsers();
         
         let directRenteeCount = 0;
         
@@ -50,7 +49,7 @@ const Dashboard = () => {
         }
         
         // DEBUG: Check invoice counts by status directly
-        const { data: invoicesByStatus, error: invoiceStatusError } = await supabase
+        const { data: invoicesByStatus, error: invoiceStatusError } = await platformClient
           .from('invoices')
           .select('status');
           
@@ -98,16 +97,7 @@ const Dashboard = () => {
         // Fetch rentees count - use direct count from earlier as fallback
         let renteesCount = directRenteeCount;
         try {
-          const { count, error } = await fetchData({
-            table: 'app_users',
-            count: true,
-            filters: [{ column: 'user_type', operator: 'eq', value: 'rentee' }]
-          });
-          if (!error) {
-            renteesCount = count || directRenteeCount;
-          } else {
-            console.error('Error fetching rentees count:', error);
-          }
+          renteesCount = usersByType.filter((user) => user.user_type === 'rentee').length || directRenteeCount;
         } catch (err) {
           console.error('Exception fetching rentees count:', err);
         }
@@ -148,16 +138,7 @@ const Dashboard = () => {
         // Fetch team members count
         let teamCount = 0;
         try {
-          const { count, error } = await supabase
-            .from('app_users')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_type', 'staff');
-            
-          if (!error) {
-            teamCount = count || 0;
-          } else {
-            console.error('Error fetching team count:', error);
-          }
+          teamCount = usersByType.filter((user) => user.user_type === 'staff').length || 0;
         } catch (err) {
           console.error('Exception fetching team count:', err);
         }

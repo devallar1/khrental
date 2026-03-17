@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { fetchAppUsers, mapAppUserToRentee } from '../services/appUserService';
 import RenteeCard from '../components/rentees/RenteeCard';
 import { toast } from 'react-toastify';
 
@@ -19,31 +19,12 @@ const RenteeList = () => {
       setError(null);
       
       // Fetch rentees from app_users table
-      const { data, error } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('user_type', 'rentee');
-      
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
+      const data = await fetchAppUsers('rentee');
       
       console.log('Fetched data from app_users:', data);
       
       // Transform the data to the expected format
-      const transformedData = (data || []).map(rentee => ({
-        id: rentee.id,
-        name: rentee.name,
-        contactDetails: rentee.contact_details || {},
-        idCopyURL: rentee.id_copy_url,
-        registrationDate: rentee.created_at,
-        associatedPropertyIds: rentee.associated_property_ids || [],
-        invited: rentee.invited,
-        authId: rentee.auth_id,
-        createdAt: rentee.created_at || new Date().toISOString(),
-        updatedAt: rentee.updated_at || rentee.created_at || new Date().toISOString()
-      }));
+      const transformedData = (data || []).map(mapAppUserToRentee);
       
       console.log('Transformed data from app_users:', transformedData);
       setRentees(transformedData);

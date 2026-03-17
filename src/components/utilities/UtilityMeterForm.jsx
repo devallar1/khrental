@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { FiDroplet, FiZap, FiCalendar, FiUpload, FiSave } from 'react-icons/fi';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { UTILITY_TYPES } from '../../utils/constants';
 import ImageUploader from '../common/ImageUploader';
 
@@ -103,8 +103,8 @@ const UtilityMeterForm = ({
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
       const filePath = `utility_readings/${fileName}`;
       
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
+      // Upload to storage
+      const { data, error } = await platformClient.storage
         .from('media')
         .upload(filePath, file, {
           cacheControl: '3600',
@@ -119,7 +119,7 @@ const UtilityMeterForm = ({
       }
       
       // Get public URL for the file
-      const { data: urlData } = supabase.storage
+      const { data: urlData } = platformClient.storage
         .from('media')
         .getPublicUrl(filePath);
       
@@ -186,8 +186,8 @@ const UtilityMeterForm = ({
         status: 'pending'
       };
       
-      // Submit to Supabase
-      const { data, error } = await supabase
+      // Submit reading data
+      const { data, error } = await platformClient
         .from('utility_readings')
         .insert(readingData)
         .select()
@@ -251,7 +251,7 @@ const UtilityMeterForm = ({
       
       <form onSubmit={handleSubmit}>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <FormControl 
               fullWidth 
               error={!!errors.utilityType}
@@ -281,7 +281,7 @@ const UtilityMeterForm = ({
             </FormControl>
           </Grid>
           
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
               label="Reading Date"
@@ -305,7 +305,7 @@ const UtilityMeterForm = ({
             />
           </Grid>
           
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
               label="Current Reading"
@@ -335,7 +335,7 @@ const UtilityMeterForm = ({
             )}
           </Grid>
           
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle1" gutterBottom>
               Upload Meter Reading Photo
             </Typography>
@@ -353,7 +353,7 @@ const UtilityMeterForm = ({
             )}
           </Grid>
           
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
               <Button
                 variant="outlined"

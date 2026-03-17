@@ -1,0 +1,51 @@
+import { getMssqlPool, sql } from './pool.js';
+
+const bindParams = (request, params = {}) => {
+  Object.entries(params).forEach(([key, value]) => {
+    request.input(key, value);
+  });
+
+  return request;
+};
+
+export const runQuery = async (queryText, params = {}) => {
+  const pool = await getMssqlPool();
+  const request = bindParams(pool.request(), params);
+  const result = await request.query(queryText);
+
+  return result.recordset || [];
+};
+
+export const runSingleQuery = async (queryText, params = {}) => {
+  const rows = await runQuery(queryText, params);
+  return rows[0] || null;
+};
+
+export const paginateQuery = async ({
+  baseQuery,
+  orderBy,
+  page = 1,
+  pageSize = 50,
+  params = {}
+}) => {
+  const safePage = Math.max(Number(page) || 1, 1);
+  const safePageSize = Math.max(Number(pageSize) || 50, 1);
+  const offset = (safePage - 1) * safePageSize;
+
+  const pool = await getMssqlPool();
+  const request = bindParams(pool.request(), {
+    ...params,
+    offset,
+    pageSize: safePageSize
+  });
+
+  const result = await request.query(`
+    ${baseQuery}
+    ORDER BY ${orderBy}
+    OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
+  `);
+
+  return result.recordset || [];
+};
+
+export { sql };

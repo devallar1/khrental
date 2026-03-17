@@ -296,7 +296,7 @@ BEGIN
     )
   ) INTO result;
 
-  -- Send the invitation email using Supabase's built-in email service
+    -- Send the invitation email using the configured server-side email service
   PERFORM net.send_email(
     to_email := $1,
     subject := 'Welcome to KH Rentals',
@@ -1238,7 +1238,7 @@ CREATE POLICY "Allow all access to utility_billing" ON utility_billing FOR ALL T
 11. Storage Configuration
 
 -- Module 11: Storage Configuration
--- Contains configuration for Supabase storage buckets and policies
+-- Contains configuration for application storage buckets and policies
 
 -- Initialize required storage buckets
 DO $$

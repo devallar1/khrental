@@ -6,22 +6,11 @@
  */
 
 import dotenv from 'dotenv';
-import { createClient } from '@supabase/supabase-js';
+import { platformClient } from '../src/services/platformClient.js';
 import { randomUUID } from 'crypto';
 
 // Load environment variables
 dotenv.config();
-
-// Create a Supabase client
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ Missing Supabase credentials. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file');
-  process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Get event ID from command line arguments or default to 1
 const eventId = parseInt(process.argv[2] || 1, 10);
@@ -37,7 +26,7 @@ async function processWebhook() {
     console.log(`Generated RequestId: ${requestId}`);
     
     // Create test agreement in database
-    const { data: agreement, error: agreementError } = await supabase
+    const { data: agreement, error: agreementError } = await platformClient
       .from('agreements')
       .insert({
         status: 'draft',
@@ -110,7 +99,7 @@ async function processWebhook() {
     }
     
     // Store webhook event
-    const { data: webhookData, error: webhookError } = await supabase
+    const { data: webhookData, error: webhookError } = await platformClient
       .from('webhook_events')
       .insert([{
         event_type: payload.EventDescription,
@@ -144,7 +133,7 @@ async function processWebhook() {
       agreementStatus = 'signed';
     }
     
-    const { data: updateData, error: updateError } = await supabase
+    const { data: updateData, error: updateError } = await platformClient
       .from('agreements')
       .update({
         signature_status: signatureStatus,

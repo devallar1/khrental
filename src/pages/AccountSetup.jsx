@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 
 const AccountSetup = () => {
   const [email, setEmail] = useState('');
@@ -18,13 +18,13 @@ const AccountSetup = () => {
   useEffect(() => {
     const validateAndGetSession = async () => {
       try {
-        // Check if we have a hash in the URL (Supabase Auth redirect)
+        // Check if we have a hash in the URL (auth redirect)
         if (location.hash || location.search.includes('access_token')) {
-          // This will be handled by the Supabase client automatically
-          console.log('Auth redirect detected, letting Supabase handle it');
+          // This will be handled by the platform client automatically
+          console.log('Auth redirect detected, letting the auth client handle it');
           
           // Check for active session
-          const { data, error } = await supabase.auth.getSession();
+          const { data, error } = await platformClient.auth.getSession();
           
           if (error) {
             throw error;
@@ -62,7 +62,7 @@ const AccountSetup = () => {
         }
         
         // If no special parameters, check for an active session
-        const { data: sessionData } = await supabase.auth.getSession();
+        const { data: sessionData } = await platformClient.auth.getSession();
         
         if (sessionData?.session) {
           // Already logged in, redirect to dashboard
@@ -113,8 +113,8 @@ const AccountSetup = () => {
     setError(null);
     
     try {
-      // Use Supabase Auth to update the password
-      const { error } = await supabase.auth.updateUser({
+      // Use platform auth to update the password
+      const { error } = await platformClient.auth.updateUser({
         password: password
       });
       
@@ -128,7 +128,7 @@ const AccountSetup = () => {
       // Redirect after 3 seconds
       setTimeout(async () => {
         // If we have a session, go to dashboard, otherwise to login
-        const { data } = await supabase.auth.getSession();
+        const { data } = await platformClient.auth.getSession();
         if (data?.session) {
           navigate('/dashboard');
         } else {
@@ -143,7 +143,7 @@ const AccountSetup = () => {
       if (err.message.includes('not logged in') || err.message.includes('No session')) {
         try {
           // Try signup as fallback
-          const { error: signUpError } = await supabase.auth.signUp({
+          const { error: signUpError } = await platformClient.auth.signUp({
             email,
             password,
           });

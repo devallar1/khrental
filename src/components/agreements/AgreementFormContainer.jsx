@@ -1,25 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import AgreementFormUI from './AgreementFormUI';
 import { AGREEMENT_STATUS } from '../../constants/agreementStatus';
 import SignatureForm from './SignatureForm.jsx';
 import { saveMergedDocument } from '../../services/DocumentService';
+import {
+  fetchAgreement as fetchAgreementRecord,
+  saveAgreement as persistAgreement,
+  updateAgreementData
+} from '../../services/agreementService';
+import { findAppUserByAuthId } from '../../services/appUserService';
 
-// Helper function to generate UUID that works in all browsers
-const generateUUID = () => {
-  // Use native crypto.randomUUID if available (modern browsers)
-  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-    return window.crypto.randomUUID();
+const normalizeAgreementRecord = (record) => {
+  if (!record) {
+    return record;
   }
-  
-  // Fallback implementation for older browsers
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+
+  return {
+    ...record,
+    processedContent: record.processedContent ?? record.processedcontent ?? null,
+    signedDocumentUrl: record.signedDocumentUrl ?? record.signed_document_url ?? record.signeddocumenturl ?? null
+  };
 };
 
 const AgreementFormContainer = () => {
@@ -35,21 +38,18 @@ const AgreementFormContainer = () => {
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await platformClient.auth.getUser();
         if (!user) {
           throw new Error('User not found');
         }
-        
-        // Get the app_user record for the current user
-        const { data: appUser, error: appUserError } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('auth_id', user.id)
-          .single();
-          
-        if (appUserError) {
-          throw appUserError;
+
+        const appUserResult = await findAppUserByAuthId(user.id);
+
+        if (!appUserResult?.success) {
+          throw new Error(appUserResult?.error || 'App user profile not found');
         }
+
+        const appUser = appUserResult.data;
         
         if (!appUser) {
           throw new Error('App user profile not found');
@@ -73,19 +73,10 @@ const AgreementFormContainer = () => {
 
   const loadAgreement = async () => {
     try {
-      const { data, error } = await supabase
-        .from('agreements')
-        .select(`
-          *,
-          property:properties(*),
-          unit:property_units(*),
-          rentee:app_users(*)
-        `)
-        .eq('id', id)
-        .single();
+      const data = normalizeAgreementRecord(await fetchAgreementRecord(id));
 
-      if (error) {
-        throw error;
+      if (!data) {
+        throw new Error('Agreement not found');
       }
       
       setInitialData(data);
@@ -107,12 +98,12 @@ const AgreementFormContainer = () => {
         console.log("PENDING status detected - preparing for signature form display");
         
         // Save the agreement first to get an ID if it's a new agreement
-        const savedAgreement = await saveAgreement(formData, AGREEMENT_STATUS.DRAFT);
+        const savedAgreement = await handleSaveAgreement(formData, AGREEMENT_STATUS.DRAFT);
         console.log("Agreement saved for signature with ID:", savedAgreement.id);
         
         // Set state for signature form
         setFormDataToSign(formData);
-        setAgreement(savedAgreement);
+        setAgreement(normalizeAgreementRecord(savedAgreement));
         
         console.log("Setting showSignatureForm to true");
         setShowSignatureForm(true);
@@ -120,52 +111,55 @@ const AgreementFormContainer = () => {
       }
       
       // Continue with normal saving for other statuses
-      await saveAgreement(formData, status);
+      await handleSaveAgreement(formData, status);
     } catch (error) {
       console.error('Error handling agreement submission:', error);
       toast.error('Failed to process agreement: ' + error.message);
     }
   };
 
-  const saveAgreement = async (formData, status) => {
+  const handleSaveAgreement = async (formData, status) => {
     try {
       // Make sure terms is properly saved as an object, not a character array
       const termsObject = typeof formData.terms === 'string' 
         ? JSON.parse(formData.terms)
         : formData.terms;
       
-      // Generate a UUID for new agreements
-      const agreementId = formData.id || generateUUID();
-      console.log("Agreement ID:", agreementId, "is new:", !formData.id);
+      // Ensure numeric values in terms are converted to strings for document generation
+      const processedTerms = {};
+      if (termsObject) {
+        Object.entries(termsObject).forEach(([key, value]) => {
+          // Convert numbers to strings to avoid issues in document generation
+          processedTerms[key] = value !== null && value !== undefined ? String(value) : value;
+        });
+      }
+
+      const existingAgreementId = formData.id || id || agreement?.id || null;
+      const isNewAgreement = !existingAgreementId;
+      console.log("Agreement ID:", existingAgreementId || '(new)', "is new:", isNewAgreement);
       
       // Prepare agreement data
       const agreementData = {
-        id: agreementId,
+        ...(existingAgreementId ? { id: existingAgreementId } : {}),
         templateid: formData.templateid,
         propertyid: formData.propertyid,
         unitid: formData.unitid || null,
         renteeid: formData.renteeid,
         status: status,
-        terms: termsObject,
+        terms: processedTerms, // Use processed terms with string values
         notes: formData.notes,
+        processedcontent: typeof formData.processedContent === 'string' ? formData.processedContent : null,
         documenturl: typeof formData.processedContent === 'string' ? formData.processedContent : null,
         needs_document_generation: status === AGREEMENT_STATUS.REVIEW || status === AGREEMENT_STATUS.PENDING
       };
 
       console.log("Saving agreement with data:", agreementData);
 
-      // Save agreement
-      const { data: savedAgreement, error: saveError } = await supabase
-        .from('agreements')
-        .upsert([agreementData])
-        .select()
-        .single();
-
-      if (saveError) {
-        throw saveError;
-      }
+      const savedAgreement = normalizeAgreementRecord(await persistAgreement(agreementData));
 
       console.log("Agreement saved successfully:", savedAgreement);
+      setAgreement(savedAgreement);
+      setInitialData(savedAgreement);
 
       // Only call DOCX generation for non-draft statuses that need document generation
       if (status !== AGREEMENT_STATUS.DRAFT && 
@@ -294,23 +288,15 @@ const AgreementFormContainer = () => {
         });
 
         // Update the agreement status to PENDING
-        const { data: updatedAgreement, error: updateError } = await supabase
-          .from('agreements')
-          .update({ 
-            status: AGREEMENT_STATUS.PENDING,
-            eviasignreference: eviaSignReference || null,
-            signature_status: 'pending',
-            signature_sent_at: new Date().toISOString()
-          })
-          .eq('id', agreement.id)
-          .select();
-
-        if (updateError) {
-          console.error('[AgreementFormContainer] Error updating agreement in database:', updateError);
-          throw updateError;
-        }
+        const updatedAgreement = normalizeAgreementRecord(await updateAgreementData(agreement.id, {
+          status: AGREEMENT_STATUS.PENDING,
+          eviasignreference: eviaSignReference || null,
+          signature_status: 'pending',
+          signature_sent_at: new Date().toISOString()
+        }));
         
         console.log('[AgreementFormContainer] Agreement updated successfully:', updatedAgreement);
+        setAgreement(updatedAgreement);
         toast.success('Agreement sent for signature successfully');
         setShowSignatureForm(false);
         
@@ -364,24 +350,19 @@ const AgreementFormContainer = () => {
       });
       
       // Update the agreement with the document URL
-      const { data: updatedAgreement, error: updateError } = await supabase
-        .from('agreements')
-        .update({ 
-          documenturl: docxUrl,
-          // Set the flag to show that this agreement has a saved document
-          needs_document_generation: false
-        })
-        .eq('id', agreementId)
-        .select();
-        
-      if (updateError) {
-        throw updateError;
-      }
+      const updatedAgreement = normalizeAgreementRecord(await updateAgreementData(agreementId, {
+        documenturl: docxUrl,
+        needs_document_generation: false
+      }));
       
       console.log('Agreement updated with document URL:', {
-        id: updatedAgreement[0].id,
-        documenturl: updatedAgreement[0].documenturl
+        id: updatedAgreement?.id,
+        documenturl: updatedAgreement?.documenturl
       });
+      setAgreement((currentAgreement) => normalizeAgreementRecord({
+        ...currentAgreement,
+        ...updatedAgreement
+      }));
       
       toast.success('Document saved successfully');
       return docxUrl;
@@ -441,6 +422,7 @@ const AgreementFormContainer = () => {
       <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md w-full max-w-full overflow-x-auto">
         <SignatureForm
           agreement={agreement}
+          currentUser={currentUser}
           formData={formDataToSign}
           onSuccess={handleSignatureFormSuccess}
           onCancel={handleSignatureFormCancel}

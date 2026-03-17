@@ -1,6 +1,6 @@
 # Storage Structure
 
-The application uses Supabase Storage for file management, organized into buckets and folders.
+The application uses the server-backed storage layer for file management, organized into buckets and folders.
 
 ## Storage Organization
 
@@ -57,7 +57,7 @@ if (result.success) {
 - Images bucket is public (read-only)
 - Files bucket is private (authenticated access only)
 - All write operations require authentication
-- Folder access is controlled by Row Level Security (RLS) policies
+- Folder access is controlled by application authorization rules
 
 ## Maintenance
 

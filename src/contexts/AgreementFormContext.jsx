@@ -1,9 +1,14 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { supabase } from "../services/supabaseClient";
-import { fetchData } from '../services/supabaseClient';
-import { fromDatabaseFormat } from '../utils/dataUtils';
+import { fetchAppUsers } from '../services/appUserService';
+import {
+  fetchAgreement,
+  fetchProperty,
+  fetchPropertyUnit,
+  getTemplate,
+  listProperties,
+  listPropertyUnits
+} from '../services/agreementService';
 
 // Status constants
 export const STATUS = {
@@ -42,7 +47,6 @@ export const useAgreementForm = () => {
 
 // Provider component
 export const AgreementFormProvider = ({ children, agreementId }) => {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     id: null,
     templateid: '',
@@ -86,22 +90,7 @@ export const AgreementFormProvider = ({ children, agreementId }) => {
       setLoading(true);
       try {
         console.log('Loading existing agreement with ID:', agreementId);
-        
-        const { data: agreement, error } = await supabase
-          .from('agreements')
-          .select(`
-            *,
-            property:propertyid (*),
-            unit:unitid (*),
-            rentee:renteeid (*),
-            template:templateid (*)
-          `)
-          .eq('id', agreementId)
-          .single();
-        
-        if (error) {
-          throw error;
-        }
+        const agreement = await fetchAgreement(agreementId);
         
         console.log('Loaded agreement data:', agreement);
         
@@ -198,11 +187,7 @@ export const AgreementFormProvider = ({ children, agreementId }) => {
 
           // Load property units if it's an apartment
           if (agreement.property?.propertytype === 'apartment') {
-            const { data: units } = await supabase
-              .from('property_units')
-              .select('*')
-              .eq('propertyid', agreement.propertyid);
-            
+            const units = await listPropertyUnits(agreement.propertyid);
             setPropertyUnits(units || []);
           }
         }
@@ -219,25 +204,11 @@ export const AgreementFormProvider = ({ children, agreementId }) => {
       setLoading(true);
       try {
         // Load properties
-        const { data: propertiesData, error: propertiesError } = await supabase
-          .from('properties')
-          .select('*')
-          .order('name');
-        
-        if (propertiesError) {
-          throw propertiesError;
-        }
+        const propertiesData = await listProperties();
         setProperties(propertiesData || []);
 
         // Load rentees
-        const { data: renteesData, error: renteesError } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('user_type', 'rentee');
-        
-        if (renteesError) {
-          throw renteesError;
-        }
+        const renteesData = await fetchAppUsers('rentee');
         setRentees(renteesData || []);
 
         // Load existing agreement if editing
@@ -318,18 +289,13 @@ export const AgreementFormProvider = ({ children, agreementId }) => {
     try {
       setTemplateLoadError(null);
       console.log('Loading template content for:', templateId);
+      const data = await getTemplate(templateId);
       
-      const { data, error } = await supabase
-        .from('agreement_templates')
-        .select('content')
-        .eq('id', templateId)
-        .single();
-      
-      if (error) {
-        console.error('Error loading template:', error);
-        setTemplateLoadError('Failed to load template: ' + error.message);
+      if (!data) {
+        console.error('Error loading template: template not found');
+        setTemplateLoadError('Failed to load template: template not found');
         setTemplateContent('');
-        toast.error('Error loading template: ' + error.message);
+        toast.error('Error loading template: template not found');
         return;
       }
       
@@ -354,15 +320,9 @@ export const AgreementFormProvider = ({ children, agreementId }) => {
   const loadPropertyDetails = async (propertyId) => {
     try {
       console.log('Loading property details for ID:', propertyId);
-      
-      // Get property details
-      const { data: property, error: propertyError } = await supabase
-        .from('properties')
-        .select('*')
-        .eq('id', propertyId)
-        .single();
+      const property = await fetchProperty(propertyId);
 
-      if (propertyError) throw propertyError;
+      if (!property) throw new Error('Property not found');
 
       console.log('Retrieved property data:', property);
       console.log('Property rental values:', property.rentalvalues);
@@ -394,12 +354,7 @@ export const AgreementFormProvider = ({ children, agreementId }) => {
 
       // If it's an apartment, load units
       if (property.propertytype === 'apartment') {
-        const { data: units, error: unitsError } = await supabase
-          .from('property_units')
-          .select('*')
-          .eq('propertyid', propertyId);
-
-        if (unitsError) throw unitsError;
+        const units = await listPropertyUnits(propertyId);
         setPropertyUnits(units || []);
         
         // For apartments, always set property rental values as defaults
@@ -472,27 +427,18 @@ export const AgreementFormProvider = ({ children, agreementId }) => {
 
     try {
       console.log('Loading unit details for ID:', unitId);
-      
-      // Get both unit and its parent property details
-      const { data: unit, error: unitError } = await supabase
-        .from('property_units')
-        .select(`
-          *,
-          property:propertyid (
-            terms,
-            rentalvalues
-          )
-        `)
-        .eq('id', unitId)
-        .single();
+      const unit = await fetchPropertyUnit(unitId);
+      const property = unit?.propertyid
+        ? await fetchProperty(unit.propertyid).catch(() => null)
+        : null;
 
-      if (unitError) throw unitError;
+      if (!unit) throw new Error('Unit not found');
 
       console.log('Retrieved unit data:', unit);
 
       // Combine property terms with unit-specific values
-      const propertyTerms = unit.property?.terms || {};
-      const propertyRentalValues = unit.property?.rentalvalues || {};
+      const propertyTerms = property?.terms || {};
+      const propertyRentalValues = property?.rentalvalues || {};
       const unitRentalValues = unit.rentalvalues || {};
       
       console.log('Unit rental values:', unitRentalValues);

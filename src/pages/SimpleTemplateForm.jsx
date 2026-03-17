@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
 import { toast } from 'react-hot-toast';
+import { createTemplate, listTemplates } from '../services/agreementService';
+
+const generateUuid = () => self.crypto?.randomUUID ? 
+  self.crypto.randomUUID() : 
+  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 
 const SimpleTemplateForm = () => {
   const navigate = useNavigate();
@@ -18,24 +26,12 @@ const SimpleTemplateForm = () => {
     const checkTable = async () => {
       try {
         console.log('Checking agreement_templates table');
-        const { data, error } = await supabase
-          .from('agreement_templates')
-          .select('id, name')
-          .limit(1);
-        
-        if (error) {
-          console.error('Table check error:', error);
-          setTableStatus({
-            exists: false,
-            error: error.message
-          });
-        } else {
-          console.log('Table exists, sample data:', data);
-          setTableStatus({
-            exists: true,
-            sampleData: data
-          });
-        }
+        const data = await listTemplates();
+        console.log('Template access OK, sample data:', data?.slice(0, 1));
+        setTableStatus({
+          exists: true,
+          sampleData: data || []
+        });
       } catch (err) {
         console.error('Exception checking table:', err);
         setTableStatus({
@@ -69,77 +65,14 @@ const SimpleTemplateForm = () => {
         return;
       }
       
-      // Generate UUID using a more compatible approach
-      const id = self.crypto?.randomUUID ? 
-        self.crypto.randomUUID() : 
-        'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-          const r = Math.random() * 16 | 0, 
-                v = c == 'x' ? r : (r & 0x3 | 0x8);
-          return v.toString(16);
-        });
+      const id = generateUuid();
       
       console.log('Generated ID:', id);
       
       // Add timestamps
       const now = new Date().toISOString();
       
-      // Simple direct insert - avoiding any complex logic
-      const { data, error } = await supabase
-        .from('agreement_templates')
-        .insert({
-          id,
-          name: formData.name,
-          language: formData.language || 'English',
-          content: formData.content || 'Sample content',
-          version: '1.0',
-          createdat: now,
-          updatedat: now
-        });
-      
-      console.log('Insert result:', { data, error });
-      
-      if (error) {
-        console.error('Error saving template:', error);
-        toast.error(error.message || 'Failed to create template');
-      } else {
-        toast.success('Template created successfully!');
-        navigate('/dashboard/agreements/templates');
-      }
-    } catch (err) {
-      console.error('Exception while saving template:', err);
-      toast.error(err.message || 'An unexpected error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Add direct API call method
-  const handleDirectApiSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    try {
-      console.log('Using direct API call');
-      
-      if (!formData.name) {
-        toast.error('Template name is required');
-        return;
-      }
-      
-      // Generate UUID
-      const id = self.crypto?.randomUUID ? 
-        self.crypto.randomUUID() : 
-        'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-          const r = Math.random() * 16 | 0, 
-                v = c == 'x' ? r : (r & 0x3 | 0x8);
-          return v.toString(16);
-        });
-      
-      // Add timestamps
-      const now = new Date().toISOString();
-      
-      // Prepare data
-      const payload = {
+      const data = await createTemplate({
         id,
         name: formData.name,
         language: formData.language || 'English',
@@ -147,34 +80,14 @@ const SimpleTemplateForm = () => {
         version: '1.0',
         createdat: now,
         updatedat: now
-      };
-      
-      // Direct POST to the API
-      const response = await fetch(
-        'https://enadocapp.supabase.co/rest/v1/agreement_templates', 
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-          },
-          body: JSON.stringify(payload)
-        }
-      );
-      
-      console.log('API response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API Error: ${response.status} - ${errorText}`);
-      }
-      
-      toast.success('Template created via direct API!');
+      });
+
+      console.log('Insert result:', { data });
+      toast.success('Template created successfully!');
       navigate('/dashboard/agreements/templates');
     } catch (err) {
-      console.error('Direct API error:', err);
-      toast.error(err.message || 'Direct API failed');
+      console.error('Exception while saving template:', err);
+      toast.error(err.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -246,15 +159,6 @@ const SimpleTemplateForm = () => {
               {loading ? 'Creating...' : 'Create Template'}
             </button>
           </div>
-          
-          <button
-            type="button"
-            onClick={handleDirectApiSubmit}
-            disabled={loading}
-            className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
-          >
-            {loading ? 'Processing...' : 'Try Direct API'}
-          </button>
         </div>
       </form>
     </div>

@@ -1,10 +1,11 @@
 /**
  * User Management Service
- * Uses Supabase Auth for reliable user creation and management
+ * Uses the platform auth layer for reliable user creation and management
  */
 
-import { supabase } from './supabaseClient';
+import { platform as platformClient } from './platformClient';
 import { sendDirectEmail } from './directEmailService';
+import { checkAppUserInvitationStatus, createAppUser, fetchAppUser, findAppUserByEmail } from './appUserService';
 
 /**
  * Invite a new user with email/password
@@ -23,11 +24,8 @@ export const inviteUser = async (userData) => {
     console.log(`[UserManagement] Inviting user: ${email} (${name}) as ${role}`);
     
     // Check if user exists in app_users table
-    const { data: existingUser } = await supabase
-      .from('app_users')
-      .select('*')
-      .eq('email', email.toLowerCase())
-      .maybeSingle();
+    const existingUserResult = await findAppUserByEmail(email.toLowerCase());
+    const existingUser = existingUserResult.success ? existingUserResult.data : null;
     
     if (existingUser) {
       console.log(`[UserManagement] User ${email} already exists in app_users`);
@@ -43,8 +41,8 @@ export const inviteUser = async (userData) => {
       .map(x => x[Math.floor(Math.random() * x.length)])
       .join('');
     
-    // Create user with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // Create user with the platform auth layer
+    const { data: authData, error: authError } = await platformClient.auth.signUp({
       email: email.toLowerCase(),
       password: tempPassword,
       options: {
@@ -67,9 +65,7 @@ export const inviteUser = async (userData) => {
     const userId = authData.user.id;
     
     // Create record in app_users table
-    const { data: appUser, error: dbError } = await supabase
-      .from('app_users')
-      .insert({
+    const appUserResult = await createAppUser({
         auth_id: userId,
         email: email.toLowerCase(),
         name,
@@ -77,20 +73,20 @@ export const inviteUser = async (userData) => {
         user_type: userType,
         invited: true,
         invitation_date: new Date().toISOString()
-      })
-      .select()
-      .single();
+      }, userType);
     
-    if (dbError) {
-      console.error('[UserManagement] Error creating app_user record:', dbError);
+    if (!appUserResult.success) {
+      console.error('[UserManagement] Error creating app_user record:', appUserResult.error);
       return {
         success: false,
-        error: dbError.message
+        error: appUserResult.error
       };
     }
+
+    const appUser = appUserResult.data;
     
     // Send password reset email to let them set their password
-    const { data: resetData, error: resetError } = await supabase.auth.resetPasswordForEmail(
+    const { error: resetError } = await platformClient.auth.resetPasswordForEmail(
       email.toLowerCase(),
       {
         redirectTo: `${window.location.origin}/reset-password`
@@ -100,7 +96,7 @@ export const inviteUser = async (userData) => {
     if (resetError) {
       console.error('[UserManagement] Error sending password reset email:', resetError);
       
-      // If Supabase email fails, send a direct email as fallback
+      // If the platform auth email fails, send a direct email as fallback
       await sendWelcomeEmail(email, name, userType);
       
       return {
@@ -128,7 +124,7 @@ export const inviteUser = async (userData) => {
 
 /**
  * Send a welcome email with password reset link
- * Used as fallback if Supabase auth emails fail
+ * Used as fallback if platform auth emails fail
  */
 const sendWelcomeEmail = async (email, name, userType) => {
   const resetLink = `${window.location.origin}/reset-password?email=${encodeURIComponent(email)}`;
@@ -162,11 +158,14 @@ const sendWelcomeEmail = async (email, name, userType) => {
 export const resendInvitation = async (userId) => {
   try {
     // Get user details from app_users table
-    const { data: user, error: userError } = await supabase
-      .from('app_users')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    let user = null;
+    let userError = null;
+
+    try {
+      user = await fetchAppUser(userId);
+    } catch (error) {
+      userError = error;
+    }
     
     if (userError || !user) {
       console.error('[UserManagement] Error fetching user:', userError);
@@ -177,7 +176,7 @@ export const resendInvitation = async (userId) => {
     }
     
     // Send password reset email
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+    const { error: resetError } = await platformClient.auth.resetPasswordForEmail(
       user.email,
       {
         redirectTo: `${window.location.origin}/reset-password`
@@ -212,26 +211,20 @@ export const resendInvitation = async (userId) => {
 };
 
 /**
- * Check if a user has a valid Supabase Auth account
+ * Check if a user has a valid platform auth account
  */
 export const checkUserAuthStatus = async (userId) => {
   try {
-    // Get user from app_users table
-    const { data: user, error: userError } = await supabase
-      .from('app_users')
-      .select('auth_id')
-      .eq('id', userId)
-      .single();
-    
-    if (userError || !user) {
+    const result = await checkAppUserInvitationStatus(userId);
+
+    if (!result.success || !result.data) {
       return {
         success: false,
-        error: userError?.message || 'User not found'
+        error: result.error || 'User not found'
       };
     }
-    
-    // If no auth_id, they haven't completed registration
-    if (!user.auth_id) {
+
+    if (!result.data.hasAuthId) {
       return {
         success: true,
         registered: false

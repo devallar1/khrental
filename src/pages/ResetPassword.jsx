@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { useNavigate } from 'react-router-dom';
 
 const ResetPassword = () => {
@@ -22,8 +22,8 @@ const ResetPassword = () => {
       setError('');
       setMessage('');
       
-      // Use Supabase's password reset functionality
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      // Use the platform auth password reset flow
+      const { error } = await platformClient.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/callback`,
       });
       

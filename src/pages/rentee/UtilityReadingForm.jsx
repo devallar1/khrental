@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { UTILITY_TYPES } from '../../utils/constants';
+import { findAppUserByAuthId } from '../../services/appUserService';
 
 const UtilityReadingForm = () => {
   const navigate = useNavigate();
@@ -24,22 +25,19 @@ const UtilityReadingForm = () => {
     const fetchUserAndProperty = async () => {
       try {
         // Get current user
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        const { data: { user }, error: userError } = await platformClient.auth.getUser();
         if (userError) {
           throw userError;
         }
         setUser(user);
 
         // Get app_user record using auth_id
-        const { data: appUser, error: appUserError } = await supabase
-          .from('app_users')
-          .select('id, associated_property_ids')
-          .eq('auth_id', user.id)
-          .single();
+        const appUserResult = await findAppUserByAuthId(user.id);
 
-        if (appUserError) {
-          throw appUserError;
+        if (!appUserResult.success) {
+          throw new Error(appUserResult.error || 'User profile not found');
         }
+        const appUser = appUserResult.data;
         
         if (!appUser) {
           throw new Error('User profile not found');
@@ -52,7 +50,7 @@ const UtilityReadingForm = () => {
         });
 
         if (appUser?.associated_property_ids?.length > 0) {
-          const { data: propertyData, error: propertyError } = await supabase
+          const { data: propertyData, error: propertyError } = await platformClient
             .from('properties')
             .select('id, name, address, electricity_rate, water_rate')
             .eq('id', appUser.associated_property_ids[0])
@@ -83,7 +81,7 @@ const UtilityReadingForm = () => {
         const userId = user.appUserId || user.id;
         
         // Build the query without headers
-        const query = supabase
+        const query = platformClient
           .from('utility_readings')
           .select('currentreading')
           .eq('renteeid', userId)
@@ -141,12 +139,12 @@ const UtilityReadingForm = () => {
       // Get the correct user ID (app_user ID)
       const userId = user.appUserId || user.id;
       
-      // Upload to Supabase Storage
+      // Upload to storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `utility-readings/${userId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await platformClient.storage
         .from('images')
         .upload(filePath, file);
 
@@ -155,7 +153,7 @@ const UtilityReadingForm = () => {
       }
 
       // Get the public URL
-      const { data: { publicUrl } } = supabase.storage
+      const { data: { publicUrl } } = platformClient.storage
         .from('images')
         .getPublicUrl(filePath);
 
@@ -220,7 +218,7 @@ const UtilityReadingForm = () => {
       };
       
       // Insert reading into database without headers
-      const { error } = await supabase
+      const { error } = await platformClient
         .from('utility_readings')
         .insert(insertData);
 

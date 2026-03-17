@@ -18,7 +18,7 @@ A comprehensive property management application for KH Rentals that provides dig
 
 ## Introduction
 
-The KH Rentals Management System is a full-featured property management application built with React, Vite, and Supabase. It provides a comprehensive solution for managing rental properties, agreements, maintenance requests, utility billing, and tenant communications.
+The KH Rentals Management System is a full-featured property management application built with React, Vite, SQL Server, and a local platform API layer. It provides a comprehensive solution for managing rental properties, agreements, maintenance requests, utility billing, and tenant communications.
 
 ## System Architecture
 
@@ -26,7 +26,7 @@ The application follows a modern, component-based architecture:
 
 - **Frontend**: React with Vite for fast development and optimized builds
 - **State Management**: React Context API for global state
-- **Backend**: Supabase for database, authentication, and storage
+- **Backend**: Express + platform API for database, authentication compatibility, and storage
 - **Routing**: React Router for client-side navigation
 - **Styling**: TailwindCSS with some Bootstrap components
 - **Document Processing**: Integration with Evia Sign for digital signatures and document generation with DOCX
@@ -113,7 +113,7 @@ Utility functions and helper methods:
 
 ### `/src/services`
 Service modules for interacting with backend APIs:
-- `supabaseClient.js` - Supabase client configuration
+- `platformClient.js` - Shared client wrapper for the backend platform API
 - `agreementService.js` - Agreement operations
 - `eviaSignService.js` - Evia Sign integration
 - `fileService.js` - File upload and management
@@ -122,7 +122,7 @@ Service modules for interacting with backend APIs:
 
 ## Services
 
-### Supabase Integration (`supabaseClient.js`)
+### Platform Integration (`platformClient.js`)
 - Authentication
 - Database operations
 - File storage
@@ -142,7 +142,7 @@ Service modules for interacting with backend APIs:
 
 ## Authentication and Authorization
 
-The application uses Supabase Auth for authentication and a custom role-based permission system:
+The application uses the local platform auth compatibility layer and a custom role-based permission system:
 
 ### User Roles
 - `admin` - Full system access
@@ -173,7 +173,7 @@ The system integrates with Evia Sign for digital signatures:
 
 ## Database Structure
 
-The application uses a Supabase PostgreSQL database with the following main tables:
+The application uses the application database with the following main tables:
 
 - `properties` - Property information
 - `units` - Individual rental units within properties
@@ -210,8 +210,7 @@ The application is configured for deployment to Azure Web App:
 
 ### Environment Variables
 Ensure these variables are configured in production:
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
+- `VITE_API_ENDPOINT`
 - `VITE_EVIA_SIGN_CLIENT_ID`
 - `VITE_EVIA_SIGN_CLIENT_SECRET`
 - `VITE_API_ENDPOINT`
@@ -222,8 +221,8 @@ Ensure these variables are configured in production:
 ### Common Issues
 
 1. **Authentication Issues**
-   - Verify Supabase URL and keys are correct
-   - Check user permissions in Supabase dashboard
+   - Verify the API endpoint and server configuration are correct
+   - Check user permissions in the application database and auth records
    - Ensure environment variables are properly set
 
 2. **Webhook Processing**

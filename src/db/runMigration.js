@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { supabase } from '../services/supabaseClient.js';
+import { platformClient } from '../services/platformClient.js';
 
 // Function to run a migration file
 async function runMigration(filePath) {
@@ -10,8 +10,8 @@ async function runMigration(filePath) {
     // Read the SQL file
     const sql = fs.readFileSync(filePath, 'utf8');
     
-    // Execute the SQL against Supabase
-    const { error } = await supabase.rpc('exec_sql', { sql });
+    // Execute the SQL against the platform API
+    const { error } = await platformClient.rpc('exec_sql', { sql });
     
     if (error) {
       console.error('Error running migration:', error);

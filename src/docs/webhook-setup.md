@@ -4,51 +4,27 @@ This guide explains how to set up and use the internal webhook storage system fo
 
 ## Overview
 
-The KH Rentals application includes a built-in webhook system that captures and stores all webhook events from Evia Sign. This allows you to:
-
-1. View all webhook events in a single dashboard
-2. Filter events by type (request received, signatory completed, request completed)
-3. Inspect the full payload of each event
-4. Track the progression of signature requests
+The application captures and stores Evia Sign webhook events so administrators can inspect payloads and track signature progress.
 
 ## Setup Steps
 
 ### 1. Create the Webhook Events Table
 
-First, you need to create the webhook_events table in your Supabase database:
+Create the `webhook_events` table in the active application database using the migration scripts in the repository.
 
-1. Open the Supabase dashboard
-2. Go to the SQL Editor
-3. Copy the contents of `src/scripts/createWebhookEventsTable.sql`
-4. Run the SQL script
+### 2. Deploy the Webhook Endpoint
 
-### 2. Deploy the Supabase Edge Function
-
-Next, deploy the webhook endpoint as a Supabase Edge Function:
-
-```bash
-# Install Supabase CLI if you haven't already
-npm install -g supabase
-
-# Login to Supabase
-supabase login
-
-# Link your project
-supabase link --project-ref your-project-ref
-
-# Deploy the webhook function
-supabase functions deploy evia-webhook --no-verify-jwt
-```
+Deploy the application server or dedicated webhook host and confirm the Evia callback URL points to the live endpoint.
 
 ### 3. Get Your Webhook URL
 
-After deploying the function, your webhook URL will be:
+Your webhook URL should follow the active server endpoint, for example:
 
 ```
-https://[YOUR-PROJECT-REF].supabase.co/functions/v1/evia-webhook
+https://your-app-hostname/api/evia/webhook
 ```
 
-Use this URL in your Evia Sign integration as the `CallbackUrl` parameter.
+Use this URL in Evia Sign as the `CallbackUrl` parameter.
 
 ## Using the Webhook Dashboard
 
@@ -117,7 +93,7 @@ To include the completed document in the webhook payload, set `CompletedDocument
 const requestJson = {
   Message: "Please sign this document",
   Title: "Test Signature Request",
-  CallbackUrl: "https://your-project-ref.supabase.co/functions/v1/evia-webhook",
+  CallbackUrl: "https://your-app-hostname/api/evia/webhook",
   CompletedDocumentsAttached: true, // Set this to true to receive documents
   Documents: [documentToken],
   // ... other properties
@@ -132,9 +108,9 @@ When `CompletedDocumentsAttached` is set to true, the final webhook event will i
 
 If webhooks are not being received:
 
-1. Check that the Supabase function is deployed correctly
+1. Check that the webhook endpoint is deployed correctly
 2. Verify that the webhook URL is correct in your signature requests
-3. Check the Supabase function logs for any errors
+3. Check the application logs for any errors
 4. Ensure your webhook URL is publicly accessible (not behind a firewall)
 
 For more information on Evia Sign webhooks, refer to the official documentation. 

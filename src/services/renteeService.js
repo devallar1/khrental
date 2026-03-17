@@ -1,4 +1,22 @@
-import { supabase } from './supabaseClient';
+import { platform as platformClient } from './platformClient';
+import { fetchAppUsers } from './appUserService';
+
+const normalizePropertyIds = (value) => {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  return [];
+};
 
 /**
  * Get all rentees associated with a property
@@ -18,7 +36,7 @@ export const getRenteesByProperty = async (propertyId) => {
     console.log('Fetching rentees for property:', propertyId);
     
     // First try using the RPC function
-    const { data, error } = await supabase.rpc(
+    const { data, error } = await platformClient.rpc(
       'get_rentees_by_property',
       { property_id: propertyId }
     );
@@ -27,13 +45,18 @@ export const getRenteesByProperty = async (propertyId) => {
       console.error('Error fetching rentees by property using RPC:', error);
       
       // Fallback to direct query if RPC fails (might not be deployed yet)
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('user_type', 'rentee')
-        .filter('associated_property_ids', 'cs', `{"${propertyId}"}`);
-        
-      if (fallbackError) {
+      let fallbackData = [];
+
+      try {
+        const rentees = await fetchAppUsers('rentee');
+        fallbackData = rentees.filter((rentee) => {
+          const associatedPropertyIds = normalizePropertyIds(
+            rentee.associated_property_ids || rentee.associatedPropertyIds
+          );
+
+          return associatedPropertyIds.includes(propertyId);
+        });
+      } catch (fallbackError) {
         console.error('Fallback query also failed:', fallbackError);
         return { data: null, error: fallbackError };
       }
@@ -66,7 +89,7 @@ export const getRenteesByUnit = async (unitId) => {
     console.log('Fetching rentees for unit:', unitId);
     
     // First try using the RPC function
-    const { data, error } = await supabase.rpc(
+    const { data, error } = await platformClient.rpc(
       'get_rentees_by_unit',
       { unit_id: unitId }
     );
@@ -75,7 +98,7 @@ export const getRenteesByUnit = async (unitId) => {
       console.error('Error fetching rentees by unit using RPC:', error);
       
       // Fallback to direct agreement query
-      const { data: agreementsData, error: agreementsError } = await supabase
+      const { data: agreementsData, error: agreementsError } = await platformClient
         .from('agreements')
         .select('renteeid')
         .eq('unitid', unitId)
@@ -88,13 +111,13 @@ export const getRenteesByUnit = async (unitId) => {
       
       if (agreementsData?.length > 0) {
         const renteeIds = agreementsData.map(a => a.renteeid);
-        const { data: renteesData, error: renteesError } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('user_type', 'rentee')
-          .in('id', renteeIds);
-          
-        if (renteesError) {
+        let renteesData = [];
+
+        try {
+          const rentees = await fetchAppUsers('rentee');
+          const renteeIdSet = new Set(renteeIds);
+          renteesData = rentees.filter((rentee) => renteeIdSet.has(rentee.id));
+        } catch (renteesError) {
           console.error('Rentees fallback query failed:', renteesError);
           return { data: null, error: renteesError };
         }
@@ -129,7 +152,7 @@ export const getRenteePropertyAgreements = async (renteeId, propertyId, unitId =
   }
 
   try {
-    let query = supabase
+    let query = platformClient
       .from('agreements')
       .select('*')
       .eq('renteeid', renteeId)

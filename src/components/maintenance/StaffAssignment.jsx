@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { formatDate } from '../../utils/helpers';
 import ImageUpload from '../common/ImageUpload';
+import { fetchAppUsers } from '../../services/appUserService';
 
 const StaffAssignment = ({ 
   requestId,
@@ -27,17 +28,9 @@ const StaffAssignment = ({
         setLoading(true);
         
         // Get maintenance staff from app_users table
-        const { data, error } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('user_type', 'staff')
-          .in('role', ['maintenance', 'maintenance_staff', 'admin']);
+        const data = await fetchAppUsers('staff');
         
-        if (error) {
-          throw error;
-        }
-        
-        setStaffMembers(data || []);
+        setStaffMembers((data || []).filter((member) => ['maintenance', 'maintenance_staff', 'admin'].includes(member.role)));
       } catch (err) {
         console.error('Error fetching staff members:', err.message);
         setError('Failed to load staff members. Please try again.');

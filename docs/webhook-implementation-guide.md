@@ -4,7 +4,7 @@ This document provides a step-by-step guide to implementing the Evia Sign webhoo
 
 ## 1. Why We're Using an Internal Webhook Handler
 
-We've chosen to handle Evia Sign webhooks directly within our application instead of using Supabase Edge Functions because:
+We've chosen to handle Evia Sign webhooks directly within our application because:
 
 - **Simpler development workflow** - No need to deploy separate cloud functions
 - **Easier debugging** - All code is in one place 
@@ -17,7 +17,7 @@ We've chosen to handle Evia Sign webhooks directly within our application instea
 First, create a file at `src/services/webhookHandler.js`:
 
 ```javascript
-import { supabase } from './supabaseClient';
+import { platform } from './platformClient';
 
 /**
  * Process webhook events from Evia Sign
@@ -45,7 +45,7 @@ export const handleSignatureWebhook = async (payload) => {
     
     // Store in webhook_events table if it exists
     try {
-      const { error: eventError } = await supabase
+      const { error: eventError } = await platform
         .from('webhook_events')
         .insert([{
           event_type: EventDescription || 'unknown',
@@ -66,7 +66,7 @@ export const handleSignatureWebhook = async (payload) => {
     }
     
     // Find the agreement using the RequestId
-    const { data: agreement, error: findError } = await supabase
+    const { data: agreement, error: findError } = await platform
       .from('agreements')
       .select('*')
       .eq('eviasignreference', RequestId)
@@ -105,7 +105,7 @@ export const handleSignatureWebhook = async (payload) => {
         
       case 2: // SignatoryCompleted
         // Get current signatory status
-        const { data: currentAgreement } = await supabase
+        const { data: currentAgreement } = await platform
           .from('agreements')
           .select('signatories_status')
           .eq('id', agreement.id)
@@ -186,7 +186,7 @@ export const handleSignatureWebhook = async (payload) => {
  */
 async function updateAgreement(agreementId, updates) {
   try {
-    const { error } = await supabase
+    const { error } = await platform
       .from('agreements')
       .update({
         ...updates,
@@ -225,11 +225,11 @@ async function uploadSignedDocument(signedDoc, agreementId) {
     const byteArray = new Uint8Array(byteNumbers);
     const blob = new Blob([byteArray], { type: 'application/pdf' });
     
-    // Upload to Supabase Storage
+    // Upload to application storage
     const fileName = `signed_${agreementId}_${Date.now()}.pdf`;
     const filePath = `agreements/${fileName}`;
     
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await platform.storage
       .from('files')
       .upload(filePath, blob, {
         contentType: 'application/pdf',
@@ -242,7 +242,7 @@ async function uploadSignedDocument(signedDoc, agreementId) {
     }
     
     // Get the public URL
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = platform.storage
       .from('files')
       .getPublicUrl(filePath);
       
@@ -310,7 +310,7 @@ VITE_EVIA_WEBHOOK_URL=https://your-domain.com/api/evia-webhook
 
 ### Step 5: Create the Database Table
 
-Run this SQL in your Supabase project to create the webhook events table:
+Run the appropriate migration in the application database to create the webhook events table:
 
 ```sql
 -- Create the webhook_events table to store Evia webhook events

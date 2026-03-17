@@ -37,6 +37,19 @@ const AgreementSummaryCard = ({ agreement, rentee, property, signatories = [], o
   // Get signed document URL - try different possible fields
   const signedDocumentUrl = agreement.signed_document_url || agreement.signatureurl || agreement.pdfurl || agreement.documenturl;
   
+  // Check if document URL is actually HTML content
+  const isDocumentUrlHtml = signedDocumentUrl && (
+    signedDocumentUrl.trim().startsWith('<') || 
+    signedDocumentUrl.includes('<!DOCTYPE') || 
+    signedDocumentUrl.includes('<html') ||
+    signedDocumentUrl.includes('<body') ||
+    signedDocumentUrl.includes('<div') ||
+    signedDocumentUrl.includes('<p')
+  );
+  
+  // Only show the View Document button if we have a valid URL or HTML content
+  const hasViewableDocument = !!signedDocumentUrl;
+  
   // Prepare signatory data for display
   const signatoriesData = signatories.length > 0 ? signatories : [];
   
@@ -262,7 +275,7 @@ const AgreementSummaryCard = ({ agreement, rentee, property, signatories = [], o
         
         <div className="flex space-x-2 mt-2 sm:mt-0">
           {/* Signed document button - now opens viewer instead of direct link */}
-          {signedDocumentUrl && (
+          {hasViewableDocument && (
             <button
               onClick={handleViewDocument}
               className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors flex items-center"

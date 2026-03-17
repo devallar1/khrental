@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchData, deleteData } from '../../services/supabaseClient';
+import { fetchData, deleteData } from '../../services/platformClient';
 import PropertyUnitForm from './PropertyUnitForm';
 
 const PropertyUnits = ({ propertyId, propertyType }) => {

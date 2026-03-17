@@ -8,12 +8,12 @@ const readline = require('readline');
 // Load environment variables
 dotenv.config();
 
-const CLIENT_ID = process.env.VITE_EVIA_SIGN_CLIENT_ID;
-const CLIENT_SECRET = process.env.VITE_EVIA_SIGN_CLIENT_SECRET;
+const CLIENT_ID = process.env.EVIA_SIGN_CLIENT_ID || process.env.VITE_EVIA_SIGN_CLIENT_ID;
+const CLIENT_SECRET = process.env.EVIA_SIGN_CLIENT_SECRET || process.env.VITE_EVIA_SIGN_CLIENT_SECRET;
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
   console.error('Error: Client ID or Client Secret not found in .env file');
-  console.log('Please ensure VITE_EVIA_SIGN_CLIENT_ID and VITE_EVIA_SIGN_CLIENT_SECRET are set in your .env file');
+  console.log('Please ensure EVIA_SIGN_CLIENT_SECRET and either EVIA_SIGN_CLIENT_ID or VITE_EVIA_SIGN_CLIENT_ID are set in your .env file');
   process.exit(1);
 }
 

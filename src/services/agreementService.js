@@ -25,12 +25,193 @@
  * EventId 5 (RequestRejected): status -> rejected, signature_status -> rejected
  */
 
-import { supabase } from './supabaseClient';
+import { platform as platformClient } from './platformClient';
 import { toast } from 'react-toastify';
 import { saveMergedDocument } from './DocumentService';
-import { STORAGE_BUCKETS, BUCKET_FOLDERS } from './fileService';
 import { populateMergeFields } from '../utils/documentUtils';
 import { toDatabaseFormat } from '../utils/dataUtils';
+import { fetchAppUser, updateAppUser } from './appUserService';
+import { isMssqlApiEnabled, requestMssqlApi } from './mssqlApiClient';
+
+const fetchAgreementRecord = async (agreementId) => {
+  const { data, error } = await platformClient
+    .from('agreements')
+    .select('*')
+    .eq('id', agreementId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+const fetchPropertyRecord = async (propertyId) => {
+  const { data, error } = await platformClient
+    .from('properties')
+    .select(`
+      *,
+      property_units (*)
+    `)
+    .eq('id', propertyId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+const fetchPropertyUnitRecord = async (unitId) => {
+  const { data, error } = await platformClient
+    .from('property_units')
+    .select('*')
+    .eq('id', unitId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+export const fetchAgreement = async (agreementId) => {
+  if (isMssqlApiEnabled()) {
+    try {
+      return await requestMssqlApi(`/api/mssql/agreements/${agreementId}`);
+    } catch (mssqlError) {
+      console.error('Error loading agreement from MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  return fetchAgreementRecord(agreementId);
+};
+
+export const updateAgreementData = async (agreementId, updates) => {
+  if (isMssqlApiEnabled()) {
+    try {
+      return await requestMssqlApi(`/api/mssql/agreements/${agreementId}`, {
+        method: 'PUT',
+        body: updates
+      });
+    } catch (mssqlError) {
+      console.error('Error updating agreement in MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  const { data, error } = await platformClient
+    .from('agreements')
+    .update(updates)
+    .eq('id', agreementId)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+export const fetchProperty = async (propertyId) => {
+  if (isMssqlApiEnabled()) {
+    try {
+      return await requestMssqlApi(`/api/mssql/properties/${propertyId}`);
+    } catch (mssqlError) {
+      console.error('Error loading property from MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  return fetchPropertyRecord(propertyId);
+};
+
+export const listProperties = async () => {
+  if (isMssqlApiEnabled()) {
+    try {
+      return await requestMssqlApi('/api/mssql/properties?pageSize=500');
+    } catch (mssqlError) {
+      console.error('Error loading properties from MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  const { data, error } = await platformClient
+    .from('properties')
+    .select('*')
+    .order('name');
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+};
+
+export const updatePropertyData = async (propertyId, updates) => {
+  if (isMssqlApiEnabled()) {
+    try {
+      return await requestMssqlApi(`/api/mssql/properties/${propertyId}`, {
+        method: 'PUT',
+        body: updates
+      });
+    } catch (mssqlError) {
+      console.error('Error updating property in MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  const { data, error } = await platformClient
+    .from('properties')
+    .update(updates)
+    .eq('id', propertyId)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+export const fetchPropertyUnit = async (unitId) => {
+  if (isMssqlApiEnabled()) {
+    try {
+      return await requestMssqlApi(`/api/mssql/property-units/${unitId}`);
+    } catch (mssqlError) {
+      console.error('Error loading property unit from MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  return fetchPropertyUnitRecord(unitId);
+};
+
+export const listPropertyUnits = async (propertyId) => {
+  if (!propertyId) {
+    return [];
+  }
+
+  if (isMssqlApiEnabled()) {
+    try {
+      return await requestMssqlApi(`/api/mssql/property-units?propertyId=${encodeURIComponent(propertyId)}&pageSize=500`);
+    } catch (mssqlError) {
+      console.error('Error loading property units from MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  const { data, error } = await platformClient
+    .from('property_units')
+    .select('*')
+    .eq('propertyid', propertyId)
+    .order('unitnumber');
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+};
 
 /**
  * Saves an agreement with the provided data
@@ -41,6 +222,8 @@ export const saveAgreement = async (agreement) => {
   console.log('Saving agreement:', { agreementId: agreement.id, status: agreement.status });
   
   try {
+    const isNewAgreement = !agreement?.id;
+
     // Prepare the data to save
     let agreementData = {
       ...agreement,
@@ -125,11 +308,10 @@ export const saveAgreement = async (agreement) => {
       // Get unit rental values if available
       let unitRentalValues = {};
       if (agreementData.unitid) {
-        const { data: unitData } = await supabase
-          .from('property_units')
-          .select('rentalvalues')
-          .eq('id', agreementData.unitid)
-          .single();
+        const unitData = await fetchPropertyUnit(agreementData.unitid).catch((error) => {
+          console.error('Error fetching unit rental values:', error);
+          return null;
+        });
           
         if (unitData?.rentalvalues) {
           unitRentalValues = {
@@ -159,17 +341,37 @@ export const saveAgreement = async (agreement) => {
 
     console.log('Saving agreement with filtered data:', filteredData);
     
-    // Save the agreement to the database
-    const { data: savedAgreement, error } = await supabase
-      .from('agreements')
-      .upsert(filteredData)
-      .select('*')
-      .single();
-      
-    if (error) {
-      console.error('Error saving agreement:', error);
-      toast.error('Error saving agreement: ' + error.message);
-      throw error;
+    let savedAgreement = null;
+
+    if (isNewAgreement) {
+      if (isMssqlApiEnabled()) {
+        try {
+          savedAgreement = await requestMssqlApi('/api/mssql/agreements', {
+            method: 'POST',
+            body: filteredData
+          });
+        } catch (mssqlError) {
+          console.error('Error creating agreement in MSSQL, falling back to the local compatibility layer:', mssqlError);
+        }
+      }
+
+      if (!savedAgreement) {
+        const { data, error } = await platformClient
+          .from('agreements')
+          .upsert(filteredData)
+          .select('*')
+          .single();
+
+        if (error) {
+          console.error('Error saving agreement:', error);
+          toast.error('Error saving agreement: ' + error.message);
+          throw error;
+        }
+
+        savedAgreement = data;
+      }
+    } else {
+      savedAgreement = await updateAgreementData(agreementData.id, filteredData);
     }
     
     console.log('Agreement saved successfully:', savedAgreement.id);
@@ -193,22 +395,12 @@ export const saveAgreement = async (agreement) => {
         
         // Update the agreement with the document URL and review status
         console.log('Updating agreement with document URL and review status...');
-        const { data: updatedAgreement, error: updateError } = await supabase
-          .from('agreements')
-          .update({ 
-            documenturl: documentUrl,
-            status: 'review',
-            needs_document_generation: false,
-            updatedat: new Date().toISOString()
-          })
-          .eq('id', savedAgreement.id)
-          .select('*')
-          .single();
-            
-        if (updateError) {
-          console.error('Error updating agreement with document URL:', updateError);
-          throw updateError;
-        }
+        const updatedAgreement = await updateAgreementData(savedAgreement.id, {
+          documenturl: documentUrl,
+          status: 'review',
+          needs_document_generation: false,
+          updatedat: new Date().toISOString()
+        });
         
         // Return the updated agreement with the document URL
         return updatedAgreement;
@@ -263,16 +455,8 @@ async function getMergeDataForAgreement(agreement) {
     
     // Fetch property details with units
     if (agreement.propertyid) {
-      const { data: propertyData, error: propertyError } = await supabase
-        .from('properties')
-        .select(`
-          *,
-          property_units (*)
-        `)
-        .eq('id', agreement.propertyid)
-        .single();
-        
-      if (!propertyError) {
+      try {
+        const propertyData = await fetchProperty(agreement.propertyid);
         mergeData.property = propertyData;
         console.log('Property data fetched successfully:', { 
           name: propertyData.name, 
@@ -291,20 +475,17 @@ async function getMergeDataForAgreement(agreement) {
             rentalvalues: { rent: '', deposit: '' }
           };
         }
-      } else {
+      } catch (propertyError) {
         console.error('Error fetching property data:', propertyError);
       }
     }
     
     // Fetch unit details if available
     if (agreement.unitid) {
-      const { data: unitData, error: unitError } = await supabase
-        .from('property_units')
-        .select('*')
-        .eq('id', agreement.unitid)
-        .single();
-        
-      if (!unitError && unitData) {
+      try {
+        const unitData = await fetchPropertyUnit(agreement.unitid);
+      
+        if (unitData) {
         console.log('Unit data fetched successfully:', {
           id: unitData.id,
           unitnumber: unitData.unitnumber,
@@ -331,7 +512,8 @@ async function getMergeDataForAgreement(agreement) {
         } else {
           console.warn('Unit has no rental values defined');
         }
-      } else {
+        }
+      } catch (unitError) {
         console.error('Error fetching unit data:', unitError);
       }
     } else {
@@ -340,14 +522,10 @@ async function getMergeDataForAgreement(agreement) {
     
     // Fetch rentee details
     if (agreement.renteeid) {
-      const { data: renteeData, error: renteeError } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('id', agreement.renteeid)
-        .single();
-        
-      if (!renteeError) {
-        mergeData.rentee = renteeData;
+      try {
+        mergeData.rentee = await fetchAppUser(agreement.renteeid);
+      } catch (renteeError) {
+        console.error('Error fetching rentee data:', renteeError);
       }
     }
     
@@ -404,15 +582,7 @@ export const handleDocumentGeneration = async (agreementId, templateContent) => 
     }
     
     // Get the agreement data
-    const { data: agreement, error } = await supabase
-      .from("agreements")
-      .select("*")
-      .eq("id", agreementId)
-      .single();
-      
-    if (error) {
-      throw error;
-    }
+    const agreement = await fetchAgreement(agreementId);
     
     // Get merge data for the agreement
     const mergeData = await getMergeDataForAgreement(agreement);
@@ -434,14 +604,7 @@ export const handleDocumentGeneration = async (agreementId, templateContent) => 
     const docUrl = await saveMergedDocument(mergedContent, agreement);
     
     // Update the agreement with the new document URL
-    const { error: updateError } = await supabase
-      .from("agreements")
-      .update({ documenturl: docUrl })
-      .eq("id", agreementId);
-      
-    if (updateError) {
-      throw updateError;
-    }
+    await updateAgreementData(agreementId, { documenturl: docUrl });
     
     toast.success("Document generated successfully");
     return true;
@@ -459,20 +622,134 @@ export const handleDocumentGeneration = async (agreementId, templateContent) => 
  */
 export const getTemplate = async (templateId) => {
   try {
-    const { data, error } = await supabase
+    if (isMssqlApiEnabled()) {
+      try {
+        return await requestMssqlApi(`/api/mssql/agreement-templates/${templateId}`);
+      } catch (mssqlError) {
+        console.error('Error fetching template from MSSQL, falling back to the local compatibility layer:', mssqlError);
+      }
+    }
+
+    const { data, error } = await platformClient
       .from('agreement_templates')
       .select('*')
       .eq('id', templateId)
       .single();
-      
+
     if (error) {
       throw error;
     }
+
     return data;
   } catch (error) {
     console.error('Error fetching template:', error);
     return null;
   }
+};
+
+export const listTemplates = async ({ language } = {}) => {
+  if (isMssqlApiEnabled()) {
+    try {
+      const query = language
+        ? `/api/mssql/agreement-templates?language=${encodeURIComponent(language)}&pageSize=500`
+        : '/api/mssql/agreement-templates?pageSize=500';
+      return await requestMssqlApi(query);
+    } catch (mssqlError) {
+      console.error('Error loading templates from MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  let request = platformClient
+    .from('agreement_templates')
+    .select('*');
+
+  if (language) {
+    request = request.eq('language', language);
+  }
+
+  const { data, error } = await request.order('name');
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+};
+
+export const createTemplate = async (templateData) => {
+  if (isMssqlApiEnabled()) {
+    try {
+      return await requestMssqlApi('/api/mssql/agreement-templates', {
+        method: 'POST',
+        body: templateData
+      });
+    } catch (mssqlError) {
+      console.error('Error creating template in MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  const { data, error } = await platformClient
+    .from('agreement_templates')
+    .insert(templateData)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+export const updateTemplate = async (templateId, templateData) => {
+  if (isMssqlApiEnabled()) {
+    try {
+      return await requestMssqlApi(`/api/mssql/agreement-templates/${templateId}`, {
+        method: 'PUT',
+        body: templateData
+      });
+    } catch (mssqlError) {
+      console.error('Error updating template in MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  const { data, error } = await platformClient
+    .from('agreement_templates')
+    .update(templateData)
+    .eq('id', templateId)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+export const deleteTemplate = async (templateId) => {
+  if (isMssqlApiEnabled()) {
+    try {
+      return await requestMssqlApi(`/api/mssql/agreement-templates/${templateId}`, {
+        method: 'DELETE'
+      });
+    } catch (mssqlError) {
+      console.error('Error deleting template in MSSQL, falling back to the local compatibility layer:', mssqlError);
+    }
+  }
+
+  const { data, error } = await platformClient
+    .from('agreement_templates')
+    .delete()
+    .eq('id', templateId)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 };
 
 /**
@@ -485,38 +762,32 @@ export const cancelAgreement = async (agreementId, cancelReason = '') => {
   console.log('Cancelling agreement:', agreementId);
   
   try {
-    // Check if agreement exists
-    const { data: existingAgreement, error: fetchError } = await supabase
-      .from('agreements')
-      .select('*')
-      .eq('id', agreementId)
-      .single();
-    
-    if (fetchError) {
-      console.error('Error fetching agreement for cancellation:', fetchError);
-      throw new Error(`Agreement not found: ${fetchError.message}`);
+    const existingAgreement = await fetchAgreement(agreementId);
+
+    if (!existingAgreement) {
+      throw new Error('Agreement not found');
     }
     
     // Prepare update data
     const updateData = {
       status: 'cancelled',
+      cancellation_reason: cancelReason,
       updatedat: new Date().toISOString(),
       notes: cancelReason ? 
         `${existingAgreement.notes || ''}\n\nCancellation reason (${new Date().toLocaleDateString()}): ${cancelReason}` : 
         existingAgreement.notes
     };
     
-    // Update the agreement
-    const { data: updatedAgreement, error: updateError } = await supabase
-      .from('agreements')
-      .update(updateData)
-      .eq('id', agreementId)
-      .select('*')
-      .single();
-    
-    if (updateError) {
-      console.error('Error cancelling agreement:', updateError);
-      throw new Error(`Failed to cancel agreement: ${updateError.message}`);
+    const updatedAgreement = await updateAgreementData(agreementId, updateData);
+
+    if (
+      existingAgreement.propertyid &&
+      ['active', 'signed', 'completed'].includes(existingAgreement.status)
+    ) {
+      await updatePropertyData(existingAgreement.propertyid, {
+        status: 'available',
+        updatedat: new Date().toISOString()
+      });
     }
     
     console.log('Agreement cancelled successfully:', updatedAgreement.id);
@@ -524,6 +795,117 @@ export const cancelAgreement = async (agreementId, cancelReason = '') => {
   } catch (error) {
     console.error('Error in cancelAgreement:', error);
     toast.error('Error cancelling agreement: ' + error.message);
+    throw error;
+  }
+};
+
+/**
+ * Delete an agreement
+ * @param {string} agreementId - The ID of the agreement to delete
+ * @returns {Promise<Object|null>} - The deleted agreement
+ */
+export const deleteAgreement = async (agreementId) => {
+  try {
+    if (isMssqlApiEnabled()) {
+      try {
+        return await requestMssqlApi(`/api/mssql/agreements/${agreementId}`, {
+          method: 'DELETE'
+        });
+      } catch (mssqlError) {
+        console.error('Error deleting agreement in MSSQL, falling back to the local compatibility layer:', mssqlError);
+      }
+    }
+
+    const { data, error } = await platformClient
+      .from('agreements')
+      .delete()
+      .eq('id', agreementId)
+      .select('*')
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error deleting agreement:', error);
+    throw error;
+  }
+};
+
+/**
+ * Mark an agreement as signed
+ * @param {string} agreementId - The ID of the agreement to sign
+ * @returns {Promise<Object>} - The updated agreement
+ */
+export const markAgreementAsSigned = async (agreementId) => {
+  try {
+    if (isMssqlApiEnabled()) {
+      try {
+        return await requestMssqlApi(`/api/mssql/agreements/${agreementId}/sign`, {
+          method: 'POST'
+        });
+      } catch (mssqlError) {
+        console.error('Error signing agreement in MSSQL, falling back to the local compatibility layer:', mssqlError);
+      }
+    }
+
+    const agreement = await fetchAgreement(agreementId);
+
+    if (!agreement) {
+      throw new Error('Agreement not found');
+    }
+
+    const updatedAgreement = await updateAgreementData(agreementId, {
+      status: 'signed',
+      signeddate: new Date().toISOString(),
+      updatedat: new Date().toISOString()
+    });
+
+    if (agreement.propertyid) {
+      await updatePropertyData(agreement.propertyid, {
+        status: 'available',
+        updatedat: new Date().toISOString()
+      });
+    }
+
+    if (agreement.unitid) {
+      const { error: unitError } = await platformClient
+        .from('property_units')
+        .update({
+          status: 'occupied',
+          updatedat: new Date().toISOString()
+        })
+        .eq('id', agreement.unitid);
+
+      if (unitError) {
+        console.error('Error updating unit status:', unitError);
+      }
+    }
+
+    if (agreement.renteeid && agreement.propertyid) {
+      const userResult = await fetchAppUser(agreement.renteeid);
+
+      if (userResult) {
+        const currentProperties = userResult.associated_property_ids || [];
+
+        if (!currentProperties.includes(agreement.propertyid)) {
+          const updateResult = await updateAppUser(agreement.renteeid, {
+            associated_property_ids: [...currentProperties, agreement.propertyid],
+            updatedat: new Date().toISOString()
+          });
+
+          if (!updateResult?.success) {
+            console.error('Error updating rentee associated properties:', updateResult?.error);
+          }
+        }
+      }
+    }
+
+    return updatedAgreement;
+  } catch (error) {
+    console.error('Error marking agreement as signed:', error);
     throw error;
   }
 };
@@ -542,7 +924,7 @@ export const handleEviaSignWebhook = async (webhookPayload) => {
     }
 
     // Find the agreement by Evia Sign reference
-    const { data: agreements, error: searchError } = await supabase
+    const { data: agreements, error: searchError } = await platformClient
       .from('agreements')
       .select('*')
       .eq('eviasignreference', RequestId)
@@ -640,7 +1022,7 @@ export const handleEviaSignWebhook = async (webhookPayload) => {
         if (Documents && Documents.length > 0) {
           const signedDoc = Documents[0];
           // Save the signed document to storage
-          const { data: uploadData, error: uploadError } = await supabase.storage
+          const { data: uploadData, error: uploadError } = await platformClient.storage
             .from('files')
             .upload(
               `agreements/${agreement.id}/signed_agreement.pdf`,
@@ -655,7 +1037,7 @@ export const handleEviaSignWebhook = async (webhookPayload) => {
             console.error('Error uploading signed document:', uploadError);
           } else {
             // Get the public URL
-            const { data: { publicUrl } } = supabase.storage
+            const { data: { publicUrl } } = platformClient.storage
               .from('files')
               .getPublicUrl(`agreements/${agreement.id}/signed_agreement.pdf`);
 
@@ -676,7 +1058,7 @@ export const handleEviaSignWebhook = async (webhookPayload) => {
     }
 
     // Update the agreement
-    const { data: updatedAgreement, error: updateError } = await supabase
+    const { data: updatedAgreement, error: updateError } = await platformClient
       .from('agreements')
       .update(updateData)
       .eq('id', agreement.id)
@@ -704,17 +1086,31 @@ export const checkAndUpdateExpiredAgreements = async () => {
   try {
     const today = new Date().toISOString().split('T')[0];
     console.log(`Checking for agreements that expired before ${today}`);
-    
-    // Find active agreements with end date in the past
-    const { data: expiredAgreements, error } = await supabase
-      .from('agreements')
-      .select('id, enddate')
-      .eq('status', 'active')
-      .lt('enddate', today);
-    
-    if (error) {
-      console.error(`Error finding expired agreements: ${error.message}`);
-      return { success: false, error: error.message };
+
+    let expiredAgreements = [];
+
+    if (isMssqlApiEnabled()) {
+      try {
+        const agreements = await requestMssqlApi('/api/mssql/agreements?status=active&pageSize=500');
+        expiredAgreements = (agreements || []).filter((agreement) => agreement.enddate && agreement.enddate < today);
+      } catch (mssqlError) {
+        console.error('Error finding expired agreements in MSSQL, falling back to the local compatibility layer:', mssqlError);
+      }
+    }
+
+    if (expiredAgreements.length === 0) {
+      const { data, error } = await platformClient
+        .from('agreements')
+        .select('id, enddate')
+        .eq('status', 'active')
+        .lt('enddate', today);
+
+      if (error) {
+        console.error(`Error finding expired agreements: ${error.message}`);
+        return { success: false, error: error.message };
+      }
+
+      expiredAgreements = data || [];
     }
     
     if (!expiredAgreements || expiredAgreements.length === 0) {
@@ -727,16 +1123,16 @@ export const checkAndUpdateExpiredAgreements = async () => {
     // Update each expired agreement
     const results = [];
     for (const agreement of expiredAgreements) {
-      // Update the agreement
-      const { data: updatedAgreement, error: updateError } = await supabase
-        .from('agreements')
-        .update({ 
+      let updateError = null;
+
+      try {
+        await updateAgreementData(agreement.id, {
           status: 'expired',
           updatedat: new Date().toISOString()
-        })
-        .eq('id', agreement.id)
-        .select('*')
-        .single();
+        });
+      } catch (error) {
+        updateError = error;
+      }
       
       results.push({
         agreementId: agreement.id,

@@ -6,21 +6,17 @@ This directory contains SQL migrations for the KH Rentals application. These scr
 
 You can run the SQL migrations in one of two ways:
 
-### 1. Using the Supabase Dashboard
+### 1. Using Your Database Management Tool
 
-1. Log into your Supabase project dashboard
-2. Navigate to the SQL Editor section
+1. Connect to the active application database
+2. Open a SQL editor/query window
 3. Create a new query
 4. Copy the contents of the migration file you want to run
 5. Execute the query
 
-### 2. Using the Supabase CLI
+### 2. Using Your Preferred SQL Tool
 
-If you have the Supabase CLI installed, you can run:
-
-```bash
-supabase db execute -f path/to/migration/file.sql
-```
+Run the migration file with the SQL tool used for your environment.
 
 ## Current Migrations
 
@@ -36,10 +32,7 @@ supabase db execute -f path/to/migration/file.sql
 
 **How to run:**
 ```bash
-# Via CLI
-supabase db execute -f src/db/sql/migrations/202309015_fix_rejection_constraints.sql
-
-# Or copy the contents into the Supabase SQL Editor
+# Run the SQL file in your database management tool or query editor
 ```
 
 **Verification:** After running the migration, try rejecting a reading. You should see:

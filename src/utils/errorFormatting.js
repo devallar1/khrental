@@ -20,7 +20,7 @@ export const formatErrorMessage = (error) => {
     return error;
   }
   
-  // If error is a Supabase error
+  // If error is a database client error
   if (error.code && error.message) {
     return `${error.message} (Code: ${error.code})`;
   }
@@ -49,8 +49,8 @@ export const formatErrorMessage = (error) => {
 };
 
 /**
- * Format a database error specifically from Supabase
- * @param {Object} error - The Supabase error object
+ * Format a database error from the platform compatibility layer
+ * @param {Object} error - The database client error object
  * @returns {string} - User-friendly error message
  */
 export const formatDatabaseError = (error) => {
@@ -58,7 +58,7 @@ export const formatDatabaseError = (error) => {
     return 'Unknown database error';
   }
   
-  // Handle specific Supabase error codes
+  // Handle specific database error codes
   switch (error.code) {
     case '23505': // Unique violation
       return 'This record already exists in the database';

@@ -9,8 +9,8 @@ import {
 } from '../utils/cleanupImages';
 import { applyAuthFieldsMigration, applyAppUsersMigration } from '../utils/dbMigration';
 import { inviteRentee, inviteTeamMember, linkUserRecord } from '../services/userService';
-import { inviteAppUser, linkAppUser, createAppUser } from '../services/appUserService';
-import { supabase } from '../services/supabaseClient';
+import { inviteAppUser, linkAppUser, createAppUser, fetchAppUsers, findAppUserByEmail, updateAppUser } from '../services/appUserService';
+import { platform as platformClient } from '../services/platformClient';
 import { toast } from 'react-toastify';
 import AuthUserLinking from '../components/AuthUserLinking';
 import { useAuth } from '../hooks/useAuth';
@@ -177,17 +177,9 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
       setAuthLinking(prev => ({ ...prev, loading: true, error: null }));
       
       // Fetch team members
-      const { data: teamMembers, error: teamError } = await supabase
-        .from('app_users')
-        .select('id, name, contact_details, auth_id, role')
-        .eq('user_type', 'staff');
+      const teamMembers = await fetchAppUsers('staff');
       
       console.log("Team members loaded:", teamMembers);
-      
-      if (teamError) {
-        console.error("Team members error:", teamError);
-        throw new Error(`Error fetching team members: ${teamError.message}`);
-      }
       
       // We can't use admin.listUsers without service role, so we'll manually add users
       const manualAuthUsers = [
@@ -318,13 +310,10 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
       }
       
       // Update the created user to have admin role
-      const { error: updateError } = await supabase
-        .from('app_users')
-        .update({ role: 'admin' })
-        .eq('id', result.data.id);
-      
-      if (updateError) {
-        throw new Error(`Error updating user role: ${updateError.message}`);
+      const updateResult = await updateAppUser(result.data.id, { role: 'admin' });
+
+      if (!updateResult.success) {
+        throw new Error(`Error updating user role: ${updateResult.error}`);
       }
       
       toast.success(`Admin user created successfully: ${adminUser.email}`);
@@ -374,38 +363,26 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
       let appUserId;
       if (result.success) {
         appUserId = result.data.id;
-        
-        // Update the role to admin
-        const { error: updateError } = await supabase
-          .from('app_users')
-          .update({ role: 'admin' })
-          .eq('id', appUserId);
-        
-        if (updateError) {
-          throw new Error(`Error updating user role: ${updateError.message}`);
+
+        const updateResult = await updateAppUser(appUserId, { role: 'admin' });
+
+        if (!updateResult.success) {
+          throw new Error(`Error updating user role: ${updateResult.error}`);
         }
       } else {
         // Look up the existing user
-        const { data: existingUser, error: lookupError } = await supabase
-          .from('app_users')
-          .select('id')
-          .eq('email', user.email)
-          .single();
-        
-        if (lookupError) {
-          throw new Error(`Error finding existing user: ${lookupError.message}`);
+        const lookupResult = await findAppUserByEmail(user.email);
+
+        if (!lookupResult.success || !lookupResult.data) {
+          throw new Error(`Error finding existing user: ${lookupResult.error || 'User not found'}`);
         }
-        
-        appUserId = existingUser.id;
-        
-        // Update the role to admin
-        const { error: updateError } = await supabase
-          .from('app_users')
-          .update({ role: 'admin' })
-          .eq('id', appUserId);
-        
-        if (updateError) {
-          throw new Error(`Error updating user role: ${updateError.message}`);
+
+        appUserId = lookupResult.data.id;
+
+        const updateResult = await updateAppUser(appUserId, { role: 'admin' });
+
+        if (!updateResult.success) {
+          throw new Error(`Error updating user role: ${updateResult.error}`);
         }
       }
       
@@ -438,22 +415,13 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
       setLoading(true);
       setError(null);
       
-      // Try to query the app_users table
-      const { data, error } = await supabase
-        .from('app_users')
-        .select('count(*)')
-        .limit(1);
-      
-      if (error) {
-        console.error('Error checking app_users table:', error);
-        throw new Error(`The app_users table might not exist: ${error.message}`);
-      }
+      const appUsers = await fetchAppUsers();
       
       // Check if we can query the rentees and team_members tables for comparison
-      let message = `✅ app_users table exists and is accessible.`;
+      let message = `✅ app_users table exists and is accessible. Found ${appUsers.length} unified users.`;
       
       try {
-        const { data: renteesData, error: renteesError } = await supabase
+        const { data: renteesData, error: renteesError } = await platformClient
           .from('rentees')
           .select('count(*)')
           .limit(1);
@@ -466,7 +434,7 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
       }
       
       try {
-        const { data: teamData, error: teamError } = await supabase
+        const { data: teamData, error: teamError } = await platformClient
           .from('team_members')
           .select('count(*)')
           .limit(1);
@@ -536,7 +504,7 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
       }
       
       setSqlInstructions(result.sql);
-      toast.success('SQL generated successfully. Please run it in the Supabase SQL Editor.');
+      toast.success('SQL generated successfully. Please run it in your database SQL editor.');
     } catch (error) {
       console.error('Error generating SQL:', error);
       setError(error.message);
@@ -626,7 +594,7 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
       setStorageStatus(prev => ({ ...prev, loading: true, error: null, success: null }));
       
       // First delete all files in the bucket
-      const { data: files, error: listError } = await supabase.storage
+      const { data: files, error: listError } = await platformClient.storage
         .from(bucketName)
         .list();
       
@@ -635,7 +603,7 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
       } else if (files && files.length > 0) {
         // Delete each file
         for (const file of files) {
-          const { error: deleteError } = await supabase.storage
+          const { error: deleteError } = await platformClient.storage
             .from(bucketName)
             .remove([file.name]);
           
@@ -646,7 +614,7 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
       }
 
       // Then delete the bucket
-      const { error: deleteError } = await supabase.storage.deleteBucket(bucketName);
+      const { error: deleteError } = await platformClient.storage.deleteBucket(bucketName);
       
       if (deleteError) {
         throw deleteError;
@@ -675,7 +643,7 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
       setStorageStatus(prev => ({ ...prev, loading: true, error: null, success: null }));
       
       // Create the bucket
-      const { error: createError } = await supabase.storage.createBucket(bucketName, config);
+      const { error: createError } = await platformClient.storage.createBucket(bucketName, config);
       
       if (createError) {
         throw createError;
@@ -687,7 +655,7 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
         : ['agreements', 'id-copies', 'documents', 'payment-proofs'];
 
       for (const folder of folders) {
-        const { error: folderError } = await supabase.storage
+        const { error: folderError } = await platformClient.storage
           .from(bucketName)
           .upload(`${folder}/.keep`, new Blob([''], { type: 'text/plain' }), {
             cacheControl: '3600',
@@ -724,7 +692,7 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
       ];
 
       for (const policy of policies) {
-        const { error: policyError } = await supabase.rpc('create_policy', {
+        const { error: policyError } = await platformClient.rpc('create_policy', {
           table_name: 'storage.objects',
           policy_name: policy.name,
           definition: policy.definition,
@@ -758,7 +726,7 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
     try {
       setStorageStatus(prev => ({ ...prev, loading: true, error: null }));
       
-      const { data: buckets, error } = await supabase.storage.listBuckets();
+      const { data: buckets, error } = await platformClient.storage.listBuckets();
       
       if (error) {
         throw error;
@@ -784,7 +752,7 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
       setStorageStatus(prev => ({ ...prev, loading: true, error: null, success: null }));
       
       // Delete existing buckets
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+      const { data: buckets, error: listError } = await platformClient.storage.listBuckets();
       
       if (listError) {
         throw listError;
@@ -1065,7 +1033,7 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
                   <pre className="text-sm whitespace-pre-wrap">{sqlInstructions}</pre>
                 </div>
                 <p className="mt-2 text-sm text-gray-600">
-                  Copy this SQL and run it in the Supabase SQL Editor to create the app_users table.
+                  Copy this SQL and run it in your database SQL editor to create the app_users table.
                 </p>
               </div>
             )}
@@ -1083,7 +1051,7 @@ CREATE INDEX IF NOT EXISTS idx_rentees_authid ON rentees(authid);
           <div className="bg-white rounded-lg shadow p-6 mb-6">
             <h2 className="text-xl font-medium mb-4">Test User Invitation</h2>
             <p className="mb-4 text-gray-600">
-              Test sending invitations to users. Note: This uses the Supabase built-in email service which has a limit of 2 emails per hour.
+              Test sending invitations to users. Note: this uses the current auth and email flow and may be rate-limited by the configured provider.
             </p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

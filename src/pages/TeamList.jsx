@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { fetchAppUsers, mapAppUserToTeamMember } from '../services/appUserService';
 import TeamMemberCard from '../components/team/TeamMemberCard';
 import { toast } from 'react-toastify';
 
@@ -22,33 +22,12 @@ const TeamList = () => {
       console.log('Fetching team members from app_users table...');
       
       // Fetch team members from app_users table
-      const { data, error } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('user_type', 'staff');
-      
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
+      const data = await fetchAppUsers('staff');
       
       console.log('Fetched data from app_users:', data);
       
       // Transform the data to the expected format
-      const transformedData = data.map(member => ({
-        id: member.id,
-        name: member.name || 'Unnamed Member',
-        role: member.role || 'staff',
-        contactDetails: member.contact_details || {},
-        skills: member.skills || [],
-        availability: member.availability || {},
-        notes: member.notes || '',
-        active: member.status === 'active',
-        invited: member.invited,
-        authId: member.auth_id,
-        createdAt: member.created_at || new Date().toISOString(),
-        updatedAt: member.updated_at || member.created_at || new Date().toISOString()
-      }));
+      const transformedData = (data || []).map(mapAppUserToTeamMember);
       
       console.log('Transformed data from app_users:', transformedData);
       setTeamMembers(transformedData);

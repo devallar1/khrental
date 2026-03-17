@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { useAuth } from '../../hooks/useAuth';
 import { formatCurrency, formatDate } from '../../utils/helpers';
-import { getStructuredAssociations } from '../../services/appUserService';
+import { findAppUserByAuthId, getStructuredAssociations } from '../../services/appUserService';
 
 const RenteePortal = () => {
   const { user } = useAuth();
@@ -85,15 +85,13 @@ const RenteePortal = () => {
         
         // For real users, fetch data from the database
         // Fetch rentee profile from app_users table
-        const { data: renteeData, error: renteeError } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('auth_id', user.id)
-          .single();
-        
-        if (renteeError) {
-          throw renteeError;
+        const renteeLookup = await findAppUserByAuthId(user.id);
+
+        if (!renteeLookup.success) {
+          throw new Error(renteeLookup.error || 'Failed to load rentee profile');
         }
+
+        const renteeData = renteeLookup.data;
         
         if (renteeData && renteeData.user_type === 'rentee') {
           const renteeId = renteeData.id;
@@ -113,7 +111,7 @@ const RenteePortal = () => {
           // Fetch associated properties with their units
           let associatedProperties = [];
           if (propertyIds.length > 0) {
-            const { data: propertiesData, error: propertiesError } = await supabase
+            const { data: propertiesData, error: propertiesError } = await platformClient
               .from('properties')
               .select(`
                 *,
@@ -174,7 +172,7 @@ const RenteePortal = () => {
           setRenteeData(formattedRentee);
           
           // Fetch rentee's invoices
-          const { data: invoicesData, error: invoicesError } = await supabase
+          const { data: invoicesData, error: invoicesError } = await platformClient
             .from('invoices')
             .select('*')
             .eq('renteeid', renteeId)
@@ -186,7 +184,7 @@ const RenteePortal = () => {
           setInvoices(invoicesData || []);
           
           // Fetch rentee's agreements
-          const { data: agreementsData, error: agreementsError } = await supabase
+          const { data: agreementsData, error: agreementsError } = await platformClient
             .from('agreements')
             .select('*')
             .eq('renteeid', renteeId)

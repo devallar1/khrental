@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { fetchData, deleteData, updateData } from '../services/supabaseClient';
+import { fetchData, deleteData, updateData } from '../services/platformClient';
 import { formatCurrency, formatDate } from '../utils/helpers';
 import { DEFAULT_IMAGE } from '../utils/constants';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { getRenteesByProperty } from '../services/renteeService';
 import { toast } from 'react-hot-toast';
 import { deleteFile } from '../services/fileService';
+import { fetchAppUsers } from '../services/appUserService';
 
 // Components
 import PropertyMap from '../components/properties/PropertyMap';
@@ -235,24 +236,18 @@ const PropertyDetails = () => {
           console.log('Fetching rentees for property ID:', id);
           
           try {
-            // Query rentees directly using SQL-like filter with Supabase
-            const { data: directRentees, error: directError } = await supabase
-              .from('app_users')
-              .select('id, name, contact_details, email')
-              .eq('user_type', 'rentee')
-              .filter('associated_property_ids', 'cs', `{"${id}"}`);
-              
-            if (directError) {
-              console.error('Error fetching rentees with filter:', directError);
-              setRentees([]);
-            } else if (directRentees && directRentees.length > 0) {
+            const allRentees = await fetchAppUsers('rentee');
+            const renteesById = new Map((allRentees || []).map((rentee) => [rentee.id, rentee]));
+            const directRentees = (allRentees || []).filter((rentee) => Array.isArray(rentee.associated_property_ids) && rentee.associated_property_ids.includes(id));
+
+            if (directRentees && directRentees.length > 0) {
               console.log('Found rentees via direct query:', directRentees.length);
               setRentees(directRentees);
             } else {
               console.log('No rentees found with associated property IDs, checking agreements...');
               
               // Also check agreements to find rentees linked to this property
-              const { data: agreementRentees, error: agreementError } = await supabase
+              const { data: agreementRentees, error: agreementError } = await platformClient
                 .from('agreements')
                 .select('renteeid')
                 .eq('propertyid', id)
@@ -268,23 +263,14 @@ const PropertyDetails = () => {
                 const renteeIds = [...new Set(agreementRentees.map(a => a.renteeid))];
                 
                 // Fetch the actual rentee records
-                const { data: fullRentees, error: renteeError } = await supabase
-                  .from('app_users')
-                  .select('id, name, contact_details, email')
-                  .in('id', renteeIds);
-                  
-                if (renteeError) {
-                  console.error('Error fetching rentees by IDs:', renteeError);
-                  setRentees([]);
-                } else {
-                  console.log('Retrieved rentees from agreements:', fullRentees?.length || 0);
-                  setRentees(fullRentees || []);
-                }
+                const fullRentees = renteeIds.map((renteeId) => renteesById.get(renteeId)).filter(Boolean);
+                console.log('Retrieved rentees from agreements:', fullRentees?.length || 0);
+                setRentees(fullRentees || []);
               } else {
                 console.log('No rentees found in agreements, checking units...');
                 
                 // Check if property has units, then check for agreements on those units
-                const { data: propertyUnits, error: unitsError } = await supabase
+                const { data: propertyUnits, error: unitsError } = await platformClient
                   .from('property_units')
                   .select('id')
                   .eq('propertyid', id);
@@ -296,7 +282,7 @@ const PropertyDetails = () => {
                   // Property has units, check for agreements on these units
                   const unitIds = propertyUnits.map(unit => unit.id);
                   
-                  const { data: unitAgreements, error: unitAgreementsError } = await supabase
+                  const { data: unitAgreements, error: unitAgreementsError } = await platformClient
                     .from('agreements')
                     .select('renteeid')
                     .in('unitid', unitIds)
@@ -312,18 +298,9 @@ const PropertyDetails = () => {
                     const unitRenteeIds = [...new Set(unitAgreements.map(a => a.renteeid))];
                     
                     // Fetch the actual rentee records
-                    const { data: unitRentees, error: unitRenteeError } = await supabase
-                      .from('app_users')
-                      .select('id, name, contact_details, email')
-                      .in('id', unitRenteeIds);
-                      
-                    if (unitRenteeError) {
-                      console.error('Error fetching rentees by unit agreement IDs:', unitRenteeError);
-                      setRentees([]);
-                    } else {
-                      console.log('Retrieved rentees from unit agreements:', unitRentees?.length || 0);
-                      setRentees(unitRentees || []);
-                    }
+                    const unitRentees = unitRenteeIds.map((renteeId) => renteesById.get(renteeId)).filter(Boolean);
+                    console.log('Retrieved rentees from unit agreements:', unitRentees?.length || 0);
+                    setRentees(unitRentees || []);
                   } else {
                     console.log('No rentees found in unit agreements');
                     setRentees([]);

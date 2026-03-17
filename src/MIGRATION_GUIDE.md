@@ -19,7 +19,7 @@ This document provides guidance on the migration from separate `team_members` an
   - `email`: User's email address
   - `user_type`: Either 'staff' or 'rentee'
   - `role`: More specific role (admin, staff, maintenance, rentee)
-  - `auth_id`: Link to Supabase Auth user ID
+  - `auth_id`: Link to the application auth user ID
   - `invited`: Boolean indicating if the user has been invited
   - `contact_details`: JSON object with contact information
   - Type-specific fields for each user type
@@ -67,9 +67,9 @@ To migrate your database:
 
 1. Go to the Admin Tools page
 2. Click "Check App Users Table" to verify if the table exists
-3. If the table doesn't exist, click "Generate App Users Table SQL" and run the SQL in Supabase
+3. If the table doesn't exist, click "Generate App Users Table SQL" and run the SQL in the active database
 4. Click "Run App Users Migration" to generate the migration SQL
-5. Run the migration SQL in Supabase to migrate data from the old tables
+5. Run the migration SQL in the active database to migrate data from the old tables
 
 ## Error Handling
 

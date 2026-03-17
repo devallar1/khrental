@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { platform as platformClient } from './platformClient';
 
 /**
  * Checks if the application has the necessary permissions for bucket operations
@@ -10,11 +10,11 @@ export async function checkBucketPermissions(bucketName = 'files') {
     const permissions = {};
     
     // Test listing buckets
-    const { data: bucketData, error: bucketError } = await supabase.storage.listBuckets();
+    const { data: bucketData, error: bucketError } = await platformClient.storage.listBuckets();
     permissions.list_buckets = !bucketError;
     
     // Test listing files in bucket
-    const { data: listData, error: listError } = await supabase.storage
+    const { data: listData, error: listError } = await platformClient.storage
       .from(bucketName)
       .list();
     permissions.list_files = !listError;
@@ -22,14 +22,14 @@ export async function checkBucketPermissions(bucketName = 'files') {
     // Test upload permission with a tiny test file
     const testBlob = new Blob(['test'], { type: 'text/plain' });
     const testPath = `permission-test-${Date.now()}.txt`;
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await platformClient.storage
       .from(bucketName)
       .upload(testPath, testBlob);
     permissions.upload = !uploadError;
     
     // Test download permission if upload succeeded
     if (permissions.upload) {
-      const { data: downloadData, error: downloadError } = await supabase.storage
+      const { data: downloadData, error: downloadError } = await platformClient.storage
         .from(bucketName)
         .download(testPath);
       permissions.download = !downloadError;
@@ -39,7 +39,7 @@ export async function checkBucketPermissions(bucketName = 'files') {
     
     // Test delete permission if upload succeeded
     if (permissions.upload) {
-      const { error: deleteError } = await supabase.storage
+      const { error: deleteError } = await platformClient.storage
         .from(bucketName)
         .remove([testPath]);
       permissions.delete = !deleteError;
@@ -88,7 +88,7 @@ export async function testFileUpload(bucketName = 'files') {
     const file = new File([blob], 'test-upload.txt', { type: 'text/plain' });
     
     // Try uploading the test file
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await platformClient.storage
       .from(bucketName)
       .upload(`test-${Date.now()}-test-upload.txt`, file);
     
@@ -109,18 +109,18 @@ export async function testFileUpload(bucketName = 'files') {
 }
 
 /**
- * Handles file upload operations to Supabase storage
+ * Handles file upload operations through the platform storage layer
  * @param {File} file - The file to upload
  * @param {string} bucketName - The bucket name to upload to
  * @returns {Promise<Object>} Result of the operation
  */
 export async function uploadFile(file, bucketName) {
-  const { data: bucketData, error: bucketError } = await supabase.storage.listBuckets();
+  const { data: bucketData, error: bucketError } = await platformClient.storage.listBuckets();
   if (bucketError) {
     throw bucketError;
   }
 
-  const { data: uploadData, error: uploadError } = await supabase.storage
+  const { data: uploadData, error: uploadError } = await platformClient.storage
     .from(bucketName)
     .upload(`test-${Date.now()}-${file.name}`, file);
 
@@ -128,7 +128,7 @@ export async function uploadFile(file, bucketName) {
     throw uploadError;
   }
 
-  const { data: listData, error: listError } = await supabase.storage
+  const { data: listData, error: listError } = await platformClient.storage
     .from(bucketName)
     .list();
 
@@ -137,7 +137,7 @@ export async function uploadFile(file, bucketName) {
   }
 
   try {
-    const { data: finalData, error: finalError } = await supabase.storage.listBuckets();
+    const { data: finalData, error: finalError } = await platformClient.storage.listBuckets();
     if (finalError) {
       throw finalError;
     }
@@ -157,7 +157,7 @@ export async function createRequiredBuckets() {
     const results = {};
     
     // Get existing buckets
-    const { data: existingBuckets, error: listError } = await supabase.storage.listBuckets();
+    const { data: existingBuckets, error: listError } = await platformClient.storage.listBuckets();
     
     if (listError) {
       throw listError;
@@ -169,7 +169,7 @@ export async function createRequiredBuckets() {
     // Create missing buckets
     for (const bucketName of requiredBuckets) {
       if (!existingBucketNames.includes(bucketName)) {
-        const { data, error } = await supabase.storage.createBucket(bucketName, {
+        const { data, error } = await platformClient.storage.createBucket(bucketName, {
           public: bucketName === 'images', // Images bucket is public, others are private
           fileSizeLimit: 10485760, // 10MB
         });
@@ -199,7 +199,7 @@ export async function testStorageBuckets() {
     };
     
     // Step 1: Test listing buckets
-    const { data: bucketList, error: listError } = await supabase.storage.listBuckets();
+    const { data: bucketList, error: listError } = await platformClient.storage.listBuckets();
     results.bucketOperations.list = { success: !listError, data: bucketList, error: listError };
     
     if (listError) {
@@ -208,7 +208,7 @@ export async function testStorageBuckets() {
     
     // Step 2: Create a test bucket with a unique name
     const testBucketName = `test-bucket-${Date.now()}`;
-    const { data: createData, error: createError } = await supabase.storage.createBucket(testBucketName, {
+    const { data: createData, error: createError } = await platformClient.storage.createBucket(testBucketName, {
       public: false,
       fileSizeLimit: 1024 * 1024 // 1MB
     });
@@ -225,20 +225,20 @@ export async function testStorageBuckets() {
     const testFileName = `test-file-${Date.now()}.txt`;
     
     // Upload test file
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await platformClient.storage
       .from(testBucketName)
       .upload(testFileName, testBlob);
     results.fileOperations.upload = { success: !uploadError, data: uploadData, error: uploadError };
     
     // List files
-    const { data: filesData, error: filesError } = await supabase.storage
+    const { data: filesData, error: filesError } = await platformClient.storage
       .from(testBucketName)
       .list();
     results.fileOperations.list = { success: !filesError, data: filesData, error: filesError };
     
     // Download file
     if (!uploadError) {
-      const { data: downloadData, error: downloadError } = await supabase.storage
+      const { data: downloadData, error: downloadError } = await platformClient.storage
         .from(testBucketName)
         .download(testFileName);
       results.fileOperations.download = { success: !downloadError, error: downloadError };
@@ -246,14 +246,14 @@ export async function testStorageBuckets() {
     
     // Delete file
     if (!uploadError) {
-      const { data: deleteData, error: deleteError } = await supabase.storage
+      const { data: deleteData, error: deleteError } = await platformClient.storage
         .from(testBucketName)
         .remove([testFileName]);
       results.fileOperations.delete = { success: !deleteError, data: deleteData, error: deleteError };
     }
     
     // Step 4: Delete the test bucket
-    const { error: deleteBucketError } = await supabase.storage.deleteBucket(testBucketName);
+    const { error: deleteBucketError } = await platformClient.storage.deleteBucket(testBucketName);
     results.bucketOperations.delete = { success: !deleteBucketError, error: deleteBucketError };
     
     // Calculate overall success

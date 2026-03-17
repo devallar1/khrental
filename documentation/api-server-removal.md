@@ -5,7 +5,7 @@
 The application currently has a standalone Express server in `api-server.js` that handles Evia Sign webhook events. This server:
 
 1. Provides an endpoint at `/api/evia-webhook` to receive webhook events from Evia Sign
-2. Stores these events in the `webhook_events` table in the Supabase database
+2. Stores these events in the `webhook_events` table in the application database
 3. Updates agreement statuses based on webhook events
 
 This functionality is now redundant because the application is using a dedicated webhook server at `kh-reantals-webhook.azurewebsites.net` that performs the same functions.

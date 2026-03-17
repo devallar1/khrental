@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchData } from '../../services/supabaseClient';
+import { listTemplates } from '../../services/agreementService';
 
 const AgreementTemplateSelector = ({ value, onChange, selectedTemplate, language = 'English', error }) => {
   const [templates, setTemplates] = useState([]);
@@ -13,21 +13,22 @@ const AgreementTemplateSelector = ({ value, onChange, selectedTemplate, language
     const fetchTemplates = async () => {
       try {
         setLoading(true);
-        const { data, error } = await fetchData('agreement_templates', {
-          filters: [{ column: 'language', operator: 'eq', value: language }],
+        const data = await listTemplates();
+        const filteredTemplates = (data || []).filter((template) => {
+          if (!language) {
+            return true;
+          }
+
+          return !template.language || template.language === language;
         });
         
-        if (error) {
-          throw error;
-        }
-        
-        setTemplates(data || []);
+        setTemplates(filteredTemplates);
         
         // If we have templates and a selected value, make sure it loads properly
-        if (data && data.length > 0 && selectedValue) {
+        if (filteredTemplates.length > 0 && selectedValue) {
           console.log('Template selector found selected template:', selectedValue);
           // Trigger onChange to load the template content
-          const template = data.find(t => t.id === selectedValue);
+          const template = filteredTemplates.find(t => t.id === selectedValue);
           if (template) {
             console.log('Found matching template:', template.name);
           }

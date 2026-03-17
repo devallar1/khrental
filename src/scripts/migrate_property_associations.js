@@ -2,7 +2,7 @@
  * Migration script to create RPC functions for property and unit rentee associations
  */
 
-import { createClient } from '@supabase/supabase-js';
+import platformClient from './platformClient.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -14,17 +14,6 @@ dotenv.config();
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Error: Supabase URL and anon key are required.');
-  console.error('Make sure you have a .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
-  process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function runMigration() {
   try {
@@ -43,8 +32,8 @@ async function runMigration() {
     
     console.log('Executing SQL to create/update database functions...');
     
-    // Execute the SQL through the Supabase RPC function
-    const { data, error } = await supabase.rpc('exec_sql', {
+    // Execute the SQL through the platform RPC function
+    const { data, error } = await platformClient.rpc('exec_sql', {
       query: sqlContent
     });
     
@@ -61,7 +50,7 @@ async function runMigration() {
         if (!statement.trim()) continue;
         
         console.log(`Executing statement: ${statement.substring(0, 50)}...`);
-        const { error: stmtError } = await supabase.rpc('exec_sql', {
+        const { error: stmtError } = await platformClient.rpc('exec_sql', {
           query: statement
         });
         
@@ -77,7 +66,7 @@ async function runMigration() {
     console.log('Verifying functions...');
     
     // Check if the functions exist
-    const { data: functions, error: funcError } = await supabase
+    const { data: functions, error: funcError } = await platformClient
       .from('pg_proc')
       .select('*')
       .or('proname.eq.get_rentees_by_property,proname.eq.get_rentees_by_unit');

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { useAuth } from '../../hooks/useAuth';
 import { MAINTENANCE_STATUS, MAINTENANCE_PRIORITY, MAINTENANCE_TYPES } from '../../utils/constants';
 import { formatDate } from '../../utils/helpers';
 import { toast } from 'react-hot-toast';
 import { addMaintenanceComment, cancelMaintenanceRequest } from '../../services/maintenanceService';
+import { findAppUserByAuthId } from '../../services/appUserService';
 
 // Components
 import CommentSection from '../../components/maintenance/CommentSection';
@@ -34,17 +35,14 @@ const RenteeMaintenanceDetails = () => {
         setError(null);
         
         // Get the app_users ID first
-        const { data: appUser, error: userError } = await supabase
-          .from('app_users')
-          .select('id')
-          .eq('auth_id', userData.id)
-          .single();
+        const userResult = await findAppUserByAuthId(userData.id);
 
-        if (userError) throw userError;
+        if (!userResult.success) throw new Error(userResult.error || 'User not found');
+        const appUser = userResult.data;
         if (!appUser) throw new Error('User not found');
         
         // Fetch maintenance request with all related data
-        const { data: requestData, error: requestError } = await supabase
+        const { data: requestData, error: requestError } = await platformClient
           .from('maintenance_requests')
           .select(`
             *,
@@ -154,7 +152,7 @@ const RenteeMaintenanceDetails = () => {
       }
       
       // Refresh request data to get updated comments
-      const { data: updatedRequest, error: requestError } = await supabase
+      const { data: updatedRequest, error: requestError } = await platformClient
         .from('maintenance_requests')
         .select(`
           *,

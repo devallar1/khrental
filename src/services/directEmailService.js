@@ -1,78 +1,20 @@
-import { supabase } from './supabaseClient';
-import { getAppBaseUrl } from '../utils/env';
+import { platform as platformClient } from './platformClient';
+import { getApiBaseUrl, getAppBaseUrl } from '../utils/env';
+import { createAppUser } from './createAppUser';
 
 /**
  * Direct email service that uses SendGrid API for emails
  */
 
-// Get the API key with fallbacks
-const getSendGridKey = () => {
-  try {
-    // Try to get the SendGrid key from different possible environment variables
-    const key = window._env_?.VITE_SENDGRID_API_KEY || 
-                import.meta.env?.VITE_SENDGRID_API_KEY || 
-                process.env?.VITE_SENDGRID_API_KEY;
-    
-    // Log without revealing whether key was found for security
-    console.log('[DirectEmail] Attempting to use SendGrid API');
-    
-    return key || null;
-  } catch (error) {
-    console.error('[DirectEmail] Error accessing environment variables:', error.message);
-    return null;
-  }
-};
+const parseResponsePayload = async (response) => {
+  const contentType = response.headers.get('content-type') || '';
 
-// Get the Supabase key with fallbacks
-const getSupabaseKey = () => {
-  // Try window._env_ first (usually most reliable)
-  if (window._env_ && window._env_.VITE_SUPABASE_ANON_KEY) {
-    return window._env_.VITE_SUPABASE_ANON_KEY;
+  if (contentType.includes('application/json')) {
+    return response.json();
   }
-  
-  // Try import.meta.env next (for development)
-  if (import.meta.env && import.meta.env.VITE_SUPABASE_ANON_KEY) {
-    return import.meta.env.VITE_SUPABASE_ANON_KEY;
-  }
-  
-  console.error('[DirectEmail] Supabase anon key not found in environment variables');
-  return null;
-};
 
-// Get the URL with fallbacks
-const getSupabaseUrl = () => {
-  // Try window._env_ first
-  if (window._env_ && window._env_.VITE_SUPABASE_URL) {
-    let url = window._env_.VITE_SUPABASE_URL;
-    
-    // Use CORS proxy in development environment
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      if (!url.includes('localhost:9090')) {
-        console.log('[DirectEmail] Using CORS proxy for development:', url, '->', `http://localhost:9090/${url}`);
-        url = `http://localhost:9090/${url}`;
-      }
-    }
-    
-    return url;
-  }
-  
-  // Try import.meta.env next
-  if (import.meta.env && import.meta.env.VITE_SUPABASE_URL) {
-    let url = import.meta.env.VITE_SUPABASE_URL;
-    
-    // Use CORS proxy in development environment
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      if (!url.includes('localhost:9090')) {
-        console.log('[DirectEmail] Using CORS proxy for development:', url, '->', `http://localhost:9090/${url}`);
-        url = `http://localhost:9090/${url}`;
-      }
-    }
-    
-    return url;
-  }
-  
-  console.error('[DirectEmail] Supabase URL not found in environment variables');
-  return null;
+  const text = await response.text();
+  return text ? { message: text } : {};
 };
 
 // Get the from email with fallbacks
@@ -111,8 +53,8 @@ export const createUserWithEmail = async ({ email, name, role, userType }) => {
       .map(x => x[Math.floor(Math.random() * x.length)])
       .join('');
     
-    // Create user with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // Create user with the local auth compatibility layer
+    const { data: authData, error: authError } = await platformClient.auth.signUp({
       email,
       password: tempPassword,
     });
@@ -123,30 +65,25 @@ export const createUserWithEmail = async ({ email, name, role, userType }) => {
     }
     
     // Add user to app_users table
-    const { error: dbError } = await supabase
-      .from('app_users')
-      .insert([
-        {
-          auth_id: authData.user.id,
-          email,
-          name,
-          role,
-          user_type: userType,
-          is_invited: true,
-          invitation_date: new Date().toISOString(),
-        }
-      ]);
-    
-    if (dbError) {
-      console.error('[DirectEmailService] Error adding user to database:', dbError);
-      return { success: false, error: dbError.message };
+    const appUserResult = await createAppUser({
+      auth_id: authData.user.id,
+      email,
+      name,
+      role,
+      invited: true,
+      invitation_date: new Date().toISOString(),
+    }, userType);
+
+    if (!appUserResult.success) {
+      console.error('[DirectEmailService] Error adding user to database:', appUserResult.error);
+      return { success: false, error: appUserResult.error };
     }
     
     // Get the app base URL
     const baseUrl = getAppBaseUrl();
     
     // Send password reset email to let user set their own password
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error: resetError } = await platformClient.auth.resetPasswordForEmail(email, {
       redirectTo: `${baseUrl}/reset-password`,
     });
     
@@ -188,7 +125,7 @@ export const createUserWithEmail = async ({ email, name, role, userType }) => {
   }
 };
 
-// Sends an email using SendGrid API via Supabase Edge function
+// Sends an email using the local email API
 export const sendDirectEmail = async (toParam, subjectParam, htmlParam, optionsParam = {}) => {
   // Generate unique request ID to track this email through logs
   const requestId = `email_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -205,14 +142,6 @@ export const sendDirectEmail = async (toParam, subjectParam, htmlParam, optionsP
   
   const { to, subject, html, text, from, fromName, attachments = [] } = params;
   
-  // Get API key and check if we're in dev mode
-  const apiKey = getSendGridKey();
-  const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  
-  // TEMPORARY: Force real email sending even in development
-  // const simulated = isDev || !apiKey;
-  const simulated = false; // Force real email sending for testing
-  
   // Get sender information
   const fromEmail = getFromEmail(from);
   const fromDisplayName = getFromName(fromName);
@@ -220,45 +149,7 @@ export const sendDirectEmail = async (toParam, subjectParam, htmlParam, optionsP
   console.log(`[${requestId}][directEmailService] Email to ${to} with subject "${subject}" would be sent in production`);
   
   try {
-    // If simulated or no API key, simulate the email
-    if (simulated || !apiKey) {
-      console.log(`[${requestId}][directEmailService] 🔵 SIMULATING email to ${to}:`, {
-        subject,
-        from: `${fromDisplayName} <${fromEmail}>`,
-        content: html ? `[HTML ${html.length} chars]` : text ? `[TEXT ${text.length} chars]` : '(No content provided)'
-      });
-      
-      return {
-        success: true,
-        simulated: true,
-        message: 'Email simulated (not actually sent)',
-        requestId
-      };
-    }
-    
-    // Get the Supabase URL
-    const supabaseUrl = getSupabaseUrl();
-    if (!supabaseUrl) {
-      console.error(`[${requestId}][directEmailService] ❌ Supabase URL not configured in environment variables`);
-      return {
-        success: false,
-        message: 'Email service not configured properly (missing Supabase URL)',
-        requestId
-      };
-    }
-    
-    // Get Supabase anon key for authentication
-    const supabaseAnonKey = getSupabaseKey();
-    if (!supabaseAnonKey) {
-      console.error(`[${requestId}][directEmailService] ❌ Supabase anon key not available`);
-      return {
-        success: false, 
-        message: 'Email service authentication not configured properly',
-        requestId
-      };
-    }
-    
-    console.log(`[${requestId}][directEmailService] 🔄 Sending email via Supabase Edge Function to ${to}`);
+    console.log(`[${requestId}][directEmailService] 🔄 Sending email via local API to ${to}`);
     
     // Prepare email payload
     const payload = {
@@ -287,40 +178,32 @@ export const sendDirectEmail = async (toParam, subjectParam, htmlParam, optionsP
     const payloadSize = JSON.stringify(payload).length;
     console.log(`[${requestId}][directEmailService] 📦 Request payload size: ${payloadSize} bytes`);
     
-    // Construct the URL for the Supabase Edge Function
-    // Make sure the URL follows the correct format for Supabase Edge Functions
-    let functionUrl = `${supabaseUrl}/functions/v1/sendgrid-email`;
-    
-    // Ensure the URL doesn't have double slashes between functions/v1 and the function name
-    functionUrl = functionUrl.replace('functions/v1//sendgrid-email', 'functions/v1/sendgrid-email');
-    
-    console.log(`[${requestId}][directEmailService] 🌐 Function URL: ${functionUrl}`);
+    const endpointUrl = `${getApiBaseUrl()}/api/send-email`;
+    console.log(`[${requestId}][directEmailService] 🌐 Email API URL: ${endpointUrl}`);
     
     // Start timing the request
     const startTime = Date.now();
     
-    // Make the request to the Supabase Edge Function
-    const response = await fetch(functionUrl, {
+    const response = await fetch(endpointUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseAnonKey}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
     });
     
     // Calculate duration
     const duration = Date.now() - startTime;
-    console.log(`[${requestId}][directEmailService] ⏱️ Supabase Edge Function response time: ${duration.toFixed(2)}ms`);
+    console.log(`[${requestId}][directEmailService] ⏱️ Email API response time: ${duration.toFixed(2)}ms`);
     
     // Log response status
     console.log(`[${requestId}][directEmailService] 📊 Response status: ${response.status} ${response.statusText}`);
     
     // Parse the response
-    const result = await response.json();
+    const result = await parseResponsePayload(response);
     
     if (!response.ok) {
-      console.error(`[${requestId}][directEmailService] ❌ Error from Edge Function:`, result);
+      console.error(`[${requestId}][directEmailService] ❌ Error from email API:`, result);
       
       // Extract error details if available
       let errorMessage = 'Unknown error sending email';
@@ -372,9 +255,6 @@ export const sendDirectEmail = async (toParam, subjectParam, htmlParam, optionsP
       };
     }
   }
-  
-  // For production, use Supabase Auth's built-in email functionality
-  // This would be implemented based on your production needs
   
   return {
     success: true,
@@ -576,8 +456,8 @@ export const sendMagicLink = async (emailOrOptions, options = {}) => {
     
     console.log(`[DirectEmailService] Sending magic link to ${email}`);
     
-    // Try Supabase's built-in magic link feature first
-    const { data, error } = await supabase.auth.signInWithOtp({
+    // Try the built-in auth magic link flow first
+    const { data, error } = await platformClient.auth.signInWithOtp({
       email,
       options: {
         data: userData,
@@ -586,11 +466,11 @@ export const sendMagicLink = async (emailOrOptions, options = {}) => {
     });
     
     if (!error) {
-      console.log(`[DirectEmailService] Magic link sent via Supabase to ${email}`);
+      console.log(`[DirectEmailService] Magic link sent via auth layer to ${email}`);
       return { success: true };
     }
     
-    console.warn(`[DirectEmailService] Supabase magic link failed: ${error.message}. Trying direct email...`);
+    console.warn(`[DirectEmailService] Auth-layer magic link failed: ${error.message}. Trying direct email...`);
     
     // Create a custom magic link email as fallback using SendGrid
     const baseUrl = getAppBaseUrl();
@@ -647,20 +527,16 @@ export const testEmailConfiguration = async () => {
   
   try {
     // Get configuration values
-    const sendgridKey = getSendGridKey();
     const fromEmail = getFromEmail();
     const fromName = getFromName();
     const baseUrl = getAppBaseUrl();
-    const supabaseUrl = getSupabaseUrl();
-    const supabaseKey = getSupabaseKey();
+    const apiBaseUrl = getApiBaseUrl();
     
     const config = {
-      sendgridKey: sendgridKey ? "Present" : "Missing",
       fromEmail,
       fromName,
       baseUrl,
-      supabaseUrl: supabaseUrl ? "Present" : "Missing",
-      supabaseKey: supabaseKey ? "Present" : "Missing",
+      apiBaseUrl,
       timestamp: new Date().toISOString(),
       environment: import.meta.env.MODE || 'unknown',
       browserInfo: {
@@ -673,7 +549,7 @@ export const testEmailConfiguration = async () => {
     console.log(`[${requestId}][EmailTest] Configuration:`, config);
     
     // Attempt to send a test email to verify configuration
-    if (sendgridKey && fromEmail) {
+    if (fromEmail) {
       console.log(`[${requestId}][EmailTest] Attempting to send a test email...`);
       
       const testResult = await sendDirectEmail({
@@ -688,13 +564,13 @@ export const testEmailConfiguration = async () => {
               <li>Base URL: ${baseUrl}</li>
               <li>From Email: ${fromEmail}</li>
               <li>From Name: ${fromName}</li>
-              <li>SendGrid API: ${sendgridKey ? "Configured" : "Missing"}</li>
+              <li>Email API: ${apiBaseUrl || "Missing"}</li>
               <li>Test Time: ${new Date().toISOString()}</li>
             </ul>
             <p>If you received this email, your configuration is working!</p>
           </div>
         `,
-        text: `Email Configuration Test\n\nThis is a test email to verify your email configuration is working correctly.\n\nConfiguration details:\n- Base URL: ${baseUrl}\n- From Email: ${fromEmail}\n- From Name: ${fromName}\n- SendGrid API: ${sendgridKey ? "Configured" : "Missing"}\n- Test Time: ${new Date().toISOString()}\n\nIf you received this email, your configuration is working!`,
+        text: `Email Configuration Test\n\nThis is a test email to verify your email configuration is working correctly.\n\nConfiguration details:\n- Base URL: ${baseUrl}\n- From Email: ${fromEmail}\n- From Name: ${fromName}\n- Email API: ${apiBaseUrl || "Missing"}\n- Test Time: ${new Date().toISOString()}\n\nIf you received this email, your configuration is working!`,
         simulated: false
       });
       
@@ -711,7 +587,7 @@ export const testEmailConfiguration = async () => {
       return {
         success: false,
         configuration: config,
-        error: "Email configuration incomplete. Missing SendGrid API key or sender email."
+        error: 'Email configuration incomplete. Missing sender email.'
       };
     }
   } catch (error) {

@@ -1,4 +1,4 @@
-import { supabase } from '../services/supabaseClient';
+import { platformClient } from '../services/platformClient';
 
 /**
  * Add auth fields to the database tables
@@ -9,7 +9,7 @@ export const applyAuthFieldsMigration = async () => {
     console.log('Starting database migration to add auth fields...');
     
     // Check if rentees table has authid column
-    const { data: renteeColumns, error: renteeError } = await supabase
+    const { data: renteeColumns, error: renteeError } = await platformClient
       .from('rentees')
       .select('*')
       .limit(1);
@@ -21,7 +21,7 @@ export const applyAuthFieldsMigration = async () => {
     console.log('Successfully accessed rentees table');
     
     // Check if team_members table has authid column
-    const { data: teamColumns, error: teamError } = await supabase
+    const { data: teamColumns, error: teamError } = await platformClient
       .from('team_members')
       .select('*')
       .limit(1);
@@ -36,7 +36,7 @@ export const applyAuthFieldsMigration = async () => {
     // we'll display instructions for the user to run the SQL manually
     console.log('Migration step requirements:');
     console.log(`
-    Please run the following SQL in the Supabase SQL editor:
+    Please run the following SQL in your database SQL editor:
     
     -- Add authid and invited fields to rentees table
     ALTER TABLE rentees
@@ -55,7 +55,7 @@ export const applyAuthFieldsMigration = async () => {
     
     return { 
       success: true,
-      message: 'Database tables accessible. Please run the SQL commands in the Supabase SQL editor to complete the migration.'
+      message: 'Database tables accessible. Please run the SQL commands in your database SQL editor to complete the migration.'
     };
   } catch (error) {
     console.error('Database migration check failed:', error.message);
@@ -70,7 +70,7 @@ export const applyAuthFieldsMigration = async () => {
 export const generateAppUsersMigration = async () => {
   try {
     // Check if we can access the database
-    const { error: testError } = await supabase.from('team_members').select('id').limit(1);
+    const { error: testError } = await platformClient.from('team_members').select('id').limit(1);
     if (testError) {
       throw new Error(`Database access error: ${testError.message}`);
     }
@@ -215,7 +215,7 @@ ON CONFLICT (email) DO NOTHING;
 export const applyAppUsersMigration = async () => {
   try {
     // This function will only generate the SQL commands
-    // The actual migration should be done manually in the Supabase SQL Editor
+    // The actual migration should be done manually in the database SQL editor.
     const migrationResult = await generateAppUsersMigration();
     
     if (!migrationResult.success) {
@@ -224,7 +224,7 @@ export const applyAppUsersMigration = async () => {
     
     return {
       success: true,
-      message: 'Migration SQL generated successfully. Please run the SQL commands in the Supabase SQL Editor.',
+      message: 'Migration SQL generated successfully. Please run the SQL commands in the database SQL editor.',
       ...migrationResult
     };
   } catch (error) {

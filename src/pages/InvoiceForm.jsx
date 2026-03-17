@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchData, supabase } from '../services/supabaseClient';
-import { generateInvoice } from '../services/paymentService';
+import { platform as platformClient } from '../services/platformClient';
+import { generateInvoice, updateInvoice } from '../services/paymentService';
 import { formatCurrency } from '../utils/helpers';
 import { INVOICE_STATUS } from '../utils/constants';
+import { fetchAppUsers } from '../services/appUserService';
+import { fetchInvoice } from '../services/invoiceService';
+import { listProperties } from '../services/agreementService';
 
 // UI Components
 import FormInput from '../components/ui/FormInput';
@@ -50,38 +53,19 @@ const InvoiceForm = () => {
         setLoading(true);
         
         // Fetch properties
-        const { data: propertiesData, error: propertiesError } = await fetchData('properties');
-        
-        if (propertiesError) {
-          throw propertiesError;
-        }
-        
+        const propertiesData = await listProperties();
         setProperties(propertiesData || []);
         
         // Fetch rentees from app_users table
-        const { data: appUsersData, error: appUsersError } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('user_type', 'rentee');
-        
-        if (appUsersError) {
-          throw appUsersError;
-        }
+        const appUsersData = await fetchAppUsers('rentee');
         
         setRentees(appUsersData || []);
         
         // If in edit mode, fetch invoice data
         if (isEditMode) {
-          const { data: invoiceData, error: invoiceError } = await fetchData('invoices', {
-            filters: [{ column: 'id', operator: 'eq', value: id }],
-          });
+          const invoice = await fetchInvoice(id);
           
-          if (invoiceError) {
-            throw invoiceError;
-          }
-          
-          if (invoiceData && invoiceData.length > 0) {
-            const invoice = invoiceData[0];
+          if (invoice) {
             
             setFormData({
               propertyid: invoice.propertyid || '',
@@ -126,7 +110,7 @@ const InvoiceForm = () => {
     const fetchApprovedReadings = async () => {
       if (formData.propertyid && formData.renteeid) {
         try {
-          const { data, error } = await supabase
+          const { data, error } = await platformClient
             .from('utility_readings')
             .select('*')
             .eq('propertyid', formData.propertyid)
@@ -263,7 +247,9 @@ const InvoiceForm = () => {
       console.log('Submitting invoice:', invoiceData);
       
       // Generate invoice
-      const { success, data, error } = await generateInvoice(invoiceData);
+      const { success, data, error } = isEditMode
+        ? await updateInvoice(id, invoiceData)
+        : await generateInvoice(invoiceData);
       
       if (!success) {
         throw new Error(error || 'Failed to generate invoice');
@@ -276,7 +262,7 @@ const InvoiceForm = () => {
         );
 
         for (const reading of selectedReadings) {
-          await supabase
+          await platformClient
             .from('utility_readings')
             .update({ invoice_id: data.id })
             .eq('id', reading.id);

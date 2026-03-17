@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { MAINTENANCE_STATUS, MAINTENANCE_PRIORITY, MAINTENANCE_TYPES } from '../../utils/constants';
 import { toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '../../hooks/useAuth';
 import ImageUpload from '../common/ImageUpload';
 import { createMaintenanceRequest } from '../../services/maintenanceService';
+import { fetchAppUser } from '../../services/appUserService';
 
 const MaintenanceRequestForm = ({ onSubmitSuccess, onCancel, isEditMode = false, initialData = null }) => {
   const navigate = useNavigate();
@@ -52,19 +53,11 @@ const MaintenanceRequestForm = ({ onSubmitSuccess, onCancel, isEditMode = false,
     const fetchProperties = async () => {
       try {
         setLoading(true);
-        let query = supabase.from('properties').select('*');
+        let query = platformClient.from('properties').select('*');
         
         // If user is a rentee, only fetch their associated properties
         if (userData?.role === 'rentee') {
-          const { data: userData2, error: userError } = await supabase
-            .from('app_users')
-            .select('associated_property_ids')
-            .eq('id', userData.profileId || userData.id)
-            .single();
-
-          if (userError) {
-            throw userError;
-          }
+          const userData2 = await fetchAppUser(userData.profileId || userData.id);
           
           if (userData2?.associated_property_ids?.length > 0) {
             query = query.in('id', userData2.associated_property_ids);

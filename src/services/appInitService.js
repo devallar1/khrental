@@ -1,7 +1,7 @@
-import { getSupabaseClient } from './supabaseClient';
+import { getPlatformClient } from './platformClient';
 import { STORAGE_BUCKETS, BUCKET_FOLDERS } from './fileService';
 
-const supabase = getSupabaseClient();
+const platformClient = getPlatformClient();
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -27,7 +27,7 @@ const setupStoragePolicies = async (bucketName) => {
     console.log(`Setting up storage policies for bucket: ${bucketName}`);
 
     // First verify the bucket exists and get its current configuration
-    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    const { data: buckets, error: listError } = await platformClient.storage.listBuckets();
     
     if (listError) {
       console.error('Error listing buckets:', listError);
@@ -41,7 +41,7 @@ const setupStoragePolicies = async (bucketName) => {
     }
 
     // Now we can safely update the bucket configuration
-    const { error: updateError } = await supabase.storage.updateBucket(bucketName, {
+    const { error: updateError } = await platformClient.storage.updateBucket(bucketName, {
           public: true,
       fileSizeLimit: 52428800,
       allowedMimeTypes: bucketName === 'images'
@@ -81,7 +81,7 @@ const setupStoragePolicies = async (bucketName) => {
     // Execute each policy creation SQL
     for (const policy of policies) {
       try {
-        const { error: policyError } = await supabase.rpc('create_policy', {
+        const { error: policyError } = await platformClient.rpc('create_policy', {
           table_name: 'storage.objects',
           policy_name: policy.name,
           definition: policy.definition,
@@ -113,7 +113,7 @@ const setupStoragePolicies = async (bucketName) => {
  */
 const folderExists = async (bucketName, folderPath) => {
   try {
-    const { data } = await supabase.storage
+    const { data } = await platformClient.storage
       .from(bucketName)
       .list(folderPath);
       
@@ -132,7 +132,7 @@ const folderExists = async (bucketName, folderPath) => {
 const verifyBucketExists = async (bucketName) => {
   try {
     // Try to list the contents of the bucket instead of listing all buckets
-    const { data, error } = await supabase.storage
+    const { data, error } = await platformClient.storage
       .from(bucketName)
       .list();
     
@@ -165,7 +165,7 @@ const createBucket = async (bucketName, options = {}) => {
   while (retryCount < maxRetries) {
     try {
       // First check if bucket exists using getBucket
-      const { data: bucket, error: getBucketError } = await supabase.storage.getBucket(bucketName);
+      const { data: bucket, error: getBucketError } = await platformClient.storage.getBucket(bucketName);
       
       if (bucket) {
         console.log(`Bucket ${bucketName} already exists, skipping creation`);
@@ -177,7 +177,7 @@ const createBucket = async (bucketName, options = {}) => {
       }
 
       console.log(`Creating bucket: ${bucketName}`);
-      const { error: createError } = await supabase.storage.createBucket(bucketName, {
+      const { error: createError } = await platformClient.storage.createBucket(bucketName, {
         public: options.public || false,
         fileSizeLimit: options.fileSizeLimit || 52428800,
         allowedMimeTypes: options.allowedMimeTypes || null
@@ -229,7 +229,7 @@ const updateBucketConfig = async (bucketName, options = {}) => {
   while (retryCount < maxRetries) {
     try {
       // First check if bucket exists using getBucket
-      const { data: bucket, error: getBucketError } = await supabase.storage.getBucket(bucketName);
+      const { data: bucket, error: getBucketError } = await platformClient.storage.getBucket(bucketName);
       
       if (getBucketError) {
         if (getBucketError.message?.includes('not found')) {
@@ -247,7 +247,7 @@ const updateBucketConfig = async (bucketName, options = {}) => {
       }
 
       console.log(`Updating configuration for bucket: ${bucketName}`);
-      const { error: updateError } = await supabase.storage.updateBucket(bucketName, {
+      const { error: updateError } = await platformClient.storage.updateBucket(bucketName, {
         public: options.public ?? false,
         fileSizeLimit: options.fileSizeLimit ?? 52428800,
         allowedMimeTypes: options.allowedMimeTypes ?? null
@@ -279,15 +279,19 @@ const updateBucketConfig = async (bucketName, options = {}) => {
  */
 export async function initializeStorage() {
   if (storageInitialized) {
-    return true;
+    return { success: true, skipped: false };
   }
 
   try {
     // Get current session
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await platformClient.auth.getSession();
     
     if (!session) {
-      return false;
+      return {
+        success: true,
+        skipped: true,
+        reason: 'No authenticated session available for storage initialization.'
+      };
     }
 
     // Initialize each bucket
@@ -304,7 +308,11 @@ export async function initializeStorage() {
         });
         
         if (!created) {
-          return false;
+          return {
+            success: false,
+            skipped: false,
+            error: `Failed to create storage bucket: ${bucketName}`
+          };
         }
       }
     }
@@ -313,7 +321,7 @@ export async function initializeStorage() {
     for (const bucketName of Object.values(STORAGE_BUCKETS)) {
       try {
         // Try to list the contents of the bucket to check if it exists
-        const { data, error } = await supabase.storage
+        const { data, error } = await platformClient.storage
           .from(bucketName)
           .list('', { limit: 1 });
         
@@ -331,14 +339,14 @@ export async function initializeStorage() {
           for (const folder of folderPaths) {
             try {
               // Check if folder already exists first
-              const { data: folderData, error: folderListError } = await supabase.storage
+              const { data: folderData, error: folderListError } = await platformClient.storage
                 .from(bucketName)
                 .list(folder);
                 
               if (!folderListError && (!folderData || folderData.length === 0)) {
                 // Only create the folder if it doesn't exist
                 const folderPath = `${folder}/.keep`;
-                await supabase.storage
+                await platformClient.storage
                   .from(bucketName)
                   .upload(folderPath, new Blob([''], { type: 'text/plain' }), {
                     upsert: true
@@ -357,9 +365,13 @@ export async function initializeStorage() {
     }
     
     storageInitialized = true;
-    return true;
+    return { success: true, skipped: false };
   } catch (error) {
-    return false;
+    return {
+      success: false,
+      skipped: false,
+      error: error.message || 'Storage initialization failed.'
+    };
   }
 }
 
@@ -368,10 +380,21 @@ export const initializeApp = async () => {
   try {
     // Try to initialize storage but don't fail the whole app if it doesn't work
     const storageResult = await initializeStorage();
-    if (!storageResult) {
+    if (!storageResult.success && !storageResult.skipped) {
       console.warn("Storage initialization failed, but application will continue. Some file upload features may not work properly.");
+      return {
+        success: true,
+        error: storageResult.error || 'Storage initialization failed. Some file upload features may not work properly.',
+        isStorageError: true
+      };
     }
-    return { success: true };
+
+    return {
+      success: true,
+      error: null,
+      isStorageError: false,
+      storageSkipped: !!storageResult.skipped
+    };
   } catch (error) {
     console.error('Error during app initialization:', error);
     return {

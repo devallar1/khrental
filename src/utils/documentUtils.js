@@ -1,5 +1,3 @@
-import { supabase } from '../services/supabaseClient';
-
 /**
  * Helper function to safely display template variables in JSX
  * Prevents "Uncaught ReferenceError: variable is not defined" 

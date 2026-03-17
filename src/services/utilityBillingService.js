@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { platform as platformClient } from './platformClient';
 import { UTILITY_TYPES } from '../utils/constants';
 
 /**
@@ -51,7 +51,7 @@ export const fetchReadings = async ({ propertyId, renteeId, status, billingStatu
   try {
     console.log('Fetching readings with filters:', { propertyId, renteeId, status, billingStatus, utilityType });
     
-    let query = supabase
+    let query = platformClient
       .from('utility_readings')
       .select('*, properties:propertyid(name, water_rate, electricity_rate), app_users:renteeid(name, email)')
       .order('readingdate', { ascending: false });
@@ -99,7 +99,7 @@ export const fetchReadings = async ({ propertyId, renteeId, status, billingStatu
     // For rejected status, we need to include readings with effective_status='rejected'
     if (billingStatus === 'rejected' && data) {
       // Get readings where billing_data.effective_status is 'rejected' 
-      const additionalQuery = supabase
+      const additionalQuery = platformClient
         .from('utility_readings')
         .select('*, properties:propertyid(name, water_rate, electricity_rate), app_users:renteeid(name, email)')
         .order('readingdate', { ascending: false })
@@ -166,7 +166,7 @@ export const fetchReadingsForInvoice = async (options = {}) => {
     const { month, year, propertyId, renteeId } = options;
     
     // First try to get utility billing data that's ready for invoicing from utility_billing table
-    let query = supabase
+    let query = platformClient
       .from('utility_billing')
       .select(`
         *,
@@ -218,7 +218,7 @@ export const fetchReadingsForInvoice = async (options = {}) => {
       
       console.log(`Using ${approvalStatus} status for fetching approved readings`);
       
-      let readingsQuery = supabase
+      let readingsQuery = platformClient
         .from('utility_readings')
         .select(`
           *,
@@ -342,7 +342,7 @@ const discoverValidStatusValues = async () => {
   
   try {
     // Fetch a few records to see what status values are used
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('utility_readings')
       .select('status')
       .limit(20);
@@ -378,7 +378,7 @@ const getValidStatusesFromConstraint = async () => {
     
     // First try to query the pg_constraint table to get the check constraint
     // Note: This may not work in some environments due to permissions
-    const { data: constraints, error: constraintError } = await supabase
+    const { data: constraints, error: constraintError } = await platformClient
       .from('pg_constraint')
       .select('conname, contype, consrc')
       .eq('conname', 'utility_readings_status_check');
@@ -412,7 +412,7 @@ const getValidStatusesFromConstraint = async () => {
     for (const status of knownStatusValues) {
       try {
         // Try to update a record with this status (in a transaction we'll roll back)
-        const { data, error } = await supabase.rpc('test_status_value', {
+        const { data, error } = await platformClient.rpc('test_status_value', {
           status_value: status
         });
         
@@ -522,7 +522,7 @@ export const approveReading = async (reading) => {
     console.log('Sending update with data:', updateData);
     
     // Update reading 
-    const { data: readingData, error: readingError } = await supabase
+    const { data: readingData, error: readingError } = await platformClient
       .from('utility_readings')
       .update(updateData)
       .eq('id', reading.id)
@@ -545,7 +545,7 @@ export const approveReading = async (reading) => {
         // Try to at least set the billing_status if possible
         // Note: This might still fail if there's a constraint on billing_status
         try {
-          const { data: billingStatusUpdate, error: billingStatusError } = await supabase
+          const { data: billingStatusUpdate, error: billingStatusError } = await platformClient
             .from('utility_readings')
             .update({ billing_status: 'pending_invoice' })
             .eq('id', reading.id);
@@ -559,7 +559,7 @@ export const approveReading = async (reading) => {
         
         console.log('Sending minimal update:', minimalUpdate);
         
-        const { data: fallbackData, error: fallbackError } = await supabase
+        const { data: fallbackData, error: fallbackError } = await platformClient
           .from('utility_readings')
           .update(minimalUpdate)
           .eq('id', reading.id)
@@ -605,7 +605,7 @@ export const rejectReadingWithProcedure = async (readingId, reason) => {
     console.log('Attempting to reject reading using SQL procedure:', readingId);
     
     // Call the stored procedure
-    const { data, error } = await supabase.rpc('reject_utility_reading', {
+    const { data, error } = await platformClient.rpc('reject_utility_reading', {
       p_reading_id: readingId,
       p_reason: reason,
       p_rejected_date: new Date().toISOString()
@@ -621,7 +621,7 @@ export const rejectReadingWithProcedure = async (readingId, reason) => {
     // If the procedure succeeded, fetch the updated reading
     if (data && data.success) {
       // Fetch the updated reading with all related data
-      const { data: readingData, error: fetchError } = await supabase
+      const { data: readingData, error: fetchError } = await platformClient
         .from('utility_readings')
         .select('*, properties:propertyid(name, water_rate, electricity_rate), app_users:renteeid(name, email)')
         .eq('id', readingId)
@@ -722,7 +722,7 @@ export const rejectReading = async (reading, reason) => {
     console.log('Step 1: Updating billing_status to rejected');
     try {
       // Update billing_status first (this should work if the constraint is properly set)
-      const { error: billingStatusError } = await supabase
+      const { error: billingStatusError } = await platformClient
         .from('utility_readings')
         .update({ billing_status: 'rejected' })
         .eq('id', reading.id);
@@ -747,7 +747,7 @@ export const rejectReading = async (reading, reason) => {
         billing_data: updatedBillingData
       };
       
-      const { data: updateData, error: updateError } = await supabase
+      const { data: updateData, error: updateError } = await platformClient
         .from('utility_readings')
         .update(nonConstrainedUpdate)
         .eq('id', reading.id)
@@ -772,7 +772,7 @@ export const rejectReading = async (reading, reason) => {
     
     if (validStatuses.includes('rejected')) {
       try {
-        const { error: statusError } = await supabase
+        const { error: statusError } = await platformClient
           .from('utility_readings')
           .update({ status: 'rejected' })
           .eq('id', reading.id);
@@ -791,7 +791,7 @@ export const rejectReading = async (reading, reason) => {
     
     // Finally, fetch the updated reading to return
     console.log('Step 4: Fetching updated reading');
-    const { data: updatedReading, error: fetchError } = await supabase
+    const { data: updatedReading, error: fetchError } = await platformClient
       .from('utility_readings')
       .select('*, properties:propertyid(name, water_rate, electricity_rate), app_users:renteeid(name, email)')
       .eq('id', reading.id)
@@ -837,7 +837,7 @@ export const markAsInvoiced = async (billingIds, invoiceId) => {
     }
     
     // Try to update the utility_billing table first
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('utility_billing')
       .update({ 
         status: 'invoiced',
@@ -859,7 +859,7 @@ export const markAsInvoiced = async (billingIds, invoiceId) => {
       };
       
       // Update billing_data JSON field to include invoice information
-      const { data: readingsData, error: fetchError } = await supabase
+      const { data: readingsData, error: fetchError } = await platformClient
         .from('utility_readings')
         .select('id, billing_data')
         .in('id', billingIds);
@@ -878,7 +878,7 @@ export const markAsInvoiced = async (billingIds, invoiceId) => {
           billing_status: 'invoiced'
         };
         
-        return supabase
+        return platformClient
           .from('utility_readings')
           .update({ 
             billing_status: readingUpdateData.billing_status,
@@ -932,7 +932,7 @@ export const getRenteeUtilityUsage = async (renteeId, options = {}) => {
     const startDate = new Date();
     startDate.setMonth(startDate.getMonth() - months);
     
-    let query = supabase
+    let query = platformClient
       .from('utility_readings')
       .select(`
         id,
@@ -1039,7 +1039,7 @@ export const fetchReadingById = async (readingId) => {
     
     console.log('Fetching reading by ID:', readingId);
     
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('utility_readings')
       .select(`
         *,
@@ -1092,14 +1092,12 @@ export const fetchReadingById = async (readingId) => {
 export const ensureUtilityReadingsSchema = async () => {
   try {
     // First try to get schema information
-    const { data: columns, error: schemaError } = await supabase
-      .rpc('get_table_columns', { table_name: 'utility_readings' })
-      .select('column_name');
+    const { data: columns, error: schemaError } = await platformClient.rpc('get_table_columns', { table_name: 'utility_readings' });
     
     // If RPC doesn't exist or fails, try direct query
     if (schemaError) {
       // Try fetching a record to see what columns exist
-      const { data: sampleData, error: fetchError } = await supabase
+      const { data: sampleData, error: fetchError } = await platformClient
         .from('utility_readings')
         .select('*')
         .limit(1);
@@ -1129,7 +1127,10 @@ export const ensureUtilityReadingsSchema = async () => {
       }
     } else {
       // We have column info from RPC
-      const columnNames = columns.map(c => c.column_name);
+      const columnNames = (columns || []).map((column) => typeof column === 'string' ? column : column.column_name).filter(Boolean);
+      if (columnNames.length === 0) {
+        return true;
+      }
     }
     
     return true;
@@ -1156,7 +1157,7 @@ ensureUtilityReadingsSchema().then(result => {
 export const updateReadingValue = async (readingId, currentReading, previousReading = null) => {
   try {
     // First fetch the reading to get the current values
-    const { data: reading, error: fetchError } = await supabase
+    const { data: reading, error: fetchError } = await platformClient
       .from('utility_readings')
       .select('currentreading, previousreading, status')
       .eq('id', readingId)
@@ -1206,7 +1207,7 @@ export const updateReadingValue = async (readingId, currentReading, previousRead
     }
     
     // Update the reading with the new values
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('utility_readings')
       .update(updateValues)
       .eq('id', readingId)
@@ -1233,7 +1234,7 @@ export const submitUtilityReading = async (readingData, photos) => {
     }
 
     // Create the reading record
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('utility_readings')
       .insert([
         {

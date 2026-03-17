@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchData, insertData, updateData } from '../services/supabaseClient';
-import { createTemplateDirectly } from '../services/databaseService';
 import { toast } from 'react-hot-toast';
 import Tooltip from '../components/common/Tooltip';
-import { supabase } from '../services/supabaseClient';
-import { STORAGE_BUCKETS } from '../services/fileService';
+import { createTemplate, getTemplate, updateTemplate } from '../services/agreementService';
 
 // UI Components
 import RichTextEditor from '../components/common/RichTextEditor';
@@ -116,21 +113,13 @@ const AgreementTemplateForm = () => {
           }
           
           console.log('Fetching template data for ID:', id);
-          const { data, error } = await fetchData('agreement_templates', {
-            filters: [{ column: 'id', operator: 'eq', value: id }],
-          });
-          
-          if (error) {
-            console.error('Database error fetching template:', error);
-            throw error;
-          }
-          
-          if (!data || data.length === 0) {
+          const template = await getTemplate(id);
+
+          if (!template) {
             console.error('Template not found with ID:', id);
             throw new Error(`Template with ID ${id} not found.`);
           }
-          
-          const template = data[0];
+
           console.log('Template loaded successfully:', template.name);
           
           setFormData({
@@ -433,26 +422,21 @@ const AgreementTemplateForm = () => {
       
       // Save to database
       let result;
-      
+
       if (isEditMode) {
         console.log('Updating existing template with ID:', id);
-        result = await updateData('agreement_templates', id, templateData);
+        result = await updateTemplate(id, templateData);
       } else {
         // If we're creating a new template, use the generated templateId
         console.log('Creating new template with ID:', templateId);
-        
-        result = await insertData('agreement_templates', { 
+
+        result = await createTemplate({ 
           ...templateData, 
           id: templateId 
         });
       }
       
       console.log('Database operation result:', result);
-      
-      if (result.error) {
-        console.error('Error saving template:', result.error);
-        throw new Error(`Failed to save template: ${result.error.message || 'Unknown database error'}`);
-      }
       
       // Template saved successfully to database
       toast.success(`Template ${isEditMode ? 'updated' : 'created'} successfully!`);

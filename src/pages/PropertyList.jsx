@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchData } from '../services/supabaseClient';
+import { fetchData } from '../services/platformClient';
 import PropertyCard from '../components/properties/PropertyCard';
 
 const PropertyList = () => {

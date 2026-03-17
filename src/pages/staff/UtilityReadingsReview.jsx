@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { UTILITY_TYPES } from '../../utils/constants';
 import ImageViewer from '../../components/common/ImageViewer';
 
@@ -21,7 +21,7 @@ const UtilityReadingsReview = () => {
   const fetchReadings = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await platformClient
         .from('utility_readings')
         .select(`
           *,
@@ -94,7 +94,7 @@ const UtilityReadingsReview = () => {
       console.log('Calculated billing data:', billingData);
 
       // Update reading status to approved with calculated bill and billing data
-      const { error: updateError } = await supabase
+      const { error: updateError } = await platformClient
         .from('utility_readings')
         .update({ 
           status: 'approved',
@@ -109,7 +109,7 @@ const UtilityReadingsReview = () => {
       }
       
       // Store billing data in a separate utility_billing table for the invoice module to use
-      const { error: billingError } = await supabase
+      const { error: billingError } = await platformClient
         .from('utility_billing')
         .insert({
           reading_id: reading.id,
@@ -144,7 +144,7 @@ const UtilityReadingsReview = () => {
   const handleReject = async (reading) => {
     try {
       setLoading(true);
-      const { error } = await supabase
+      const { error } = await platformClient
         .from('utility_readings')
         .update({ status: 'rejected' })
         .eq('id', reading.id);

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 
 const UpdatePassword = () => {
   const [password, setPassword] = useState('');
@@ -26,7 +26,7 @@ const UpdatePassword = () => {
       setLoading(true);
       setError('');
       
-      const { error } = await supabase.auth.updateUser({
+      const { error } = await platformClient.auth.updateUser({
         password: password
       });
       

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchData, insertData, updateData } from '../services/supabaseClient';
+import { fetchData, insertData, updateData } from '../services/platformClient';
 import { saveFile, saveImage, deleteFile, STORAGE_BUCKETS, BUCKET_FOLDERS } from '../services/fileService';
 import { generateTempId } from '../utils/helpers';
 import { PROPERTY_TYPES } from '../utils/constants';

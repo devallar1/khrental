@@ -17,7 +17,7 @@
 - Do not create duplicate service files in different locations
 
 ## File Structure
-- The supabaseClient is ONLY in src/services/supabaseClient.js
+- The shared platform client lives in src/services/platformClient.js
 - Service files should be in src/services/
 - Do not nest directories (no src/src/)
 - Do not create backup files (.bak) in the codebase

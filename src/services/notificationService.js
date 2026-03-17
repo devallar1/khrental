@@ -1,6 +1,17 @@
-import { supabase } from './supabaseClient';
-import { toDatabaseFormat, fromDatabaseFormat } from '../utils/databaseUtils';
+import { platform as platformClient } from './platformClient';
 import { sendDirectEmail } from './directEmailService';
+
+const loadAppUserService = () => import('./appUserService');
+
+const fetchNotificationUser = async (userId) => {
+  const { fetchAppUser } = await loadAppUserService();
+  return fetchAppUser(userId);
+};
+
+const fetchNotificationUsersByType = async (userType) => {
+  const { fetchAppUsers } = await loadAppUserService();
+  return fetchAppUsers(userType);
+};
 
 /**
  * Send a notification to a user
@@ -36,7 +47,7 @@ export const notifyUser = async (userId, notification) => {
       // Log the exact notification data being sent
       console.log('Storing notification with exact fields:', notificationData);
       
-      const { error: dbError } = await supabase
+      const { error: dbError } = await platformClient
         .from('notifications')
         .insert(notificationData);
 
@@ -51,28 +62,32 @@ export const notifyUser = async (userId, notification) => {
     }
 
     // Get user's contact info for email/SMS
-    const { data: userData, error: userError } = await supabase
-      .from('app_users')
-      .select('contact_details')
-      .eq('id', userId)
-      .single();
+    let userData = null;
 
-    if (userError || !userData?.contact_details) {
+    try {
+      userData = await fetchNotificationUser(userId);
+    } catch (userError) {
+      console.warn('Cannot send email/SMS notification: failed to load contact info', userError);
+    }
+
+    const contactDetails = userData?.contact_details || userData?.contactDetails;
+
+    if (!contactDetails) {
       console.warn('Cannot send email/SMS notification: missing contact info');
       // Still return success because the in-app notification might have worked
       return { success: true };
     }
 
     // Send email notification if email is available
-    if (userData.contact_details.email) {
+    if (contactDetails.email) {
       // TODO: Implement email sending
-      console.log('Would send email to:', userData.contact_details.email, 'with subject:', notification.title || 'Notification');
+      console.log('Would send email to:', contactDetails.email, 'with subject:', notification.title || 'Notification');
     }
 
     // Send SMS notification if phone is available
-    if (userData.contact_details.phone) {
+    if (contactDetails.phone) {
       // TODO: Implement SMS sending
-      console.log('Would send SMS to:', userData.contact_details.phone);
+      console.log('Would send SMS to:', contactDetails.phone);
     }
 
     return { success: true };
@@ -184,7 +199,7 @@ export const sendSmsNotification = async (phoneNumber, message, templateId = nul
 // Get user notifications
 export const getUserNotifications = async (userId) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('notifications')
       .select('*')
       .eq('user_id', userId)
@@ -227,7 +242,7 @@ export const markNotificationAsRead = async (notificationId) => {
     
     console.log('Marking notification as read:', notificationId);
     
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('notifications')
       .update(updateData)
       .eq('id', notificationId)
@@ -256,7 +271,7 @@ export const markNotificationAsRead = async (notificationId) => {
 // Function to get notification templates
 export const getNotificationTemplates = async (type, language = 'English') => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('letter_templates')
       .select('*')
       .eq('type', type)
@@ -276,7 +291,7 @@ export const getNotificationTemplates = async (type, language = 'English') => {
 // Function to create a new notification template
 export const createNotificationTemplate = async (templateData) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('letter_templates')
       .insert(templateData)
       .select();
@@ -295,7 +310,7 @@ export const createNotificationTemplate = async (templateData) => {
 // Function to update an existing notification template
 export const updateNotificationTemplate = async (templateId, templateData) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('letter_templates')
       .update(templateData)
       .eq('id', templateId)
@@ -315,7 +330,7 @@ export const updateNotificationTemplate = async (templateId, templateData) => {
 // Function to delete a notification template
 export const deleteNotificationTemplate = async (templateId) => {
   try {
-    const { error } = await supabase
+    const { error } = await platformClient
       .from('letter_templates')
       .delete()
       .eq('id', templateId);
@@ -340,12 +355,11 @@ export const notifyStaffAboutNewRequest = async (request) => {
     }
 
     // Get staff users to notify
-    const { data: staffUsers, error: staffError } = await supabase
-      .from('app_users')
-      .select('id, auth_id, contact_details')
-      .eq('usertype', 'staff');
+    let staffUsers = [];
 
-    if (staffError) {
+    try {
+      staffUsers = await fetchNotificationUsersByType('staff');
+    } catch (staffError) {
       console.error('Error fetching staff users:', staffError);
       return { success: false, error: staffError.message };
     }
@@ -381,13 +395,11 @@ export const notifyAboutAssignment = async (request, assignedStaffId) => {
     }
 
     // Get the assigned staff details
-    const { data: staffData, error: staffError } = await supabase
-      .from('app_users')
-      .select('id, auth_id, full_name, contact_details')
-      .eq('id', assignedStaffId)
-      .single();
+    let staffData = null;
 
-    if (staffError) {
+    try {
+      staffData = await fetchNotificationUser(assignedStaffId);
+    } catch (staffError) {
       console.error('Error fetching staff details:', staffError);
       return { success: false, error: staffError.message };
     }
@@ -403,7 +415,7 @@ export const notifyAboutAssignment = async (request, assignedStaffId) => {
     let renteeNotification = { success: true };
     if (request.renteeid) {
       renteeNotification = await notifyUser(request.renteeid, {
-        message: `Maintenance request #${request.id} has been assigned to ${staffData?.full_name || 'a staff member'}`,
+        message: `Maintenance request #${request.id} has been assigned to ${staffData?.full_name || staffData?.name || 'a staff member'}`,
         type: 'maintenance_assigned',
         data: { requestId: request.id, staffId: assignedStaffId }
       });
@@ -513,14 +525,13 @@ export const notifyAboutNewComment = async (request, comment, commentedBy) => {
     // Get commenter name
     let commenterName = 'Someone';
     if (commentedBy) {
-      const { data: userData, error: userError } = await supabase
-        .from('app_users')
-        .select('full_name')
-        .eq('id', commentedBy)
-        .single();
-        
-      if (!userError && userData) {
-        commenterName = userData.full_name || 'Someone';
+      try {
+        const userData = await fetchNotificationUser(commentedBy);
+        if (userData) {
+          commenterName = userData.full_name || userData.name || 'Someone';
+        }
+      } catch (userError) {
+        console.warn('Error fetching commenter details:', userError);
       }
     }
 

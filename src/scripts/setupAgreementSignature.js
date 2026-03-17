@@ -1,4 +1,4 @@
-import { supabase } from '../services/supabaseClient.js';
+import { platform as platformClient } from '../services/platformClient.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -25,7 +25,7 @@ async function setupAgreementSignature() {
     for (const statement of statements) {
       console.log(`Executing: ${statement.substring(0, 50)}...`);
       
-      const { error } = await supabase.rpc('exec_sql', {
+      const { error } = await platformClient.rpc('exec_sql', {
         sql_query: statement + ';'
       });
       
@@ -38,7 +38,7 @@ async function setupAgreementSignature() {
     console.log('Agreements table updated successfully for signature integration!');
     
     // Check if settings were created
-    const { data: settings, error: settingsError } = await supabase
+    const { data: settings, error: settingsError } = await platformClient
       .from('app_settings')
       .select('*')
       .eq('key', 'signature_manager');

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { UTILITY_TYPES } from '../../utils/constants';
 import { formatCurrency } from '../../utils/helpers';
 import { calculateUtilityAmount } from '../../services/utilityBillingService';
+import { findAppUserByAuthId } from '../../services/appUserService';
 
 const UtilityHistory = () => {
   const [loading, setLoading] = useState(false);
@@ -20,21 +21,20 @@ const UtilityHistory = () => {
     const fetchUserAndProperty = async () => {
       try {
         // Get current user
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        const { data: { user }, error: userError } = await platformClient.auth.getUser();
         if (userError) throw userError;
         setUser(user);
 
         // Get user's property
-        const { data: appUser, error: appUserError } = await supabase
-          .from('app_users')
-          .select('associated_property_ids')
-          .eq('auth_id', user.id)
-          .single();
+        const appUserResult = await findAppUserByAuthId(user.id);
 
-        if (appUserError) throw appUserError;
+        if (!appUserResult.success) throw new Error(appUserResult.error || 'Failed to load user data');
+        const appUser = appUserResult.data;
+
+        setUser({ ...user, appUserId: appUser?.id });
 
         if (appUser?.associated_property_ids?.length > 0) {
-          const { data: propertyData, error: propertyError } = await supabase
+          const { data: propertyData, error: propertyError } = await platformClient
             .from('properties')
             .select('*')
             .eq('id', appUser.associated_property_ids[0])
@@ -62,7 +62,7 @@ const UtilityHistory = () => {
   const fetchReadings = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await platformClient
         .from('utility_readings')
         .select(`
           *,
@@ -79,7 +79,7 @@ const UtilityHistory = () => {
             duedate
           )
         `)
-        .eq('renteeid', user.id)
+        .eq('renteeid', user.appUserId || user.id)
         .eq('propertyid', property.id)
         .eq('utilitytype', filter.utilityType)
         .order('readingdate', { ascending: false });

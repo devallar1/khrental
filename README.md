@@ -11,7 +11,7 @@ A comprehensive property management application for KH Rentals with digital sign
 - Utility billing and tracking
 - Maintenance request management
 - Staff dashboard with role-based access controls
-- Supabase backend integration
+- SQL Server backend integration
 
 ## Setup for Development
 
@@ -24,12 +24,10 @@ A comprehensive property management application for KH Rentals with digital sign
    ```bash
    npm run setup-env
    ```
-   This will guide you through setting up your Supabase URL and key.
+   This will guide you through setting up your API endpoint and local environment.
 
    Alternatively, manually create a `.env` file based on this template:
    ```
-   VITE_SUPABASE_URL=your_supabase_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    VITE_EVIA_SIGN_CLIENT_ID=your_evia_client_id
    VITE_EVIA_SIGN_CLIENT_SECRET=your_evia_client_secret
    VITE_API_ENDPOINT=your_api_endpoint
@@ -96,8 +94,6 @@ The application is configured for deployment to Azure Web App using GitHub Actio
 ### Environment Variables for Production
 
 Ensure the following environment variables are set in your Azure Web App:
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
 - `VITE_EVIA_SIGN_CLIENT_ID`
 - `VITE_EVIA_SIGN_CLIENT_SECRET`
 - `VITE_API_ENDPOINT`
@@ -117,7 +113,7 @@ Ensure the following environment variables are set in your Azure Web App:
 - Fixed 400 Bad Request errors when loading agreements
 - Removed references to a non-existent `processedcontent` database column
 - Added better error handling to display load failures
-- Note: To properly support template content processing, add a `processedcontent` column to your Supabase `agreements` table
+- Note: To properly support template content processing, add a `processedcontent` column to your application `agreements` table if it is still missing
 
 ### URL Encoding Fix for HTML Content (2024-04-10)
 
@@ -140,8 +136,8 @@ Ensure the following environment variables are set in your Azure Web App:
    - Ensure all relative URLs have proper protocols added
 
 2. **Authentication Issues**:
-   - Verify Supabase URL and anon key are correctly set
-   - Check user permissions in Supabase dashboard
+   - Verify the API endpoint is correctly set
+   - Check user permissions in the application database and auth records
 
 3. **Deployment Failures**:
    - Verify GitHub Actions workflow file is up to date

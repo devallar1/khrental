@@ -2,29 +2,16 @@
  * Script to update missing timestamp fields in all database tables
  * Usage: node src/scripts/updateTimestamps.js
  */
-import { createClient } from '@supabase/supabase-js';
+import platformClient from './platformClient.js';
 import dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config();
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
-
-// Check if we have the required environment variables
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Error: Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables');
-  console.error('Please ensure these are set in your .env file or environment');
-  process.exit(1);
-}
-
-// Initialize Supabase client
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
 // Function to check if a table has the specified columns
 async function checkTableHasColumns(tableName, columnNames) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .rpc('exec_sql', {
         sql: `
           SELECT column_name 
@@ -78,7 +65,7 @@ async function updateTimestamps(tableName) {
   
   for (const updateSql of updates) {
     try {
-      const { data, error } = await supabase.rpc('exec_sql', { sql: updateSql });
+      const { data, error } = await platformClient.rpc('exec_sql', { sql: updateSql });
       
       if (error) {
         console.error(`Error updating timestamps for ${tableName}:`, error.message);
@@ -94,7 +81,7 @@ async function updateTimestamps(tableName) {
 // Function to get all tables in the public schema
 async function getAllTables() {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .rpc('exec_sql', {
         sql: `
           SELECT table_name 
@@ -122,10 +109,10 @@ async function updateAllTimestamps() {
   
   // Check if the exec_sql function exists
   try {
-    const { data, error } = await supabase.rpc('exec_sql', { sql: 'SELECT 1' });
+    const { data, error } = await platformClient.rpc('exec_sql', { sql: 'SELECT 1' });
     if (error && error.message.includes('function "exec_sql" does not exist')) {
       console.error('The exec_sql RPC function does not exist.');
-      console.error('Please run the enableExecSql.sql script in your Supabase SQL Editor first.');
+      console.error('Please run the enableExecSql.sql script in your database SQL editor first.');
       process.exit(1);
     }
   } catch (error) {

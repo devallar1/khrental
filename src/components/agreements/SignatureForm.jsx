@@ -1,23 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { 
-  sendDocumentForSignature, 
-  getSignatureStatus, 
-  downloadSignedDocument, 
   getAuthorizationUrl,
   handleAuthCallback as eviaAuthCallback 
 } from '../../services/eviaSignService';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import Button from '../ui/Button';
 import { toast } from 'react-hot-toast';
+import { fetchAppUser } from '../../services/appUserService';
 
-// Use the same storage key as the service
-const STORAGE_KEY = 'eviaSignRequests';
 const AUTH_STORAGE_KEY = 'eviaSignAuth';
 
 const SignatureForm = ({ 
   agreement = {}, 
-  onSubmit = () => {}, 
   onSuccess = () => {}, 
   onCancel = () => {}, 
   currentUser = {} 
@@ -26,7 +21,6 @@ const SignatureForm = ({
   console.log('SignatureForm MOUNTED with props:', {
     agreement,
     currentUser,
-    hasOnSubmit: typeof onSubmit === 'function',
     hasOnSuccess: typeof onSuccess === 'function',
     hasOnCancel: typeof onCancel === 'function'
   });
@@ -76,9 +70,7 @@ const SignatureForm = ({
   const [error, setError] = useState('');
   const [isEviaAuthenticated, setIsEviaAuthenticated] = useState(false);
   const [eviaUserEmail, setEviaUserEmail] = useState(null);
-  const [supabaseSession, setSupabaseSession] = useState(null);
-  const [showAuthIframe, setShowAuthIframe] = useState(false);
-  const [authUrl, setAuthUrl] = useState('');
+  const [platformSession, setPlatformSession] = useState(null);
 
   // Debug logging
   useEffect(() => {
@@ -89,18 +81,18 @@ const SignatureForm = ({
     });
   }, [agreement, currentUser, signatories]);
 
-  // Check Supabase authentication status
+  // Check authentication status
   useEffect(() => {
-    const checkSupabaseAuth = async () => {
+    const checkPlatformAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error } = await platformClient.auth.getSession();
         if (error) {
-          console.error('Error checking Supabase auth:', error);
+          console.error('Error checking auth session:', error);
           setError('Authentication error: ' + error.message);
           return;
         }
         if (!session) {
-          console.error('No Supabase session found');
+          console.error('No auth session found');
           setError('Please log in to continue');
           
           // Only redirect if we're not in the middle of Evia Sign auth
@@ -111,22 +103,22 @@ const SignatureForm = ({
           }
           return;
         }
-        setSupabaseSession(session);
-        console.log('Supabase session:', session);
+        setPlatformSession(session);
+        console.log('Auth session:', session);
       } catch (err) {
-        console.error('Error in checkSupabaseAuth:', err);
+        console.error('Error in checkPlatformAuth:', err);
         setError('Authentication error: ' + err.message);
       }
     };
 
-    checkSupabaseAuth();
+    checkPlatformAuth();
 
     // Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = platformClient.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session);
       if (event === 'SIGNED_OUT') {
         setError('Please log in to continue');
-        setSupabaseSession(null);
+        setPlatformSession(null);
         
         // Only redirect if we're not in the middle of Evia Sign auth
         const isEviaAuthInProgress = sessionStorage.getItem('eviaAuthInProgress');
@@ -136,7 +128,7 @@ const SignatureForm = ({
         }
       } else if (event === 'SIGNED_IN') {
         setError('');
-        setSupabaseSession(session);
+        setPlatformSession(session);
       }
     });
 
@@ -221,17 +213,7 @@ const SignatureForm = ({
 
       try {
         // Fetch the tenant details
-        const { data: renteeData, error } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('id', agreement.renteeid)
-          .single();
-          
-        if (error) {
-          console.error('Error fetching tenant details:', error);
-          toast.error('Failed to load tenant details');
-          return;
-        }
+        const renteeData = await fetchAppUser(agreement.renteeid);
         
         console.log('Fetched tenant data:', renteeData);
         
@@ -437,14 +419,14 @@ const SignatureForm = ({
     setError('');
 
     try {
-      // First check Supabase authentication
-      if (!supabaseSession) {
-        console.error('No Supabase session found');
+      // First check platform authentication
+      if (!platformSession) {
+        console.error('No auth session found');
         setError('Please log in to continue');
         setLoading(false);
         return;
       }
-      console.log('Supabase authentication verified');
+      console.log('Authentication verified');
 
       if (!agreement.documenturl) {
         console.error('No document URL found in agreement:', agreement);
@@ -730,7 +712,6 @@ SignatureForm.propTypes = {
     name: PropTypes.string,
     email: PropTypes.string
   }).isRequired,
-  onSubmit: PropTypes.func,
   onSuccess: PropTypes.func,
   onCancel: PropTypes.func
 };

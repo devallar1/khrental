@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 
 const SqlMigration = () => {
   const [running, setRunning] = useState(false);
@@ -78,7 +78,7 @@ $$;
         
         // Try to use exec_sql RPC if available
         try {
-          const { error: rpcError } = await supabase.rpc('exec_sql', {
+          const { error: rpcError } = await platformClient.rpc('exec_sql', {
             query: statement
           });
           
@@ -87,8 +87,8 @@ $$;
             throw rpcError;
           }
         } catch (rpcErr) {
-          // Fallback to using Supabase's SQL endpoint directly
-          const { error: sqlError } = await supabase.from('_ExecSQL').select('*').limit(1);
+          // Fallback to using the compatibility SQL endpoint directly
+          const { error: sqlError } = await platformClient.from('_ExecSQL').select('*').limit(1);
           
           if (sqlError) {
             console.error('SQL execution error:', sqlError);

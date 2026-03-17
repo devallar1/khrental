@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabaseClient';
+import { platformClient } from '../config/platformClient';
 import { ensureValidTimestamps } from './helpers';
 
 /**
@@ -19,7 +19,7 @@ export const fetchData = async (table, options = {}) => {
     } = options;
 
     // Start building the query
-    let query = supabase
+    let query = platformClient
       .from(table)
       .select(select);
 
@@ -70,7 +70,7 @@ export const fetchData = async (table, options = {}) => {
         const primaryIds = [...new Set(validatedData.map(item => item[primaryKey]).filter(Boolean))];
         
         if (primaryIds.length > 0) {
-          const { data: relatedData, error: relatedError } = await supabase
+          const { data: relatedData, error: relatedError } = await platformClient
             .from(relatedTable)
             .select('*')
             .in(foreignKey, primaryIds);

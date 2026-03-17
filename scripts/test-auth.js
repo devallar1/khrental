@@ -1,34 +1,21 @@
 /**
- * Test Supabase Authentication
+ * Test platform authentication
  * 
- * Tests the connection to Supabase and authentication functionality
+ * Tests the compatibility-layer connection and authentication functionality
  * without the SafeURL wrapper.
  * 
  * Run with: node scripts/test-auth.js
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { platformClient } from '../src/services/platformClient.js';
 import 'dotenv/config';
 
-// Use hardcoded values as a fallback
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://vcorwfilylgtvzktszvi.supabase.co';
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
-
-if (!SUPABASE_KEY) {
-  console.error('Error: VITE_SUPABASE_ANON_KEY not found in environment');
-  process.exit(1);
-}
-
-console.log('Testing Supabase connection with:');
-console.log('URL:', SUPABASE_URL);
-console.log('Key:', SUPABASE_KEY ? 'Present (hidden)' : 'Missing');
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+console.log('Testing local MSSQL compatibility connection');
 
 async function testConnection() {
   try {
-    console.log('\nTesting basic connection to Supabase...');
-    const { data, error } = await supabase.from('app_users').select('count');
+    console.log('\nTesting basic connection...');
+    const { data, error } = await platformClient.from('app_users').select('count');
     
     if (error) {
       throw error;
@@ -46,8 +33,8 @@ async function testConnection() {
 
 async function testAuth() {
   try {
-    console.log('\nTesting Supabase Auth API...');
-    const { data, error } = await supabase.auth.getSession();
+    console.log('\nTesting auth API...');
+    const { data, error } = await platformClient.auth.getSession();
     
     if (error) {
       throw error;
@@ -72,9 +59,9 @@ async function runTests() {
   console.log('Auth API:', authSuccess ? '✅ PASS' : '❌ FAIL');
   
   if (connectionSuccess && authSuccess) {
-    console.log('\n✅ All tests passed! Your Supabase configuration is working correctly.');
+    console.log('\n✅ All tests passed! Your local platform configuration is working correctly.');
   } else {
-    console.log('\n❌ Some tests failed. Please check your Supabase configuration.');
+    console.log('\n❌ Some tests failed. Please check your local platform configuration.');
   }
 }
 

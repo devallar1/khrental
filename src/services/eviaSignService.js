@@ -1,6 +1,7 @@
-import { supabase } from './supabaseClient';
+import { platform as platformClient } from './platformClient';
 import axios from 'axios';
 import { formatFileSize } from '../utils/helpers';
+import { getApiBaseUrl } from '../utils/env';
 
 // Evia Sign API configuration
 const EVIA_SIGN_API_BASE_URL = 'https://evia.enadocapp.com/_apis';
@@ -8,7 +9,6 @@ const EVIA_SIGN_AUTH_URL = 'https://evia.enadocapp.com/_apis';
 
 // Load client credentials from environment variables
 const EVIA_SIGN_CLIENT_ID = import.meta.env.VITE_EVIA_SIGN_CLIENT_ID || '';
-const EVIA_SIGN_CLIENT_SECRET = import.meta.env.VITE_EVIA_SIGN_CLIENT_SECRET || '';
 
 // Use a hardcoded port to ensure consistency
 const EVIA_SIGN_REDIRECT_URL = typeof window !== 'undefined' 
@@ -39,6 +39,27 @@ const EVIA_SIGN_API = {
 };
 
 const EVIA_API_URL = 'https://evia.enadocapp.com/_apis/sign/api';
+
+const requestEviaToken = async (payload) => {
+  const response = await fetch(`${getApiBaseUrl()}/api/evia/token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const contentType = response.headers.get('content-type') || '';
+  const data = contentType.includes('application/json')
+    ? await response.json()
+    : { error: await response.text() };
+
+  if (!response.ok) {
+    throw new Error(data?.error || data?.message || `Evia token request failed with status ${response.status}`);
+  }
+
+  return data;
+};
 
 // Helper function to ensure URL has a protocol
 const ensureHttpsProtocol = (url) => {
@@ -132,58 +153,17 @@ export async function handleAuthCallback(code) {
     const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
     const redirectUri = `${currentOrigin}/auth/evia-callback`;
 
-    // Try different formats for the token request as the API might be strict about format
-    // Let's try JSON format first - this is what the Evia docs show
-    try {
-      const jsonResponse = await axios.post(
-        `${EVIA_SIGN_API.BASE_URL}${EVIA_SIGN_API.ENDPOINTS.TOKEN}`,
-        {
-        client_id: EVIA_SIGN_CLIENT_ID,
-        client_secret: EVIA_SIGN_CLIENT_SECRET,
-        code: code,
-        grant_type: 'authorization_code',
-          redirect_uri: redirectUri
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }
-        }
-      );
+    const tokenResponse = await requestEviaToken({
+      grantType: 'authorization_code',
+      code,
+      redirectUri
+    });
 
-      if (import.meta.env.DEV) {
-        console.log('[eviaSignService] Token request successful');
-      }
-      return processTokenResponse(jsonResponse.data);
-    } catch (jsonError) {
-      if (import.meta.env.DEV) {
-        console.warn('[eviaSignService] Trying alternative token request format');
-      }
-      
-      // If JSON fails, try with form data
-      const formData = new FormData();
-      formData.append('grant_type', 'authorization_code');
-      formData.append('code', code);
-      formData.append('client_id', EVIA_SIGN_CLIENT_ID);
-      formData.append('client_secret', EVIA_SIGN_CLIENT_SECRET);
-      formData.append('redirect_uri', redirectUri);
-
-      const formResponse = await axios.post(
-        `${EVIA_SIGN_API.BASE_URL}${EVIA_SIGN_API.ENDPOINTS.TOKEN}`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        }
-      );
-
-      if (import.meta.env.DEV) {
-        console.log('[eviaSignService] Alternative token request successful');
-      }
-      return processTokenResponse(formResponse.data);
+    if (import.meta.env.DEV) {
+      console.log('[eviaSignService] Token request successful');
     }
+
+    return processTokenResponse(tokenResponse);
   } catch (error) {
     console.error('[eviaSignService] Authentication error:', error.message);
     
@@ -761,13 +741,13 @@ export async function downloadSignedDocument(requestId) {
     
     console.log(`[eviaSignService] Created document blob with size: ${formatFileSize(blob.size)}`);
     
-    // Upload to Supabase Storage
+    // Upload to platform storage
     const fileName = `signed_${requestId}_${Date.now()}.pdf`;
     const filePath = `agreements/${fileName}`;
     
     console.log(`[eviaSignService] Uploading signed document to storage: ${filePath}`);
     
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await platformClient.storage
       .from('files')
       .upload(filePath, blob, {
         contentType: 'application/pdf',
@@ -782,7 +762,7 @@ export async function downloadSignedDocument(requestId) {
     console.log('[eviaSignService] Signed document uploaded successfully:', uploadData);
     
     // Get the public URL
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = platformClient.storage
       .from('files')
       .getPublicUrl(filePath);
       
@@ -903,21 +883,16 @@ async function getAccessToken() {
     if (storedAuth.refreshToken) {
       try {
         console.log('[eviaSignService] Refreshing token using refresh_token...');
-        const response = await axios.post(
-          `${EVIA_SIGN_API.BASE_URL}${EVIA_SIGN_API.ENDPOINTS.TOKEN}`,
-          {
-            client_id: EVIA_SIGN_CLIENT_ID,
-            client_secret: EVIA_SIGN_CLIENT_SECRET,
-            refresh_token: storedAuth.refreshToken,
-            grant_type: 'refresh_token'
-          }
-        );
+        const response = await requestEviaToken({
+          grantType: 'refresh_token',
+          refreshToken: storedAuth.refreshToken
+        });
 
-        if (response.data && response.data.authToken) {
+        if (response && response.authToken) {
           // Update stored auth data
           const authData = {
-            authToken: response.data.authToken,
-            refreshToken: response.data.refreshToken,
+            authToken: response.authToken,
+            refreshToken: response.refreshToken,
             expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
             userEmail: storedAuth.userEmail
           };
@@ -928,10 +903,6 @@ async function getAccessToken() {
         }
       } catch (error) {
         console.error('[eviaSignService] Error refreshing token:', error);
-        if (error.response) {
-          console.error('[eviaSignService] Response status:', error.response.status);
-          console.error('[eviaSignService] Response data:', error.response.data);
-        }
       }
     }
     
@@ -958,7 +929,7 @@ export async function checkSignatureStatus(requestId) {
     // especially if the document has been deleted from Evia Sign
     try {
       // Query for webhook events from our database
-      const { data: webhookEvents, error: webhookError } = await supabase
+      const { data: webhookEvents, error: webhookError } = await platformClient
         .from('webhook_events')
         .select('*')
         .eq('request_id', requestId)
@@ -1054,7 +1025,7 @@ export async function checkSignatureStatus(requestId) {
       // For any other error, fall back to webhook data directly from database
       // Try to find webhook events in the database
       try {
-        const { data: webhookEvents, error: webhookError } = await supabase
+        const { data: webhookEvents, error: webhookError } = await platformClient
           .from('webhook_events')
           .select('*')
           .eq('request_id', requestId)
@@ -1102,7 +1073,7 @@ export async function checkSignatureStatus(requestId) {
     
     // Always try to get webhook status directly from database as last resort
     try {
-      const { data: webhookEvents, error: webhookError } = await supabase
+      const { data: webhookEvents, error: webhookError } = await platformClient
         .from('webhook_events')
         .select('*')
         .eq('request_id', requestId)
@@ -1154,7 +1125,7 @@ export async function updateAgreementSignatureStatus(agreementId, eviaRequestId)
     
     // First check webhook events to see if we have status information
     try {
-      const { data: webhookEvents } = await supabase
+      const { data: webhookEvents } = await platformClient
         .from('webhook_events')
         .select('*')
         .eq('request_id', eviaRequestId)
@@ -1230,7 +1201,7 @@ export async function updateAgreementSignatureStatus(agreementId, eviaRequestId)
         console.log('[eviaSignService] Request not found in Evia Sign. Checking for webhook events...');
         
         try {
-          const { data: webhookEvents } = await supabase
+          const { data: webhookEvents } = await platformClient
             .from('webhook_events')
             .select('*')
             .eq('request_id', eviaRequestId)
@@ -1249,7 +1220,7 @@ export async function updateAgreementSignatureStatus(agreementId, eviaRequestId)
               default: signatureStatus = 'pending';
             }
             
-            const { data: updateResult, error: updateError } = await supabase
+            const { data: updateResult, error: updateError } = await platformClient
               .from('agreements')
               .update({
                 signature_status: signatureStatus,
@@ -1273,7 +1244,7 @@ export async function updateAgreementSignatureStatus(agreementId, eviaRequestId)
             // If no webhook events found either, use failed status instead of error
             console.log('[eviaSignService] No webhook events found, using failed status');
             
-            const { data: updateResult, error: updateError } = await supabase
+            const { data: updateResult, error: updateError } = await platformClient
               .from('agreements')
               .update({
                 signature_status: 'failed',
@@ -1286,7 +1257,7 @@ export async function updateAgreementSignatureStatus(agreementId, eviaRequestId)
               console.error('[eviaSignService] Error updating agreement status to failed:', updateError);
               // Try an alternative update if the first one fails
               try {
-                await supabase.rpc('update_agreement_status', { 
+                await platformClient.rpc('update_agreement_status', { 
                   agreement_id: agreementId,
                   status_value: 'failed'
                 });
@@ -1308,7 +1279,7 @@ export async function updateAgreementSignatureStatus(agreementId, eviaRequestId)
           
           // Fall back to failed status if webhook check fails
           try {
-            await supabase
+            await platformClient
               .from('agreements')
               .update({
                 signature_status: 'failed',

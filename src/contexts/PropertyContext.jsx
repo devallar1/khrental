@@ -1,10 +1,24 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { toast } from 'react-hot-toast';
 import { navigateToUnauthorized } from '../utils/navigationHelpers';
+import { getApiBaseUrl, isMssqlApiEnabled } from '../utils/env';
 
 const MAX_RECENT_PROPERTIES = 5;
 const RETRY_DELAY = 3000; // 3 seconds
+
+const fetchMssqlProperties = async () => {
+  const apiBaseUrl = getApiBaseUrl();
+  const response = await fetch(`${apiBaseUrl}/api/mssql/properties?pageSize=500`);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `MSSQL API request failed with status ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return payload.data || [];
+};
 
 // Create context
 const PropertyContext = createContext();
@@ -102,7 +116,18 @@ function PropertyProvider({ children }) {
   // Load properties from the database
   const loadProperties = async () => {
     try {
-      const { data: properties, error } = await supabase
+      if (isMssqlApiEnabled()) {
+        try {
+          const mssqlProperties = await fetchMssqlProperties();
+          setProperties(mssqlProperties);
+          return mssqlProperties;
+        } catch (mssqlError) {
+          console.error('Error loading MSSQL properties, falling back to the local compatibility layer:', mssqlError);
+          toast.error('Failed to load MSSQL properties. Using the local compatibility layer instead.');
+        }
+      }
+
+      const { data: properties, error } = await platformClient
         .from('properties')
         .select('*')
         .order('createdat', { ascending: false });
@@ -123,8 +148,15 @@ function PropertyProvider({ children }) {
   // Load user's accessible properties
   const loadUserAccessibleProperties = async () => {
     try {
+      if (isMssqlApiEnabled()) {
+        const allProperties = await fetchMssqlProperties();
+        const propertyIds = allProperties.map((property) => property.id);
+        setAccessiblePropertyIds(propertyIds);
+        return propertyIds;
+      }
+
       // Get current user session instead of just user
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await platformClient.auth.getSession();
       
       if (sessionError) {
         console.warn("Session error:", sessionError.message);
@@ -141,7 +173,7 @@ function PropertyProvider({ children }) {
 
       // For simplicity, get all properties for now
       // In a real implementation, you would check permissions
-      const { data: allProperties, error: propError } = await supabase
+      const { data: allProperties, error: propError } = await platformClient
         .from('properties')
         .select('id');
       
@@ -154,6 +186,27 @@ function PropertyProvider({ children }) {
       return propertyIds;
     } catch (err) {
       console.error('Error loading user property access:', err);
+
+      if (isMssqlApiEnabled()) {
+        toast.error('Failed to load MSSQL properties. Using the local compatibility layer instead.');
+
+        try {
+          const { data: fallbackProperties, error: fallbackError } = await platformClient
+            .from('properties')
+            .select('id');
+
+          if (fallbackError) {
+            throw fallbackError;
+          }
+
+          const fallbackIds = fallbackProperties.map((property) => property.id);
+          setAccessiblePropertyIds(fallbackIds);
+          return fallbackIds;
+        } catch (fallbackErr) {
+          console.error('Error loading fallback property access:', fallbackErr);
+        }
+      }
+
       // Default to empty array on error
       setAccessiblePropertyIds([]);
       

@@ -1,4 +1,4 @@
-// Simple test script to explore Supabase storage buckets
+// Simple test script to explore platform storage buckets
 import bucketExplorer from '../services/bucketExplorer.js';
 
 // Set this to the bucket name you want to explore
@@ -14,7 +14,7 @@ async function runTests() {
   }
   
   if (!buckets || buckets.length === 0) {
-    console.warn('⚠️ No buckets found in your Supabase project');
+    console.warn('⚠️ No buckets found in your configured storage project');
     return;
   }
   

@@ -1,8 +1,8 @@
-import { supabase } from './supabaseClient';
+import { platform as platformClient } from './platformClient';
 import { MAINTENANCE_STATUS, MAINTENANCE_PRIORITY } from '../utils/constants';
 import { notifyUser } from './notificationService';
 import { toDatabaseFormat, fromDatabaseFormat } from '../utils/databaseUtils';
-import { fetchData, insertData, updateData, deleteData, checkUserExists } from './supabaseClient';
+import { fetchData, insertData, updateData, deleteData, checkUserExists } from './platformClient';
 import { saveFile, uploadFile, STORAGE_BUCKETS, BUCKET_FOLDERS, saveImage } from './fileService';
 import { 
   notifyStaffAboutNewRequest, 
@@ -12,6 +12,8 @@ import {
   notifyAboutCancellation,
   notifyAboutNewComment
 } from './notificationService';
+import { findAppUserByAuthId } from './appUserService';
+import { getApiBaseUrl } from '../utils/env';
 
 /**
  * Create a new maintenance request
@@ -76,7 +78,7 @@ export const createMaintenanceRequest = async (input, userId) => {
     console.log('Creating maintenance request with data:', request);
     
     // Insert the request first
-    const { data: insertedRequest, error: insertError } = await supabase
+    const { data: insertedRequest, error: insertError } = await platformClient
       .from('maintenance_requests')
       .insert(request)
       .select('*');
@@ -106,7 +108,7 @@ export const createMaintenanceRequest = async (input, userId) => {
         if (!imageUrl) continue;
         
         // Create entry in maintenance_request_images table
-        const { error: imageInsertError } = await supabase
+        const { error: imageInsertError } = await platformClient
           .from('maintenance_request_images')
           .insert({
             maintenance_request_id: createdRequest.id,
@@ -125,7 +127,7 @@ export const createMaintenanceRequest = async (input, userId) => {
     }
     
     // Fetch the complete request data with images
-    const { data: requestWithImages, error: fetchError } = await supabase
+    const { data: requestWithImages, error: fetchError } = await platformClient
       .from('maintenance_requests')
       .select(`
         *,
@@ -164,7 +166,7 @@ export const createMaintenanceRequest = async (input, userId) => {
  */
 export async function getMaintenanceRequest(requestId) {
   try {
-    // Use fetchData from supabaseClient with the correct parameters
+    // Use the shared data fetch helper with the correct parameters
     const { data, error } = await fetchData({
       table: 'maintenance_requests',
       id: requestId,
@@ -230,7 +232,7 @@ export async function updateMaintenanceRequest(id, updateData) {
     delete dbData.file;
 
     // Update in database
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('maintenance_requests')
       .update(dbData)
       .eq('id', id)
@@ -325,7 +327,7 @@ export const assignMaintenanceRequest = async (id, assignmentData) => {
 
           // Only create record if we have a valid URL
           if (imageUrl) {
-            const { error: imageError } = await supabase
+            const { error: imageError } = await platformClient
               .from('maintenance_request_images')
               .insert({
                 maintenance_request_id: id,
@@ -358,7 +360,7 @@ export const assignMaintenanceRequest = async (id, assignmentData) => {
     }
 
     // Fetch the updated request with images
-    const { data: completeRequest, error: fetchError } = await supabase
+    const { data: completeRequest, error: fetchError } = await platformClient
       .from('maintenance_requests')
       .select(`
         *,
@@ -392,7 +394,7 @@ export const startMaintenanceWork = async (id) => {
       updatedat: new Date().toISOString(),
     };
     
-    // Use updateData from supabaseClient
+    // Use the shared update helper
     const { data, error } = await updateData('maintenance_requests', id, requestUpdateData);
     
     if (error) {
@@ -479,7 +481,7 @@ export const completeMaintenanceRequest = async (id, completionData) => {
     };
     
     // Update the maintenance request in the database
-    const { data: updatedRequest, error: updateError } = await supabase
+    const { data: updatedRequest, error: updateError } = await platformClient
       .from('maintenance_requests')
       .update(updateData)
       .eq('id', id)
@@ -528,7 +530,7 @@ export const cancelMaintenanceRequest = async (id, reason) => {
     console.log(`Cancelling maintenance request ${id} with reason: ${reason}`);
     
     // First get the current request to preserve existing notes
-    const { data: currentRequest, error: fetchError } = await supabase
+    const { data: currentRequest, error: fetchError } = await platformClient
       .from('maintenance_requests')
       .select('*')
       .eq('id', id)
@@ -542,12 +544,9 @@ export const cancelMaintenanceRequest = async (id, reason) => {
     console.log('Current request before cancellation:', currentRequest);
     
     // Get the current user's role and ID
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: userData } = await supabase
-      .from('app_users')
-      .select('id, role')
-      .eq('auth_id', user.id)
-      .single();
+    const { data: { user } } = await platformClient.auth.getUser();
+    const userLookup = user?.id ? await findAppUserByAuthId(user.id) : { success: false, data: null };
+    const userData = userLookup?.data || null;
     
     console.log('Current user data:', userData);
     console.log('Request renteeid:', currentRequest.renteeid);
@@ -571,7 +570,7 @@ export const cancelMaintenanceRequest = async (id, reason) => {
     console.log('Updating request with cancellation data:', updateFields);
     
     // Update the request
-    const { error: updateError } = await supabase
+    const { error: updateError } = await platformClient
       .from('maintenance_requests')
       .update(updateFields)
       .eq('id', id);
@@ -582,7 +581,7 @@ export const cancelMaintenanceRequest = async (id, reason) => {
     }
     
     // Then fetch the updated request with all relations
-    const { data: updatedRequest, error: selectError } = await supabase
+    const { data: updatedRequest, error: selectError } = await platformClient
       .from('maintenance_requests')
       .select(`
         *,
@@ -624,7 +623,7 @@ export const cancelMaintenanceRequest = async (id, reason) => {
 export const addMaintenanceComment = async (requestId, commentData) => {
   try {
     // Get current request to preserve existing notes
-    const { data: currentRequest, error: fetchError } = await supabase
+    const { data: currentRequest, error: fetchError } = await platformClient
       .from('maintenance_requests')
       .select('notes')
       .eq('id', requestId)
@@ -663,7 +662,7 @@ export const addMaintenanceComment = async (requestId, commentData) => {
     const updatedNotes = [...existingNotes, newComment];
 
     // Update the request with new notes
-    const { error: updateError } = await supabase
+    const { error: updateError } = await platformClient
       .from('maintenance_requests')
       .update({
         notes: JSON.stringify(updatedNotes),
@@ -807,7 +806,7 @@ const handleStatusChange = async (id, newStatus, requestData) => {
 
 export async function deleteMaintenanceRequest(id) {
   try {
-    // Use the deleteData function from supabaseClient
+    // Use the shared delete helper
     const { error } = await deleteData('maintenance_requests', id);
 
     if (error) {
@@ -840,8 +839,8 @@ export async function updateMaintenanceStatus(id, status, additionalData = {}) {
 
     console.log('Update fields:', updateFields);
 
-    // Use the updateData function from supabaseClient with correct parameter order
-    const { data, error } = await supabase
+    // Use the shared update helper with the correct parameter order
+    const { data, error } = await platformClient
       .from('maintenance_requests')
       .update(updateFields)
       .eq('id', id)
@@ -892,7 +891,7 @@ export const getMaintenanceRequests = async (userId, role) => {
     console.log('Fetching maintenance requests for user:', { userId, role });
     
     // First, fetch the maintenance requests with detailed logging
-    const { data: requests, error: requestsError } = await supabase
+    const { data: requests, error: requestsError } = await platformClient
       .from('maintenance_requests')
       .select(`
         *,
@@ -985,11 +984,10 @@ const attachImageToMaintenanceRequest = async (requestId, imageUrl, imageType = 
     
     // Check if the URL is properly formatted
     if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
-      // Check if it's a relative path from Supabase storage
+      // Check if it's a relative path from platform storage
       if (imageUrl.startsWith('maintenance/') || imageUrl.startsWith('/maintenance/')) {
-        // Construct the full URL using Supabase storage URL
-        const storageUrl = import.meta.env.VITE_SUPABASE_URL + '/storage/v1/object/public/images/';
-        normalizedUrl = storageUrl + imageUrl.replace(/^\//, ''); // remove leading slash if present
+        const storageUrl = `${getApiBaseUrl()}/storage/images/`;
+        normalizedUrl = storageUrl + imageUrl.replace(/^\//, '');
         console.log('Normalized relative URL to full URL:', normalizedUrl);
       }
     }
@@ -1016,7 +1014,7 @@ const attachImageToMaintenanceRequest = async (requestId, imageUrl, imageType = 
     }
     
     // Insert the image record in the maintenance_request_images table
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('maintenance_request_images')
       .insert(imageData)
       .select();

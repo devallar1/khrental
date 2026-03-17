@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { platform as platformClient } from '../../services/platformClient';
 
 const Dashboard = () => {
   const [userCounts, setUserCounts] = useState({});
@@ -9,7 +9,7 @@ const Dashboard = () => {
     const loadDashboardData = async () => {
       try {
         // Load user counts
-        const { data: users } = await supabase
+        const { data: users } = await platformClient
           .from('users')
           .select('role')
           .eq('is_active', true);
@@ -22,7 +22,7 @@ const Dashboard = () => {
         setUserCounts(userCounts || {});
 
         // Load invoice counts
-        const { data: invoices } = await supabase
+        const { data: invoices } = await platformClient
           .from('invoices')
           .select('status');
 

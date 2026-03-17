@@ -2,11 +2,11 @@
  * Utility functions for database operations
  */
 
-import { supabase } from '../services/supabaseClient';
+import { platformClient } from '../services/platformClient';
 
 export async function executeSql(sql) {
   try {
-    const { data, error } = await supabase.rpc('exec_sql', { sql });
+    const { data, error } = await platformClient.rpc('exec_sql', { sql });
     if (error) {
       throw error;
     }
@@ -18,7 +18,7 @@ export async function executeSql(sql) {
 }
 
 export default {
-  supabase,
+  platformClient,
   executeSql
 };
 

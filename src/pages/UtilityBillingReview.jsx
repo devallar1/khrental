@@ -448,7 +448,7 @@ const UtilityBillingReview = () => {
             </Typography>
             
             <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={4} md={3}>
+              <Grid size={{ xs: 12, sm: 4, md: 3 }}>
                 <FormControl variant="outlined" size="small" fullWidth>
                   <InputLabel id="status-label">Status</InputLabel>
                   <Select
@@ -469,7 +469,7 @@ const UtilityBillingReview = () => {
                 </FormControl>
               </Grid>
               
-              <Grid item xs={12} sm={4} md={3}>
+              <Grid size={{ xs: 12, sm: 4, md: 3 }}>
                 <FormControl variant="outlined" size="small" fullWidth>
                   <InputLabel id="utility-type-label">Utility Type</InputLabel>
                   <Select
@@ -487,7 +487,7 @@ const UtilityBillingReview = () => {
                 </FormControl>
               </Grid>
               
-              <Grid item xs={12} sm={4} md={2}>
+              <Grid size={{ xs: 12, sm: 4, md: 2 }}>
                 <Button
                   variant="outlined"
                   fullWidth
@@ -611,7 +611,7 @@ const UtilityBillingReview = () => {
                 
                 {/* Reading Details */}
                 <Grid container spacing={2} p={2} alignItems="center">
-                  <Grid item xs={12} sm={6} md={3}>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Typography variant="body2" color="textSecondary" gutterBottom>
                       Previous Reading
                     </Typography>
@@ -671,7 +671,7 @@ const UtilityBillingReview = () => {
                     )}
                   </Grid>
                   
-                  <Grid item xs={12} sm={6} md={3}>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Typography variant="body2" color="textSecondary" gutterBottom>
                       Current Reading
                     </Typography>
@@ -731,7 +731,7 @@ const UtilityBillingReview = () => {
                     )}
                   </Grid>
                   
-                  <Grid item xs={12} sm={6} md={2}>
+                  <Grid size={{ xs: 12, sm: 6, md: 2 }}>
                     <Typography variant="body2" color="textSecondary" gutterBottom>
                       Consumption
                     </Typography>
@@ -740,7 +740,7 @@ const UtilityBillingReview = () => {
                     </Typography>
                   </Grid>
                   
-                  <Grid item xs={12} sm={6} md={2}>
+                  <Grid size={{ xs: 12, sm: 6, md: 2 }}>
                     <Typography variant="body2" color="textSecondary" gutterBottom>
                       Amount
                     </Typography>
@@ -749,7 +749,7 @@ const UtilityBillingReview = () => {
                     </Typography>
                   </Grid>
                   
-                  <Grid item xs={12} sm={6} md={2}>
+                  <Grid size={{ xs: 12, sm: 6, md: 2 }}>
                     <Typography variant="body2" color="textSecondary" gutterBottom>
                       Photo
                     </Typography>

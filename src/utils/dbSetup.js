@@ -1,4 +1,4 @@
-import { supabase } from '../services/supabaseClient';
+import { platformClient } from '../services/platformClient';
 
 /**
  * Check if the app_users table exists and create it if it doesn't
@@ -8,7 +8,7 @@ export const setupAppUsersTable = async () => {
     console.log('Checking if app_users table exists...');
     
     // Try to query the app_users table
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('app_users')
       .select('count(*)')
       .limit(1);
@@ -18,7 +18,7 @@ export const setupAppUsersTable = async () => {
       console.log('app_users table does not exist, creating it...');
       
       // Create the app_users table
-      const { error: createError } = await supabase.rpc('create_app_users_table');
+      const { error: createError } = await platformClient.rpc('create_app_users_table');
       
       if (createError) {
         console.error('Error creating app_users table:', createError);
@@ -48,7 +48,7 @@ export const createAppUsersTableProcedure = async () => {
     console.log('Creating stored procedure for app_users table...');
     
     // Create a stored procedure to create the app_users table
-    const { error } = await supabase.rpc('create_create_app_users_table_procedure');
+    const { error } = await platformClient.rpc('create_create_app_users_table_procedure');
     
     if (error) {
       console.error('Error creating stored procedure:', error);
@@ -71,7 +71,7 @@ export const createTestRentee = async () => {
     console.log('Creating test rentee...');
     
     // Create a test rentee
-    const { data, error } = await supabase
+    const { data, error } = await platformClient
       .from('app_users')
       .insert({
         name: 'Test Rentee',
@@ -153,14 +153,14 @@ export const runCreateAppUsersTableSQL = async () => {
     EXECUTE FUNCTION update_app_users_updated_at();
     `;
     
-    // We can't run raw SQL with the Supabase JS client
-    // This is just to show the SQL that needs to be run in the Supabase SQL Editor
-    console.log('Please run this SQL in the Supabase SQL Editor:');
+    // The compatibility client can't execute raw SQL directly.
+    // This only shows the SQL that still needs to be run in the database SQL editor.
+    console.log('Please run this SQL in the database SQL editor:');
     console.log(createTableSQL);
     
     return { 
       success: true, 
-      message: 'SQL generated successfully. Please run it in the Supabase SQL Editor.',
+      message: 'SQL generated successfully. Please run it in the database SQL editor.',
       sql: createTableSQL
     };
   } catch (error) {

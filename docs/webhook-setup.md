@@ -11,39 +11,21 @@ The webhook allows Evia Sign to notify our application about signature events, i
 
 ## Setup Instructions
 
-### 1. Deploy the Webhook Function
+### 1. Deploy the Webhook Endpoint
 
-The webhook is implemented as a Supabase Edge Function. To deploy it:
-
-```bash
-# Make the deployment script executable
-chmod +x scripts/deploy-evia-webhook.sh
-
-# Run the deployment script
-./scripts/deploy-evia-webhook.sh
-```
-
-This will:
-1. Deploy the webhook function to your Supabase project
-2. Generate the correct webhook URL
-3. Update your `.env` file with the webhook URL
+The webhook is handled by the application backend or dedicated deployment target. Deploy the server and confirm the Evia webhook URL points to the active server endpoint.
 
 ### 2. Configure Environment Variables
 
 Make sure your `.env` file contains:
 
 ```
-VITE_EVIA_WEBHOOK_URL=https://your-project-ref.supabase.co/functions/v1/evia-webhook
+VITE_EVIA_WEBHOOK_URL=https://your-app-hostname/api/evia/webhook
 ```
 
-Where `your-project-ref` is your actual Supabase project reference.
+### 3. Verify Server Permissions
 
-### 3. Enable Function Permissions
-
-In the Supabase dashboard:
-1. Go to **Functions** > **evia-webhook**
-2. Ensure **JWT verification** is turned OFF (we're using the request ID to verify)
-3. Enable the required permissions for the function to update your database
+Ensure the deployed backend can write to the `webhook_events` table and update agreement records.
 
 ## Testing the Webhook
 
@@ -57,7 +39,7 @@ node scripts/test-evia-webhook.js [requestID]
 Or make an HTTP request to your webhook URL:
 
 ```bash
-curl -X POST https://your-project-ref.supabase.co/functions/v1/evia-webhook \
+curl -X POST https://your-app-hostname/api/evia/webhook \
   -H "Content-Type: application/json" \
   -d '{"RequestId":"test-123","EventId":1,"EventDescription":"SignRequestReceived","UserName":"Test User","Email":"test@example.com"}'
 ```
@@ -71,12 +53,12 @@ curl -X POST https://your-project-ref.supabase.co/functions/v1/evia-webhook \
    - Verify the URL can be reached with a simple curl test
 
 2. **No Status Updates After Signing**
-   - Check the Supabase function logs for errors
+   - Check the application logs for webhook processing errors
    - Ensure the `eviasignreference` field is correctly set in your agreements table
 
 3. **Authentication Errors**
-   - The Supabase function should not require authentication for the webhook
-   - Check JWT verification is disabled for the function
+   - The webhook endpoint should accept Evia callbacks without interactive user authentication
+   - Verify any shared-secret or request validation settings on the server
 
 4. **Database Update Failures**
    - Check function permissions for database access

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 import { useAuth } from '../../hooks/useAuth';
 import { MAINTENANCE_STATUS } from '../../utils/constants';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { findAppUserByAuthId } from '../../services/appUserService';
 
 // Components
 import MaintenanceRequestCard from '../../components/maintenance/MaintenanceRequestCard';
@@ -36,18 +37,22 @@ const RenteeMaintenance = () => {
       console.log('Getting app_users ID for auth user:', userData.id);
 
       // First get the app_users record
-      const { data: appUser, error: userError } = await supabase
-        .from('app_users')
-        .select('id')
-        .eq('auth_id', userData.id)
-        .single();
+      const userResult = await findAppUserByAuthId(userData.id);
 
-      if (userError) {
-        console.error('Error fetching app_user:', userError);
+      if (!userResult.success) {
+        console.error('Error fetching app_user:', userResult.error);
         throw new Error('Failed to get user information');
       }
 
+      const appUser = userResult.data;
+
       if (!appUser) {
+        if (userData?.isDevelopmentBypass) {
+          console.warn('No app_user found for development bypass auth user. Returning an empty maintenance list.');
+          setMaintenanceRequests([]);
+          return;
+        }
+
         console.error('No app_user found for auth_id:', userData.id);
         throw new Error('User not found');
       }
@@ -56,7 +61,7 @@ const RenteeMaintenance = () => {
       console.log('Attempting to fetch maintenance requests for app_user:', appUser.id);
 
       // Fetch the maintenance requests using the app_users ID
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await platformClient
         .from('maintenance_requests')
         .select(`
           id,

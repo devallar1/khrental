@@ -100,7 +100,7 @@ There are several testing files in the production codebase:
 The authentication flow is implemented across multiple files:
 
 1. **`useAuth.jsx`** - Authentication hook
-2. **`supabaseClient.js`** - Supabase authentication
+2. **`platformClient.js`** - platform authentication wrapper
 3. **Various auth pages** - Login, Register, etc.
 
 ### Problems

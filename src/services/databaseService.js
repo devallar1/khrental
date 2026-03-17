@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { platform as platformClient } from './platformClient';
 
 /**
  * Fetch data from a table with optional filters
@@ -10,7 +10,7 @@ import { supabase } from './supabaseClient';
  */
 export const fetchData = async (table, filters = {}, columns = '*', options = {}) => {
   try {
-    let query = supabase.from(table).select(columns);
+    let query = platformClient.from(table).select(columns);
 
     // Apply any filters
     if (Array.isArray(filters)) {
@@ -53,7 +53,7 @@ export const fetchData = async (table, filters = {}, columns = '*', options = {}
  */
 export const insertData = async (table, data) => {
   try {
-    const { data: result, error } = await supabase
+    const { data: result, error } = await platformClient
       .from(table)
       .insert([data])
       .select()
@@ -77,7 +77,7 @@ export const insertData = async (table, data) => {
  */
 export const deleteData = async (table, filters) => {
   try {
-    let query = supabase.from(table).delete();
+    let query = platformClient.from(table).delete();
 
     // Apply filters
     Object.entries(filters).forEach(([key, value]) => {
@@ -104,7 +104,7 @@ export const deleteData = async (table, filters) => {
  */
 export const updateData = async (table, filters, data) => {
   try {
-    let query = supabase.from(table).update(data);
+    let query = platformClient.from(table).update(data);
 
     // Apply filters
     Object.entries(filters).forEach(([key, value]) => {
@@ -121,87 +121,3 @@ export const updateData = async (table, filters, data) => {
     return { data: null, error };
   }
 };
-
-/**
- * Helper function to directly create a template using SQL
- * @param {Object} templateData - Template data to save
- * @returns {Promise<Object>} - Result of the operation
- */
-export const createTemplateDirectly = async (templateData) => {
-  try {
-    console.log('Creating template directly with data:', templateData);
-    
-    if (!templateData.id) {
-      // Use built-in crypto.randomUUID() for browsers or a fallback
-      templateData.id = globalThis.crypto?.randomUUID?.() || 
-        ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-          (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-        );
-      console.log('Generated new UUID:', templateData.id);
-    }
-    
-    // Ensure we have the required fields
-    if (!templateData.name || !templateData.content) {
-      return { 
-        error: new Error('Template name and content are required'),
-        data: null
-      };
-    }
-    
-    // Add timestamps if not present
-    const now = new Date().toISOString();
-    if (!templateData.createdat) {
-      templateData.createdat = now;
-    }
-    if (!templateData.updatedat) {
-      templateData.updatedat = now;
-    }
-    
-    // Direct insert to the agreement_templates table
-    const insertResult = await supabase
-      .from('agreement_templates')
-      .insert({
-        id: templateData.id,
-        name: templateData.name,
-        language: templateData.language || 'English',
-        content: templateData.content,
-        version: templateData.version || '1.0',
-        createdat: templateData.createdat,
-        updatedat: templateData.updatedat,
-        documenturl: templateData.documenturl || null
-      })
-      .select();
-      
-    console.log('Template creation result:', insertResult);
-    return insertResult;
-  } catch (error) {
-    console.error('Error creating template directly:', error);
-    return { data: null, error };
-  }
-};
-
-/**
- * Helper function to ensure agreement_templates table exists
- * @returns {Promise<Object>} - Result of the operation
- */
-export const ensureTemplateTableExists = async () => {
-  try {
-    // Check if table exists
-    const { data, error } = await supabase
-      .from('agreement_templates')
-      .select('id')
-      .limit(1);
-      
-    if (error) {
-      console.log('Template table may not exist, attempting to create it');
-      
-      // Table might not exist, try to create it
-      return await supabase.rpc('create_template_table_if_not_exists');
-    }
-    
-    return { data, error: null };
-  } catch (error) {
-    console.error('Error checking template table:', error);
-    return { data: null, error };
-  }
-}; 

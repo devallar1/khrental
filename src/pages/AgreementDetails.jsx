@@ -1,9 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { fetchData, updateData, deleteData, supabase } from '../services/supabaseClient';
 import { formatDate } from '../utils/helpers';
 import { toast } from 'react-hot-toast';
 import SignatureProgressTracker from '../components/ui/SignatureProgressTracker';
+import {
+  deleteAgreement,
+  fetchAgreement,
+  getTemplate,
+  markAgreementAsSigned
+} from '../services/agreementService';
+
+const normalizeAgreementRecord = (record) => {
+  if (!record) {
+    return record;
+  }
+
+  return {
+    ...record,
+    property: record.property || record.properties || null,
+    rentee: record.rentee || null,
+    processedcontent: record.processedcontent ?? record.processedContent ?? null
+  };
+};
 
 const AgreementDetails = () => {
   const { id } = useParams();
@@ -17,113 +35,83 @@ const AgreementDetails = () => {
   const [error, setError] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSignConfirm, setShowSignConfirm] = useState(false);
-  const [viewMode, setViewMode] = useState('document'); // 'document' or 'content'
   const [signatories, setSignatories] = useState([]);
-  
-  useEffect(() => {
-    const fetchAgreementData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch agreement details with all content fields - avoid fields that might not exist in database
-        const { data: agreementData, error: agreementError } = await supabase
-          .from('agreements')
-          .select('*, property:properties(*), unit:property_units(*), rentee:app_users(*)')
-          .eq('id', id)
-          .single();
-        
-        if (agreementError) {
-          console.error('Supabase error fetching agreement:', agreementError);
-          setError(`Error loading agreement: ${agreementError.message || 'Unknown error'}`);
-          throw agreementError;
-        }
-        
-        if (agreementData) {
-          // Debug log for content fields
-          console.log('Agreement content fields:', {
-            id: agreementData.id,
-            hasProcessedContent: !!agreementData.processedcontent,
-            hasTemplateContent: !!agreementData.templatecontent,
-            hasDocumentUrl: !!agreementData.documenturl,
-            hasPdfUrl: !!agreementData.pdfurl,
-            status: agreementData.status
-          });
-          
-          setAgreement(agreementData);
-          setProperty(agreementData.property);
-          setRentee(agreementData.rentee);
-          
-          // Fetch template details if template ID exists
-          if (agreementData.templateid) {
-            const { data: templateData, error: templateError } = await supabase
-              .from('agreement_templates')
-              .select('*')
-              .eq('id', agreementData.templateid);
-              
-            if (templateError) {
-              console.error('Error fetching template:', templateError);
-            }
-            
-            if (templateData && templateData.length > 0) {
-              setTemplate(templateData[0]);
-            }
-          }
-          
-          // Prepare signatories data for the progress tracker
-          // This is a simplified approach - in a real app you might fetch actual signatories
-          const status = agreementData.signature_status || agreementData.status;
-          const signatoryList = [];
-          
-          // Add landlord
-          signatoryList.push({
-            id: 'landlord',
-            name: 'Property Owner',
-            role: 'Landlord',
-            completed: status === 'signed' || status === 'completed' || status === 'partially_signed' || status === 'in_progress'
-          });
-          
-          // Add tenant if available
-          if (rentee) {
-            signatoryList.push({
-              id: rentee.id,
-              name: rentee.name,
-              email: rentee.contact_details?.email,
-              role: 'Tenant',
-              completed: status === 'signed' || status === 'completed'
-            });
-          } else {
-            // Add generic tenant if rentee data isn't loaded yet
-            signatoryList.push({
-              id: 'tenant',
-              name: 'Tenant',
-              role: 'Tenant',
-              completed: status === 'signed' || status === 'completed'
-            });
-          }
-          
-          setSignatories(signatoryList);
-        } else {
-          throw new Error('Agreement not found');
-        }
-      } catch (error) {
-        console.error('Error fetching agreement data:', error.message);
-        setError(error.message);
-      } finally {
-        setLoading(false);
+
+  const fetchAgreementData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const agreementData = normalizeAgreementRecord(await fetchAgreement(id));
+
+      if (!agreementData) {
+        throw new Error('Agreement not found');
       }
-    };
-    
-    fetchAgreementData();
+
+      console.log('Agreement content fields:', {
+        id: agreementData.id,
+        hasProcessedContent: !!agreementData.processedcontent,
+        hasTemplateContent: !!agreementData.templatecontent,
+        hasDocumentUrl: !!agreementData.documenturl,
+        hasPdfUrl: !!agreementData.pdfurl,
+        status: agreementData.status
+      });
+
+      setAgreement(agreementData);
+      setProperty(agreementData.property || null);
+      setRentee(agreementData.rentee || null);
+
+      if (agreementData.template) {
+        setTemplate(agreementData.template);
+      } else if (agreementData.templateid) {
+        setTemplate(await getTemplate(agreementData.templateid));
+      }
+
+      const status = agreementData.signature_status || agreementData.status;
+      const agreementRentee = agreementData.rentee || null;
+      const signatoryList = [
+        {
+          id: 'landlord',
+          name: 'Property Owner',
+          role: 'Landlord',
+          completed: status === 'signed' || status === 'completed' || status === 'partially_signed' || status === 'in_progress'
+        }
+      ];
+
+      if (agreementRentee) {
+        signatoryList.push({
+          id: agreementRentee.id,
+          name: agreementRentee.name,
+          email: agreementRentee.contact_details?.email,
+          role: 'Tenant',
+          completed: status === 'signed' || status === 'completed'
+        });
+      } else {
+        signatoryList.push({
+          id: 'tenant',
+          name: 'Tenant',
+          role: 'Tenant',
+          completed: status === 'signed' || status === 'completed'
+        });
+      }
+
+      setSignatories(signatoryList);
+    } catch (fetchError) {
+      console.error('Error fetching agreement data:', fetchError.message);
+      setError(fetchError.message);
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    fetchAgreementData();
+  }, [fetchAgreementData]);
   
   const handleDelete = async () => {
     try {
       setLoading(true);
-      const { error } = await deleteData('agreements', id);
-      
-      if (error) {
-        throw error;
-      }
+      await deleteAgreement(id);
       
       navigate('/dashboard/agreements');
     } catch (error) {
@@ -143,91 +131,11 @@ const AgreementDetails = () => {
         toast.error('Agreement data not found');
         return;
       }
-      
-      // 1. Update agreement status to signed
-      const { error: agreementError } = await supabase
-        .from('agreements')
-        .update({
-          status: 'signed',
-          signeddate: new Date().toISOString(),
-          updatedat: new Date().toISOString(),
-        })
-        .eq('id', id);
-      
-      if (agreementError) {
-        throw agreementError;
-      }
-      
-      // 2. Mark the property as available
-      if (property) {
-        const { error: propertyError } = await supabase
-          .from('properties')
-          .update({
-            status: 'available',
-            updatedat: new Date().toISOString()
-          })
-          .eq('id', property.id);
-          
-        if (propertyError) {
-          console.error('Error updating property status:', propertyError);
-        }
-      }
-      
-      // 3. Update unit status if unit ID exists
-      if (agreement.unitid) {
-        const { error: unitError } = await supabase
-          .from('property_units')
-          .update({
-            status: 'occupied',
-            updatedat: new Date().toISOString()
-          })
-          .eq('id', agreement.unitid);
-          
-        if (unitError) {
-          console.error('Error updating unit status:', unitError);
-        }
-      }
-      
-      // 4. Add property to rentee's associated properties if not already there
-      if (agreement.renteeid && property) {
-        // First get the rentee's current associated properties
-        const { data: userData, error: userError } = await supabase
-          .from('app_users')
-          .select('associated_property_ids')
-          .eq('id', agreement.renteeid)
-          .single();
-        
-        if (userError) {
-          console.error('Error fetching rentee data:', userError);
-        } else {
-          // Add property to the associated_property_ids array if not already there
-          const currentProperties = userData.associated_property_ids || [];
-          if (!currentProperties.includes(property.id)) {
-            const updatedProperties = [...currentProperties, property.id];
-            
-            // Update the rentee's record
-            const { error: updateError } = await supabase
-              .from('app_users')
-              .update({
-                associated_property_ids: updatedProperties,
-                updatedat: new Date().toISOString()
-              })
-              .eq('id', agreement.renteeid);
-            
-            if (updateError) {
-              console.error('Error updating rentee associated properties:', updateError);
-            } else {
-              console.log(`Property ${property.id} added to rentee's associated properties`);
-            }
-          } else {
-            console.log('Property already associated with this rentee');
-          }
-        }
-      }
+      await markAgreementAsSigned(id);
       
       // Show success message and refresh data
       toast.success('Agreement has been marked as signed!');
-      fetchAgreementData();
+      await fetchAgreementData();
       
     } catch (error) {
       console.error('Error signing agreement:', error);

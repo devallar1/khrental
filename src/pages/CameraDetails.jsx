@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { fetchData, deleteData } from '../services/supabaseClient';
+import { fetchData, deleteData } from '../services/platformClient';
 import { formatDate } from '../utils/helpers';
 
 const CameraDetails = () => {

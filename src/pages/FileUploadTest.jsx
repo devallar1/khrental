@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { testStorageBuckets, testFileUpload, checkBucketPermissions } from '../services/fileUploadTest';
 import { saveFile, STORAGE_BUCKETS, BUCKET_FOLDERS } from '../services/fileService';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { toast } from 'react-hot-toast';
 
 const FileUploadTest = () => {
@@ -21,7 +21,7 @@ const FileUploadTest = () => {
         setResults({ testing: true, data: null, error: null });
         
         console.log('Checking storage buckets...');
-        const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+        const { data: buckets, error: bucketsError } = await platformClient.storage.listBuckets();
         
         if (bucketsError) {
           console.error('Error listing buckets:', bucketsError);
@@ -34,11 +34,11 @@ const FileUploadTest = () => {
         }
         
         if (!buckets || buckets.length === 0) {
-          console.error('No storage buckets found! Please create buckets in Supabase dashboard.');
+          console.error('No storage buckets found. Please create buckets in the storage admin flow.');
           setResults({
             testing: false,
             data: null,
-            error: 'No storage buckets found. You need to create buckets in the Supabase dashboard.'
+            error: 'No storage buckets found. You need to create buckets in the storage admin flow.'
           });
           return;
         }
@@ -151,7 +151,7 @@ const FileUploadTest = () => {
   const listBuckets = async () => {
     setResults({ testing: true, data: null, error: null });
     try {
-      const { data, error } = await supabase.storage.listBuckets();
+      const { data, error } = await platformClient.storage.listBuckets();
       
       if (error) throw error;
       
@@ -167,7 +167,7 @@ const FileUploadTest = () => {
     
     try {
       // First try to list the bucket contents
-      const { data: filesList, error: filesError } = await supabase.storage
+      const { data: filesList, error: filesError } = await platformClient.storage
         .from(bucketName)
         .list();
       
@@ -205,7 +205,7 @@ const FileUploadTest = () => {
     setResults({ testing: true, data: null, error: null });
     
     try {
-      const { data: filesList, error: filesError } = await supabase.storage
+      const { data: filesList, error: filesError } = await platformClient.storage
         .from(bucketName)
         .list(folderPath);
       
@@ -227,7 +227,7 @@ const FileUploadTest = () => {
           }
           
           const fullPath = folderPath ? `${folderPath}/${item.name}` : item.name;
-          const { data: urlData } = supabase.storage
+          const { data: urlData } = platformClient.storage
             .from(bucketName)
             .getPublicUrl(fullPath);
             
@@ -263,7 +263,7 @@ const FileUploadTest = () => {
     
     try {
       // Get list of all buckets
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      const { data: buckets, error: bucketsError } = await platformClient.storage.listBuckets();
       
       if (bucketsError) {
         throw bucketsError;
@@ -272,7 +272,7 @@ const FileUploadTest = () => {
       if (!buckets || buckets.length === 0) {
         setResults({
           testing: false,
-          data: { message: 'No buckets found in your Supabase project.' },
+          data: { message: 'No storage buckets are currently configured.' },
           error: null
         });
         return;
@@ -283,7 +283,7 @@ const FileUploadTest = () => {
       
       for (const bucket of buckets) {
         try {
-          const { data: contents, error: contentsError } = await supabase.storage
+          const { data: contents, error: contentsError } = await platformClient.storage
             .from(bucket.name)
             .list();
             
@@ -342,14 +342,14 @@ const FileUploadTest = () => {
     try {
       const testFilePath = `test-upload-${Date.now()}.${testFile.name.split('.').pop()}`;
       
-      const { data, error } = await supabase.storage
+      const { data, error } = await platformClient.storage
         .from(customBucketName)
         .upload(testFilePath, testFile);
       
       if (error) throw error;
       
       // Get public URL
-      const { data: urlData } = supabase.storage
+      const { data: urlData } = platformClient.storage
         .from(customBucketName)
         .getPublicUrl(testFilePath);
       
@@ -372,7 +372,7 @@ const FileUploadTest = () => {
     
     try {
       // First check if the bucket exists
-      const { data: buckets } = await supabase.storage.listBuckets();
+      const { data: buckets } = await platformClient.storage.listBuckets();
       if (!buckets.some(b => b.name === bucketName)) {
         throw new Error(`Bucket "${bucketName}" not found`);
       }
@@ -380,7 +380,7 @@ const FileUploadTest = () => {
       setResults({ 
         testing: false, 
         data: { 
-          message: `Storage policies must be created using SQL in the Supabase dashboard. Please run the following SQL for bucket "${bucketName}":`,
+          message: `Storage policies must be created using SQL in your database environment. Please run the following SQL for bucket "${bucketName}":`,
           sql: `-- First, drop existing policies if they exist
 DROP POLICY IF EXISTS "Allow public read access ${bucketName}" ON storage.objects;
 DROP POLICY IF EXISTS "Allow authenticated uploads ${bucketName}" ON storage.objects;
@@ -430,20 +430,20 @@ USING (
   
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Supabase Storage Test</h1>
+      <h1 className="text-2xl font-bold mb-6">Storage Test</h1>
       
       {results.error && results.error.includes('No storage buckets found') && (
         <div className="mb-6 bg-red-100 border border-red-400 text-red-800 px-4 py-3 rounded relative">
           <strong className="font-bold">Storage Configuration Error</strong>
           <p className="mt-2">
-            Your Supabase project does not have any storage buckets configured. 
+            Your environment does not have any storage buckets configured. 
             File uploads will not work until this is fixed.
           </p>
           <div className="mt-3">
             <p className="font-medium">How to fix:</p>
             <ol className="list-decimal pl-5 mt-2 space-y-1">
-              <li>Go to your Supabase dashboard at <a href="https://app.supabase.com" target="_blank" rel="noreferrer" className="text-blue-600 underline">https://app.supabase.com</a></li>
-              <li>Select your project and go to the Storage section</li>
+              <li>Open your storage administration tools</li>
+              <li>Go to the storage section for the active environment</li>
               <li>Create a new bucket called "images" (avoid using "public" as it's a reserved word)</li>
               <li>Make sure to check "Public bucket" to allow file access</li>
               <li>Add appropriate RLS policies to allow file uploads</li>
@@ -571,7 +571,7 @@ USING (
             </div>
           ) : (
             <div className="text-yellow-700 bg-yellow-50 p-4 rounded">
-              No storage buckets available. Please create one in your Supabase dashboard.
+              No storage buckets available. Please create one in your storage administration tools.
             </div>
           )}
           
@@ -752,23 +752,23 @@ USING (
             <h3 className="font-medium">Common Issues</h3>
             <ul className="list-disc pl-5 mt-2 space-y-2">
               <li>
-                <strong>No buckets found</strong> - You need to create storage buckets in the Supabase dashboard.
-                To do this, go to the Supabase project dashboard → Storage section → Create a bucket.
+                <strong>No buckets found</strong> - You need to create storage buckets in your storage administration tools.
+                To do this, go to your storage section and create a bucket.
               </li>
               <li>
                 <strong>"public" is a reserved word</strong> - Don't use "public" as a bucket name. Use "images" or another name instead.
               </li>
               <li>
                 <strong>Permission errors (403)</strong> - Your bucket might not have proper public access or Row Level Security (RLS) policies. 
-                Make sure your bucket is set to public in the Supabase dashboard and has appropriate RLS policies.
+                Make sure your bucket is set to public if needed and has appropriate access policies.
               </li>
               <li>
-                <strong>Bad Request (400)</strong> - This often happens when your Supabase project doesn't 
+                <strong>Bad Request (400)</strong> - This often happens when your storage configuration doesn't 
                 have Storage enabled or when your service role key doesn't have access to Storage.
               </li>
               <li>
                 <strong>"Row Level Security policy" error</strong> - This means you need to update the RLS policies for storage.
-                In the Supabase dashboard, go to Storage → Policies and make sure you have appropriate policies for creating buckets.
+                In your storage configuration, make sure you have appropriate policies for creating buckets.
               </li>
               <li>
                 <strong>"The resource already exists" error</strong> - This means the bucket already exists. 
@@ -780,9 +780,9 @@ USING (
           <div>
             <h3 className="font-medium">How to Fix</h3>
             <ol className="list-decimal pl-5 mt-2 space-y-2">
-              <li>Go to the Supabase dashboard and ensure Storage is enabled for your project</li>
+              <li>Ensure storage is enabled for your current environment</li>
               <li>Make sure your anon and service role keys have Storage permissions</li>
-              <li>Create a bucket called "images" (not "public") through the Supabase dashboard</li>
+              <li>Create a bucket called "images" (not "public") through your storage administration tools</li>
               <li>Make sure to check the "Public bucket" option when creating it</li>
               <li>Add the following RLS policies to your storage buckets:
                 <ul className="list-disc pl-5 mt-1 text-sm font-mono">

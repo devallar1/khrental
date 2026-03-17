@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { useAuth } from '../hooks/useAuth';
 import { MAINTENANCE_STATUS, MAINTENANCE_PRIORITY } from '../utils/constants';
 import { toast } from 'react-hot-toast';
@@ -27,7 +27,7 @@ const MaintenanceList = () => {
       setIsLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await platformClient
         .from('maintenance_requests')
         .select(`
           *,

@@ -1,6 +1,5 @@
-import { fetchData } from '../services/supabaseClient';
+import { fetchData } from '../services/platformClient';
 import { cleanupUnusedFiles, STORAGE_BUCKETS, BUCKET_FOLDERS } from '../services/fileService';
-import { supabase } from '../services/supabaseClient';
 
 /**
  * Clean up unused property images

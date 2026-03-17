@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../../services/supabaseClient';
+import { platform as platformClient } from '../../services/platformClient';
 
 /**
  * Auth Callback Component
  * 
- * Handles redirects from Supabase Auth for:
+ * Handles authentication redirects for:
  * - Password reset emails
  * - Magic link emails
  * - Email verification
@@ -33,7 +33,7 @@ const AuthCallback = () => {
 
         // If this is an access token callback
         if (hash && hash.includes('access_token')) {
-          // Supabase will handle this automatically in the client
+          // The auth client will handle this automatically
           // Just wait a moment to let it process
           setStatus('authenticated');
           
@@ -50,7 +50,7 @@ const AuthCallback = () => {
         if (type === 'recovery') {
           // This is a password reset request
           setStatus('password_reset');
-          // Wait to let Supabase process the recovery token
+          // Wait to let the auth client process the recovery token
           setTimeout(() => {
             navigate('/reset-password');
           }, 1000);
@@ -59,7 +59,7 @@ const AuthCallback = () => {
         
         if (type === 'signup' || type === 'magiclink') {
           // This is an email confirmation or magic link
-          // Supabase client handles this automatically
+          // The auth client handles this automatically
           setStatus('authenticated');
           
           // Redirect to dashboard after a short delay
@@ -71,7 +71,7 @@ const AuthCallback = () => {
 
         // Default fallback if no specific type is detected
         // Check if we have an active session
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await platformClient.auth.getSession();
         
         if (session) {
           setStatus('authenticated');

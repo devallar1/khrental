@@ -11,14 +11,12 @@ export default defineConfig(({ command, mode }) => {
 
   // Check if environment variables are set
   const EVIA_CLIENT_ID_SET = !!env.VITE_EVIA_SIGN_CLIENT_ID;
-  const EVIA_CLIENT_SECRET_SET = !!env.VITE_EVIA_SIGN_CLIENT_SECRET;
   const EVIA_ACCESS_TOKEN_SET = !!env.VITE_EVIA_ACCESS_TOKEN;
 
   // Only log in development and only once per session
   if (mode === 'development' && !hasLoggedEnv) {
     console.log('Environment variables loaded in Vite config:', {
       EVIA_CLIENT_ID_SET,
-      EVIA_CLIENT_SECRET_SET,
       EVIA_ACCESS_TOKEN_SET
     });
     hasLoggedEnv = true;
@@ -35,23 +33,21 @@ export default defineConfig(({ command, mode }) => {
     define: {
       // Make environment variables available to the app
       'process.env.VITE_EVIA_SIGN_CLIENT_ID': JSON.stringify(env.VITE_EVIA_SIGN_CLIENT_ID),
-      'process.env.VITE_EVIA_SIGN_CLIENT_SECRET': JSON.stringify(env.VITE_EVIA_SIGN_CLIENT_SECRET),
       'process.env.VITE_EVIA_ACCESS_TOKEN': JSON.stringify(env.VITE_EVIA_ACCESS_TOKEN),
       'import.meta.env.VITE_EVIA_SIGN_CLIENT_ID': JSON.stringify(env.VITE_EVIA_SIGN_CLIENT_ID),
-      'import.meta.env.VITE_EVIA_SIGN_CLIENT_SECRET': JSON.stringify(env.VITE_EVIA_SIGN_CLIENT_SECRET),
       'import.meta.env.VITE_EVIA_ACCESS_TOKEN': JSON.stringify(env.VITE_EVIA_ACCESS_TOKEN),
-      // Add Supabase environment variables
-      'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
-      'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
-      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
-      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
+      'process.env.VITE_API_ENDPOINT': JSON.stringify(env.VITE_API_ENDPOINT),
+      'process.env.VITE_USE_MSSQL_API': JSON.stringify(env.VITE_USE_MSSQL_API),
+      'import.meta.env.VITE_API_ENDPOINT': JSON.stringify(env.VITE_API_ENDPOINT),
+      'import.meta.env.VITE_USE_MSSQL_API': JSON.stringify(env.VITE_USE_MSSQL_API),
     },
     optimizeDeps: {
+      entries: ['index.html', 'src/main.jsx'],
       include: ['react', 'react-dom', 'react-router-dom', 'prop-types'],
       // Force include problem modules
       force: true,
       // Exclude problematic dynamic imports
-      exclude: []
+      exclude: ['testing']
     },
     resolve: {
       alias: {
@@ -79,6 +75,7 @@ export default defineConfig(({ command, mode }) => {
             router: ['react-router-dom'],
           },
         },
+        external: ['testing']
       },
     },
     server: {

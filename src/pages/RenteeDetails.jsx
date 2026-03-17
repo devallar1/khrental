@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { platform as platformClient } from '../services/platformClient';
 import { formatDate } from '../utils/helpers';
 import { toast } from 'react-toastify';
 import InvitationStatusBadge from '../components/common/InvitationStatusBadge';
@@ -9,7 +9,7 @@ import InviteUserButton from '../components/common/InviteUserButton';
 import PropertyCard from '../components/properties/PropertyCard';
 import AgreementCard from '../components/agreements/AgreementCard';
 import InvoiceCard from '../components/invoices/InvoiceCard';
-import { getStructuredAssociations } from '../services/appUserService';
+import { deleteAppUser, fetchAppUser, mapAppUserToRentee, getStructuredAssociations } from '../services/appUserService';
 
 // Custom component for displaying agreements in RenteeDetails page
 const AgreementSummaryCard = ({ agreement, property, rentee }) => {
@@ -169,33 +169,13 @@ const RenteeDetails = () => {
         setLoading(true);
         
         // Fetch rentee details from app_users table
-        const { data: renteeData, error: renteeError } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('id', id)
-          .eq('user_type', 'rentee')
-          .single();
+        const renteeData = await fetchAppUser(id);
         
-        if (renteeError) {
-          throw renteeError;
-        }
-        
-        if (renteeData) {
+        if (renteeData && renteeData.user_type === 'rentee') {
           // Map the rentee data to the state
           const renteeInfo = {
-            id: renteeData.id,
-            name: renteeData.name,
-            email: renteeData.email,
-            contactDetails: renteeData.contact_details || {},
-            associatedPropertyIds: renteeData.associated_property_ids || [],
-            // Get structured associations from storage instead of database
-            structuredAssociations: getStructuredAssociations(renteeData.id),
-            idCopyUrl: renteeData.id_copy_url,
-            registrationDate: renteeData.created_at,
-            invited: renteeData.invited,
-            authId: renteeData.auth_id,
-            createdAt: renteeData.created_at || new Date().toISOString(),
-            updatedAt: renteeData.updated_at || renteeData.created_at || new Date().toISOString()
+            ...mapAppUserToRentee(renteeData),
+            structuredAssociations: getStructuredAssociations(renteeData.id)
           };
           
           setRentee(renteeInfo);
@@ -212,7 +192,7 @@ const RenteeDetails = () => {
           
           if (propertyIds.length > 0) {
             // Fetch all associated properties
-            const { data: propertiesData, error: propertiesError } = await supabase
+            const { data: propertiesData, error: propertiesError } = await platformClient
               .from('properties')
               .select(`
                 *,
@@ -248,7 +228,7 @@ const RenteeDetails = () => {
                 
                 if (associatedUnits.length > 0) {
                   // Fetch the unit details for display
-                  const { data: unitData, error: unitError } = await supabase
+                  const { data: unitData, error: unitError } = await platformClient
                     .from('property_units')
                     .select('*')
                     .in('id', associatedUnits);
@@ -271,7 +251,7 @@ const RenteeDetails = () => {
           }
           
           // Fetch invoices for this rentee
-          const { data: invoicesData, error: invoicesError } = await supabase
+          const { data: invoicesData, error: invoicesError } = await platformClient
             .from('invoices')
             .select(`
               *,
@@ -304,7 +284,7 @@ const RenteeDetails = () => {
           }
           
           // Fetch agreements for this rentee
-          const { data: agreementsData, error: agreementsError } = await supabase
+          const { data: agreementsData, error: agreementsError } = await platformClient
             .from('agreements')
             .select(`
               *,
@@ -346,13 +326,10 @@ const RenteeDetails = () => {
       setLoading(true);
       
       // Delete from app_users table
-      const { error } = await supabase
-        .from('app_users')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        throw error;
+      const result = await deleteAppUser(id);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete rentee');
       }
       
       toast.success('Rentee deleted successfully');
