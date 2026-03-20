@@ -48,6 +48,7 @@ import TeamList from './pages/TeamList';
 import TeamMemberForm from './pages/TeamMemberForm';
 import TeamMemberDetails from './pages/TeamMemberDetails';
 import Settings from './pages/Settings';
+import TenantAdmin from './pages/TenantAdmin';
 import AdminTools from './pages/AdminTools';
 import FileUploadTest from './pages/FileUploadTest';
 import BucketExplorer from './components/BucketExplorer';
@@ -525,6 +526,14 @@ const routes = [
                 element: <TeamMemberForm />,
               },
             ],
+          },
+          {
+            path: 'tenant-admin',
+            element: (
+              <ProtectedRoute requiredRoles={[ROLES.ADMIN]}>
+                <TenantAdmin />
+              </ProtectedRoute>
+            ),
           },
           {
             path: 'settings',

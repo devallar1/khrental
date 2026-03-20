@@ -5,7 +5,8 @@
 import { useState, useEffect } from 'react';
 import { platform as platformClient } from '../services/platformClient';
 import { toast } from 'react-toastify';
-import { getApiBaseUrl, isMssqlApiEnabled } from '../utils/env';
+import { isMssqlApiEnabled } from '../utils/env';
+import { requestMssqlApi } from '../services/mssqlApiClient';
 
 /**
  * Hook for loading and managing agreement data
@@ -18,16 +19,7 @@ export const useAgreement = (agreementId) => {
   const [error, setError] = useState(null);
 
   const fetchAgreementFromMssql = async () => {
-    const apiBaseUrl = getApiBaseUrl();
-    const response = await fetch(`${apiBaseUrl}/api/mssql/agreements/${agreementId}`);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || `Agreement API request failed with status ${response.status}`);
-    }
-
-    const payload = await response.json();
-    return payload.data || null;
+    return requestMssqlApi(`/api/mssql/agreements/${agreementId}`);
   };
 
   // Load agreement data

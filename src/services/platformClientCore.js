@@ -1,6 +1,14 @@
 import { getApiBaseUrl } from '../utils/env';
+import {
+  buildRequestContextHeaders,
+  clearActiveTenantId,
+  clearStoredSession,
+  getActiveTenantId,
+  loadStoredSession,
+  saveStoredSession,
+  setActiveTenantId
+} from './requestContext';
 
-const SESSION_STORAGE_KEY = 'khrental.local.session';
 const AUTH_LISTENERS = new Set();
 const isBrowser = typeof window !== 'undefined';
 
@@ -44,26 +52,6 @@ const findExistingAppUserByAuthId = async (authId) => {
   return result.success ? result.data : null;
 };
 
-const fallbackStorage = new Map();
-const storage = isBrowser && window.localStorage
-  ? window.localStorage
-  : {
-      getItem: (key) => fallbackStorage.get(key) ?? null,
-      setItem: (key, value) => fallbackStorage.set(key, value),
-      removeItem: (key) => fallbackStorage.delete(key)
-    };
-
-const loadStoredSession = () => {
-  const raw = storage.getItem(SESSION_STORAGE_KEY);
-  if (!raw) return null;
-
-  try {
-    return JSON.parse(raw);
-  } catch (_error) {
-    return null;
-  }
-};
-
 let currentSession = loadStoredSession();
 
 const notifyAuthListeners = (event, session) => {
@@ -80,9 +68,10 @@ const persistSession = (session, event = 'SIGNED_IN') => {
   currentSession = session || null;
 
   if (currentSession) {
-    storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentSession));
+    saveStoredSession(currentSession);
   } else {
-    storage.removeItem(SESSION_STORAGE_KEY);
+    clearStoredSession();
+    clearActiveTenantId();
   }
 
   notifyAuthListeners(event, currentSession);
@@ -112,7 +101,7 @@ const apiRequest = async (path, options = {}) => {
     method,
     headers: {
       ...(body !== undefined && !raw ? { 'Content-Type': 'application/json' } : {}),
-      ...headers
+      ...buildRequestContextHeaders(headers)
     },
     ...(body !== undefined ? { body: raw ? body : JSON.stringify(body) } : {}),
     ...rest
@@ -268,6 +257,46 @@ const buildPublicUrl = (bucket, filePath) => {
   return `${baseUrl}/storage/${bucket}/${String(filePath || '').replace(/^\/+/, '')}`;
 };
 
+const STORAGE_TENANT_ROOT = 'tenants';
+
+const normalizeStoragePath = (filePath = '') => String(filePath || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+const isTenantScopedPath = (filePath = '') => normalizeStoragePath(filePath).startsWith(`${STORAGE_TENANT_ROOT}/`);
+
+const getTenantStoragePrefix = () => {
+  const activeTenantId = getActiveTenantId();
+  const normalizedTenantId = normalizeStoragePath(activeTenantId);
+  return normalizedTenantId ? `${STORAGE_TENANT_ROOT}/${normalizedTenantId}` : '';
+};
+
+const scopeStoragePath = (filePath, { requireTenant = false } = {}) => {
+  const normalizedPath = normalizeStoragePath(filePath);
+  const tenantPrefix = getTenantStoragePrefix();
+
+  if (!tenantPrefix) {
+    if (isTenantScopedPath(normalizedPath)) {
+      return normalizedPath;
+    }
+
+    // When the browser has no locally stored active tenant yet, allow the request
+    // to continue and let the backend tenant context apply the correct tenant scope.
+    return normalizedPath;
+  }
+
+  if (!normalizedPath) {
+    return tenantPrefix;
+  }
+
+  if (normalizedPath === tenantPrefix || normalizedPath.startsWith(`${tenantPrefix}/`)) {
+    return normalizedPath;
+  }
+
+  if (normalizedPath.startsWith(`${STORAGE_TENANT_ROOT}/`)) {
+    throw new Error('Cross-tenant storage paths are not allowed.');
+  }
+
+  return `${tenantPrefix}/${normalizedPath}`;
+};
+
 const storageClient = {
   async listBuckets() {
     try {
@@ -329,8 +358,9 @@ const storageClient = {
     return {
       async upload(filePath, file) {
         try {
+          const scopedPath = scopeStoragePath(filePath, { requireTenant: true });
           const arrayBuffer = file instanceof Blob ? await file.arrayBuffer() : file;
-          const payload = await apiRequest(`/api/platform/storage/upload?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(filePath)}`, {
+          const payload = await apiRequest(`/api/platform/storage/upload?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(scopedPath)}`, {
             method: 'POST',
             raw: true,
             body: arrayBuffer,
@@ -338,7 +368,16 @@ const storageClient = {
               'Content-Type': file?.type || 'application/octet-stream'
             }
           });
-          return { data: payload?.data || null, error: null };
+          return {
+            data: payload?.data
+              ? {
+                  ...payload.data,
+                  originalPath: normalizeStoragePath(filePath),
+                  scopedPath: payload.data.path || scopedPath
+                }
+              : null,
+            error: null
+          };
         } catch (error) {
           return { data: null, error };
         }
@@ -346,7 +385,8 @@ const storageClient = {
 
       async list(folderPath = '') {
         try {
-          const payload = await apiRequest(`/api/platform/storage/list?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(folderPath)}`);
+          const scopedPath = scopeStoragePath(folderPath);
+          const payload = await apiRequest(`/api/platform/storage/list?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(scopedPath)}`);
           return { data: payload?.data || [], error: null };
         } catch (error) {
           return { data: null, error };
@@ -355,7 +395,8 @@ const storageClient = {
 
       async download(filePath) {
         try {
-          const response = await fetch(buildPublicUrl(bucket, filePath));
+          const scopedPath = scopeStoragePath(filePath);
+          const response = await fetch(buildPublicUrl(bucket, scopedPath));
           if (!response.ok) {
             throw new Error(`Failed to download ${filePath}`);
           }
@@ -366,14 +407,16 @@ const storageClient = {
       },
 
       getPublicUrl(filePath) {
-        return { data: { publicUrl: buildPublicUrl(bucket, filePath) } };
+        const scopedPath = scopeStoragePath(filePath);
+        return { data: { publicUrl: buildPublicUrl(bucket, scopedPath), path: scopedPath } };
       },
 
       async remove(paths = []) {
         try {
+          const scopedPaths = paths.map((item) => scopeStoragePath(item, { requireTenant: true }));
           const payload = await apiRequest('/api/platform/storage/objects', {
             method: 'DELETE',
-            body: { bucket, paths }
+            body: { bucket, paths: scopedPaths }
           });
           return { data: payload?.data || [], error: null };
         } catch (error) {
@@ -391,6 +434,24 @@ const authClient = {
 
   async getUser() {
     return { data: { user: currentSession?.user || null }, error: null };
+  },
+
+  async getTenantContext() {
+    try {
+      const payload = await apiRequest('/api/platform/auth/context');
+      const tenantContext = payload?.data || null;
+      if (tenantContext?.tenantId) {
+        setActiveTenantId(tenantContext.tenantId);
+      }
+      return { data: tenantContext, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  async setActiveTenant(tenantId) {
+    const normalizedTenantId = setActiveTenantId(tenantId);
+    return { data: { tenantId: normalizedTenantId }, error: null };
   },
 
   async signInWithPassword({ email, password }) {
@@ -528,6 +589,7 @@ export const getPlatformClient = () => {
 
 export const platformClient = getPlatformClient();
 export const platform = platformClient;
+export { getActiveTenantId, setActiveTenantId, clearActiveTenantId };
 
 export const signUp = async (email, password) => {
   const { data, error } = await platformClient.auth.signUp({ email, password });
@@ -686,6 +748,18 @@ export const deleteData = async (table, id) => platformClient.from(table).delete
 export const uploadFile = async (bucket, path, file) => platformClient.storage.from(bucket).upload(path, file);
 export const getFileUrl = (bucket, path) => platformClient.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 export const deleteFile = async (bucket, path) => platformClient.storage.from(bucket).remove([path]);
+export const getPublicUrl = getFileUrl;
+export const storage = storageClient;
+export const auth = authClient;
+export { rpc };
+export const listBuckets = async () => storageClient.listBuckets();
+export const getBucket = async (bucketName) => storageClient.getBucket(bucketName);
+export const updateBucket = async (bucketName, options = {}) => storageClient.updateBucket(bucketName, options);
+export const createStorageBucket = async (bucketName, options = {}) => storageClient.createBucket(bucketName, options);
+export const selectData = fetchData;
+export const upsertData = async (table, data) => platformClient.from(table).upsert(toDatabaseFormat(data)).select('*');
+export const query = async (tableOrOptions, columns = null, filters = null) => fetchData(tableOrOptions, columns, filters);
+export const execute = rpc;
 
 export const inviteUser = async (email, role = 'rentee') => {
   try {

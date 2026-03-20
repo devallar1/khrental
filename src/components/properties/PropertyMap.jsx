@@ -4,20 +4,39 @@ const PropertyMap = ({ address, coordinates, onCoordinatesChange, readOnly = fal
   const [mapUrl, setMapUrl] = useState('');
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [localCoordinates, setLocalCoordinates] = useState(coordinates || null);
+
+  const effectiveCoordinates = coordinates || localCoordinates;
+
+  useEffect(() => {
+    if (coordinates && coordinates.lat && coordinates.lng) {
+      setLocalCoordinates(coordinates);
+    }
+  }, [coordinates]);
+
+  const updateCoordinates = (nextCoordinates) => {
+    setLocalCoordinates(nextCoordinates);
+
+    if (typeof onCoordinatesChange === 'function') {
+      onCoordinatesChange(nextCoordinates);
+    }
+  };
 
   // Generate map URL based on coordinates or address
   useEffect(() => {
-    if (coordinates && coordinates.lat && coordinates.lng) {
+    if (effectiveCoordinates && effectiveCoordinates.lat && effectiveCoordinates.lng) {
       // If we have coordinates, use them
-      const url = `https://maps.google.com/maps?q=${coordinates.lat},${coordinates.lng}&z=15&output=embed`;
+      const url = `https://maps.google.com/maps?q=${effectiveCoordinates.lat},${effectiveCoordinates.lng}&z=15&output=embed`;
       setMapUrl(url);
     } else if (address) {
       // If we only have address, use that
       const encodedAddress = encodeURIComponent(address);
       const url = `https://maps.google.com/maps?q=${encodedAddress}&z=15&output=embed`;
       setMapUrl(url);
+    } else {
+      setMapUrl('');
     }
-  }, [coordinates, address]);
+  }, [effectiveCoordinates, address]);
 
   // Handle geocoding to get coordinates from address
   const handleGeocode = async () => {
@@ -42,7 +61,7 @@ const PropertyMap = ({ address, coordinates, onCoordinatesChange, readOnly = fal
       
       // Update coordinates
       const newCoordinates = { lat, lng };
-      onCoordinatesChange(newCoordinates);
+      updateCoordinates(newCoordinates);
       
       // Update map URL
       const url = `https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`;
@@ -59,10 +78,10 @@ const PropertyMap = ({ address, coordinates, onCoordinatesChange, readOnly = fal
   const handleCoordinateChange = (e) => {
     const { name, value } = e.target;
     const newCoordinates = { 
-      ...(coordinates || {}), 
+      ...(effectiveCoordinates || {}), 
       [name]: parseFloat(value) || 0 
     };
-    onCoordinatesChange(newCoordinates);
+    updateCoordinates(newCoordinates);
   };
 
   // If read-only, just display the map
@@ -89,9 +108,9 @@ const PropertyMap = ({ address, coordinates, onCoordinatesChange, readOnly = fal
           </div>
         )}
         
-        {coordinates && coordinates.lat && coordinates.lng && (
+        {effectiveCoordinates && effectiveCoordinates.lat && effectiveCoordinates.lng && (
           <p className="text-sm text-gray-600">
-            Coordinates: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
+            Coordinates: {effectiveCoordinates.lat.toFixed(6)}, {effectiveCoordinates.lng.toFixed(6)}
           </p>
         )}
       </div>
@@ -148,7 +167,7 @@ const PropertyMap = ({ address, coordinates, onCoordinatesChange, readOnly = fal
             type="number"
             id="lat"
             name="lat"
-            value={coordinates?.lat || ''}
+            value={effectiveCoordinates?.lat || ''}
             onChange={handleCoordinateChange}
             step="0.000001"
             placeholder="e.g., 6.9271"
@@ -163,7 +182,7 @@ const PropertyMap = ({ address, coordinates, onCoordinatesChange, readOnly = fal
             type="number"
             id="lng"
             name="lng"
-            value={coordinates?.lng || ''}
+            value={effectiveCoordinates?.lng || ''}
             onChange={handleCoordinateChange}
             step="0.000001"
             placeholder="e.g., 79.8612"

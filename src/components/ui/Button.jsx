@@ -22,33 +22,27 @@ const Button = ({
   children,
   ...rest
 }) => {
-  // Base classes
-  const baseClasses = 'rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors';
+  const baseClasses = 'inline-flex items-center justify-center rounded-2xl font-semibold transition focus:outline-none disabled:cursor-not-allowed disabled:opacity-60';
   
-  // Size classes
   const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2',
-    lg: 'px-6 py-3 text-lg'
+    sm: 'px-3 py-2 text-sm',
+    md: 'px-4 py-2.5 text-sm',
+    lg: 'px-5 py-3 text-base'
   };
   
-  // Variant classes
   const variantClasses = {
-    primary: 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500',
-    secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-800 focus:ring-gray-500',
-    danger: 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500',
-    success: 'bg-green-600 hover:bg-green-700 text-white focus:ring-green-500',
-    warning: 'bg-yellow-500 hover:bg-yellow-600 text-white focus:ring-yellow-500',
-    link: 'bg-transparent hover:underline text-blue-600 hover:text-blue-800 p-0 focus:ring-0'
+    primary: 'bg-blue-600 text-white shadow-sm hover:bg-blue-500 focus:ring-4 focus:ring-blue-100',
+    secondary: 'border border-slate-300 bg-white text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50 focus:ring-4 focus:ring-slate-100',
+    danger: 'border border-rose-200 bg-white text-rose-700 shadow-sm hover:bg-rose-50 focus:ring-4 focus:ring-rose-100',
+    success: 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-500 focus:ring-4 focus:ring-emerald-100',
+    warning: 'bg-amber-500 text-white shadow-sm hover:bg-amber-400 focus:ring-4 focus:ring-amber-100',
+    link: 'rounded-none bg-transparent p-0 text-blue-700 hover:text-blue-900 hover:underline focus:ring-0'
   };
-  
-  // Disabled classes
-  const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : '';
   
   return (
     <button
       type={type}
-      className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${disabledClasses} ${className}`}
+      className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
       disabled={disabled}
       onClick={onClick}
       {...rest}

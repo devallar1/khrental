@@ -19,7 +19,8 @@ jobs:
       VITE_EVIA_ACCESS_TOKEN: ${{ secrets.VITE_EVIA_ACCESS_TOKEN }}
       VITE_API_ENDPOINT: ${{ secrets.VITE_API_ENDPOINT }}
       VITE_WEBHOOK_URL: ${{ secrets.VITE_WEBHOOK_URL }}
-      VITE_SENDGRID_API_KEY: ${{ secrets.VITE_SENDGRID_API_KEY }}
+      TWILIO_SENDGRID_API_KEY: ${{ secrets.TWILIO_SENDGRID_API_KEY }}
+      SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
       VITE_EMAIL_FROM: ${{ secrets.VITE_EMAIL_FROM }}
       VITE_EMAIL_FROM_NAME: ${{ secrets.VITE_EMAIL_FROM_NAME }}
       VITE_APP_BASE_URL: ${{ secrets.VITE_APP_BASE_URL }}
@@ -54,7 +55,7 @@ jobs:
           echo "VITE_EVIA_ACCESS_TOKEN=$VITE_EVIA_ACCESS_TOKEN" >> .env
           echo "VITE_API_ENDPOINT=$VITE_API_ENDPOINT" >> .env
           echo "VITE_WEBHOOK_URL=$VITE_WEBHOOK_URL" >> .env
-          echo "VITE_SENDGRID_API_KEY=$VITE_SENDGRID_API_KEY" >> .env
+          echo "TWILIO_SENDGRID_API_KEY=${TWILIO_SENDGRID_API_KEY:-$SENDGRID_API_KEY}" >> .env
           echo "VITE_EMAIL_FROM=$VITE_EMAIL_FROM" >> .env
           echo "VITE_EMAIL_FROM_NAME=$VITE_EMAIL_FROM_NAME" >> .env
           echo "VITE_APP_BASE_URL=$VITE_APP_BASE_URL" >> .env
@@ -106,7 +107,6 @@ jobs:
           echo "  VITE_EVIA_ACCESS_TOKEN: \"${APPSETTING_VITE_EVIA_ACCESS_TOKEN:-$VITE_EVIA_ACCESS_TOKEN}\"," >> env-config.js
           echo "  VITE_API_ENDPOINT: \"${APPSETTING_VITE_API_ENDPOINT:-$VITE_API_ENDPOINT}\"," >> env-config.js
           echo "  VITE_WEBHOOK_URL: \"${APPSETTING_VITE_WEBHOOK_URL:-$VITE_WEBHOOK_URL}\"," >> env-config.js
-          echo "  VITE_SENDGRID_API_KEY: \"${APPSETTING_VITE_SENDGRID_API_KEY:-$VITE_SENDGRID_API_KEY}\"," >> env-config.js
           echo "  VITE_EMAIL_FROM: \"${APPSETTING_VITE_EMAIL_FROM:-$VITE_EMAIL_FROM}\"," >> env-config.js
           
           # Special handling for EMAIL_FROM_NAME to handle quotes properly
@@ -160,7 +160,6 @@ jobs:
           echo "// Email configuration debug logging" >> env-config.js
           echo "(function() {" >> env-config.js
           echo "  console.log(\"Email Configuration:\", {" >> env-config.js
-          echo "    \"VITE_SENDGRID_API_KEY\": window._env_.VITE_SENDGRID_API_KEY ? \"Present\" : \"Missing\"," >> env-config.js
           echo "    \"VITE_EMAIL_FROM\": window._env_.VITE_EMAIL_FROM," >> env-config.js
           echo "    \"VITE_EMAIL_FROM_NAME\": window._env_.VITE_EMAIL_FROM_NAME," >> env-config.js
           echo "    \"VITE_APP_BASE_URL\": window._env_.VITE_APP_BASE_URL" >> env-config.js
@@ -170,9 +169,6 @@ jobs:
           echo "" >> env-config.js
           echo "// Email configuration validation" >> env-config.js
           echo "(function validateEmailConfig() {" >> env-config.js
-          echo "  if (!window._env_.VITE_SENDGRID_API_KEY) {" >> env-config.js
-          echo "    console.error(\"SendGrid API Key is missing\");" >> env-config.js
-          echo "  }" >> env-config.js
           echo "  if (!window._env_.VITE_EMAIL_FROM) {" >> env-config.js
           echo "    console.error(\"From Email is missing\");" >> env-config.js
           echo "  }" >> env-config.js

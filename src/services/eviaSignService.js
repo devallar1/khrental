@@ -762,9 +762,10 @@ export async function downloadSignedDocument(requestId) {
     console.log('[eviaSignService] Signed document uploaded successfully:', uploadData);
     
     // Get the public URL
+    const scopedFilePath = uploadData?.scopedPath || uploadData?.path || filePath;
     const { data: urlData } = platformClient.storage
       .from('files')
-      .getPublicUrl(filePath);
+      .getPublicUrl(scopedFilePath);
       
     if (!urlData || !urlData.publicUrl) {
       throw new Error('Failed to get public URL for signed document');

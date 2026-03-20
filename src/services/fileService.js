@@ -1,5 +1,6 @@
 import { platform as platformClient } from './platformClient.js';
 import { isDefinedValue } from '../utils/validators.js';
+import { buildRequestContextHeaders } from './requestContext.js';
 
 // Storage buckets
 const STORAGE_BUCKETS = {
@@ -196,14 +197,29 @@ const resetStorageStatusCache = () => {
 };
 
 /**
- * Helper function to ensure we have a valid session before making storage requests
+ * Helper function to ensure we have enough request identity before making storage requests.
+ * The local MSSQL/dev-bypass runtime may not have a persisted auth session, but it still
+ * sends identity headers that the backend tenant context can resolve.
  */
 const ensureAuthSession = async () => {
   const { data: { session }, error } = await platformClient.auth.getSession();
-  if (error || !session) {
+
+  if (!error && session) {
+    return session;
+  }
+
+  const requestHeaders = buildRequestContextHeaders();
+  const hasRequestIdentity = Boolean(
+    requestHeaders['x-auth-id']
+      || requestHeaders['x-user-email']
+      || requestHeaders['x-dev-bypass-role']
+  );
+
+  if (!hasRequestIdentity) {
     throw new Error('No valid authentication session found. Please log in again.');
   }
-  return session;
+
+  return { user: session?.user || null, requestHeaders };
 };
 
 /**
@@ -293,7 +309,7 @@ const saveFile = async (file, { bucket, folder }) => {
     const contentType = file.type || 'application/octet-stream';
 
     // Attempt the upload
-    const { error: uploadError } = await platformClient.storage
+    const { data: uploadData, error: uploadError } = await platformClient.storage
       .from(bucket)
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -307,9 +323,10 @@ const saveFile = async (file, { bucket, folder }) => {
     }
 
     // Get the public URL for the uploaded file
+    const scopedFilePath = uploadData?.scopedPath || uploadData?.path || filePath;
     const { data: { publicUrl } } = platformClient.storage
       .from(bucket)
-      .getPublicUrl(filePath);
+      .getPublicUrl(scopedFilePath);
 
     return {
       success: true,

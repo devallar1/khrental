@@ -1,10 +1,13 @@
 import React, { useState, useEffect, createContext, useContext, useRef } from 'react';
 import { getPlatformClient, getCurrentUser, signIn, signUp, signOut, resetPassword, updatePassword } from '../services/platformClient';
 import { isMssqlApiEnabled, requestMssqlApi } from '../services/mssqlApiClient';
+import { isDevBypassEnabled } from '../utils/env';
 import { hasPermission, hasAnyPermission, hasAllPermissions } from '../utils/permissions';
+import { getStoredPreferredLanguage } from '../utils/userPreferences';
 
 // Add a debug flag at the top of the file
 const DEBUG = false; // Set to false to disable auth debug logs
+const DEV_BYPASS_ENABLED = isDevBypassEnabled();
 
 // Helper function for conditional logging
 const logDebug = (message, data) => {
@@ -73,17 +76,72 @@ const AuthProvider = ({ children }) => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [tenantSwitching, setTenantSwitching] = useState(false);
   const [devBypassRole, setDevBypassRole] = useState(
-    process.env.NODE_ENV !== 'production' ? localStorage.getItem('dev_bypass_role') : null
+    DEV_BYPASS_ENABLED ? localStorage.getItem('dev_bypass_role') : null
   );
   
   // Use refs to track initialization state
   const initialized = useRef(false);
   const platformClient = getPlatformClient();
 
+  const normalizeTenantState = (userRecord, tenantContext = null) => {
+    const memberships = Array.isArray(tenantContext?.memberships)
+      ? tenantContext.memberships
+      : Array.isArray(userRecord?.memberships)
+        ? userRecord.memberships
+        : [];
+
+    const resolvedTenantId = tenantContext?.tenantId
+      || userRecord?.tenantId
+      || userRecord?.tenant_id
+      || null;
+
+    const resolvedMembership = tenantContext?.membership
+      || userRecord?.membership
+      || memberships.find((entry) => (entry?.tenant_id || entry?.tenant?.id) === resolvedTenantId)
+      || memberships.find((entry) => entry?.is_default)
+      || memberships[0]
+      || null;
+
+    const resolvedTenant = tenantContext?.tenant
+      || userRecord?.tenant
+      || resolvedMembership?.tenant
+      || null;
+
+    const finalTenantId = resolvedTenantId
+      || resolvedTenant?.id
+      || resolvedMembership?.tenant_id
+      || null;
+
+    return {
+      ...userRecord,
+      tenantId: finalTenantId,
+      tenant: resolvedTenant,
+      membership: resolvedMembership,
+      memberships,
+      tenantResolution: tenantContext?.resolution || userRecord?.tenantResolution || (resolvedMembership ? 'resolved' : 'none'),
+      hasTenantAccess: memberships.length > 0 || Boolean(finalTenantId)
+    };
+  };
+
+  const mergeTenantContext = async (userRecord) => {
+    try {
+      const { data: tenantContext, error: tenantContextError } = await platformClient.auth.getTenantContext();
+
+      if (tenantContextError || !tenantContext) {
+        return normalizeTenantState(userRecord);
+      }
+
+      return normalizeTenantState(userRecord, tenantContext);
+    } catch (_error) {
+      return normalizeTenantState(userRecord);
+    }
+  };
+
   // Effect for development bypass
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'production' && devBypassRole) {
+    if (DEV_BYPASS_ENABLED && devBypassRole) {
       logDebug('Development bypass activated', devBypassRole);
       logDebug('localStorage dev_bypass_role', localStorage.getItem('dev_bypass_role'));
       console.warn('Using development authentication bypass. DO NOT USE IN PRODUCTION!');
@@ -116,6 +174,7 @@ const AuthProvider = ({ children }) => {
     }
 
     logDebug('Fetching user profile for auth ID', authUser.id);
+    const preferredLanguage = getStoredPreferredLanguage(authUser.id, authUser.preferred_language || 'en');
     
     try {
       if (isMssqlApiEnabled()) {
@@ -129,15 +188,17 @@ const AuthProvider = ({ children }) => {
 
           if (appUser) {
             logDebug('Found MSSQL app user profile', appUser);
-            return {
+            return await mergeTenantContext({
               ...authUser,
               role: appUser.role || authUser.role || 'authenticated',
               name: appUser.name || authUser.email?.split('@')[0] || 'User',
               profileId: appUser.id,
               profileType: appUser.user_type,
               contactDetails: appUser.contact_details || {},
-              userType: appUser.user_type
-            };
+              userType: appUser.user_type,
+              profile_image_url: appUser.profile_image_url || null,
+              preferred_language: preferredLanguage
+            });
           }
         } catch (mssqlError) {
           console.error('[Auth DEBUG] Error fetching app user from MSSQL:', mssqlError.message);
@@ -155,42 +216,104 @@ const AuthProvider = ({ children }) => {
         console.error('[Auth DEBUG] Error fetching app user:', appUserError.message);
         // Continue with auth user rather than completely failing
         console.log('[Auth DEBUG] Falling back to basic auth user');
-        return {
+        return await mergeTenantContext({
           ...authUser,
           role: authUser.role || 'authenticated',
-          name: authUser.email?.split('@')[0] || 'User'
-        };
+          name: authUser.email?.split('@')[0] || 'User',
+          preferred_language: preferredLanguage
+        });
       }
 
       if (appUser) {
         logDebug('Found app user profile', appUser);
         // Merge auth user with app user profile
-        return {
+        return await mergeTenantContext({
           ...authUser,
           role: appUser.role || authUser.role || 'authenticated',
           name: appUser.name || authUser.email?.split('@')[0] || 'User',
           profileId: appUser.id,
           profileType: appUser.user_type,
           contactDetails: appUser.contact_details || {},
-          userType: appUser.user_type
-        };
+          userType: appUser.user_type,
+          profile_image_url: appUser.profile_image_url || null,
+          preferred_language: preferredLanguage
+        });
       }
       
       // If no profile found, return the auth user with some defaults
       logDebug('No profile found for user, using default auth user');
-      return {
+      return await mergeTenantContext({
         ...authUser,
         role: authUser.role || 'authenticated',
-        name: authUser.email?.split('@')[0] || 'User'
-      };
+        name: authUser.email?.split('@')[0] || 'User',
+        preferred_language: preferredLanguage
+      });
     } catch (err) {
       console.error('[Auth DEBUG] Error fetching user profile:', err.message);
       // Don't fail completely, return the auth user with minimal info
-      return {
+      return await mergeTenantContext({
         ...authUser,
         role: authUser.role || 'authenticated',
-        name: authUser.email?.split('@')[0] || 'User'
-      };
+        name: authUser.email?.split('@')[0] || 'User',
+        preferred_language: preferredLanguage
+      });
+    }
+  };
+
+  const refreshTenantContext = async (authUser = null) => {
+    const fallbackAuthUser = authUser || userData || null;
+
+    try {
+      const { data: currentUserData, error: currentUserError } = await getCurrentUser();
+
+      if (currentUserError) {
+        throw currentUserError;
+      }
+
+      const activeAuthUser = currentUserData?.user || fallbackAuthUser;
+
+      if (!activeAuthUser?.id) {
+        setUserData(null);
+        return { data: null, error: null };
+      }
+
+      const refreshedUser = await fetchUserProfile(activeAuthUser);
+      setUserData(refreshedUser);
+
+      return { data: refreshedUser, error: null };
+    } catch (refreshError) {
+      return { data: null, error: refreshError };
+    }
+  };
+
+  const switchTenant = async (tenantId) => {
+    try {
+      setTenantSwitching(true);
+      setError(null);
+
+      if (!tenantId) {
+        throw new Error('A tenant selection is required.');
+      }
+
+      const { error: switchError } = await platformClient.auth.setActiveTenant(tenantId);
+
+      if (switchError) {
+        throw switchError;
+      }
+
+      const { data: refreshedUser, error: refreshError } = await refreshTenantContext();
+
+      if (refreshError) {
+        throw refreshError;
+      }
+
+      return { data: refreshedUser, error: null };
+    } catch (tenantError) {
+      console.error('[Auth] Error switching tenant:', tenantError.message);
+      setError(tenantError.message || 'Failed to switch tenant');
+      return { data: null, error: tenantError };
+    } finally {
+      setTenantSwitching(false);
     }
   };
 
@@ -408,7 +531,7 @@ const AuthProvider = ({ children }) => {
 
   // Development bypass function
   const setDevBypass = (role) => {
-    if (process.env.NODE_ENV !== 'production') {
+    if (DEV_BYPASS_ENABLED) {
       logDebug('Setting dev bypass role', role);
       localStorage.setItem('dev_bypass_role', role);
       setDevBypassRole(role);
@@ -463,16 +586,37 @@ const AuthProvider = ({ children }) => {
     }
   };
 
+  const memberships = Array.isArray(userData?.memberships) ? userData.memberships : [];
+  const activeMembership = userData?.membership
+    || memberships.find((entry) => (entry?.tenant_id || entry?.tenant?.id) === userData?.tenantId)
+    || memberships.find((entry) => entry?.is_default)
+    || memberships[0]
+    || null;
+  const activeTenant = userData?.tenant || activeMembership?.tenant || null;
+  const activeTenantId = userData?.tenantId || activeTenant?.id || activeMembership?.tenant_id || null;
+  const hasMultipleTenants = memberships.length > 1;
+  const hasTenantAccess = !!userData && (userData?.hasTenantAccess || memberships.length > 0 || !!activeTenantId);
+
   // Create context value
   const value = {
     user: userData,
     userData,
+    setUser: setUserData,
     loading,
     error,
     isAuthenticated: !!userData,
+    activeTenant,
+    activeTenantId,
+    membership: activeMembership,
+    memberships,
+    hasMultipleTenants,
+    hasTenantAccess,
+    isSwitchingTenant: tenantSwitching,
     login,
     register,
     logout,
+    switchTenant,
+    refreshTenantContext,
     setDevBypass,
     hasPermission: checkPermission,
     hasAnyPermission: checkAnyPermission,

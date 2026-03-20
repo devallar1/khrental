@@ -60,6 +60,7 @@ const PropertyForm = () => {
   
   // Form state
   const [formData, setFormData] = useState(initialFormData);
+  const [propertyCoordinates, setPropertyCoordinates] = useState(null);
   
   // UI state
   const [loading, setLoading] = useState(false);
@@ -128,6 +129,31 @@ const PropertyForm = () => {
               electricity_rate: property.electricity_rate || '',
               water_rate: property.water_rate || '',
             });
+
+            if (property.coordinates && typeof property.coordinates === 'object') {
+              setPropertyCoordinates(property.coordinates);
+            } else if (typeof property.coordinates === 'string') {
+              try {
+                const parsedCoordinates = JSON.parse(property.coordinates);
+                if (parsedCoordinates && parsedCoordinates.lat != null && parsedCoordinates.lng != null) {
+                  setPropertyCoordinates({
+                    lat: Number(parsedCoordinates.lat),
+                    lng: Number(parsedCoordinates.lng)
+                  });
+                } else {
+                  setPropertyCoordinates(null);
+                }
+              } catch (_error) {
+                setPropertyCoordinates(null);
+              }
+            } else if (property.latitude != null && property.longitude != null) {
+              setPropertyCoordinates({
+                lat: Number(property.latitude),
+                lng: Number(property.longitude)
+              });
+            } else {
+              setPropertyCoordinates(null);
+            }
             
             // Set existing images if any
             if (images.length > 0) {
@@ -198,6 +224,10 @@ const PropertyForm = () => {
       ...prev,
       amenities,
     }));
+  };
+
+  const handleCoordinatesChange = (nextCoordinates) => {
+    setPropertyCoordinates(nextCoordinates);
   };
   
   // Handle checklist items change
@@ -647,6 +677,8 @@ const PropertyForm = () => {
         unitconfiguration: formData.unitconfiguration?.trim() || '',
         electricity_rate: formData.electricity_rate ? parseFloat(formData.electricity_rate) : null,
         water_rate: formData.water_rate ? parseFloat(formData.water_rate) : null,
+        latitude: propertyCoordinates?.lat != null ? Number(propertyCoordinates.lat) : null,
+        longitude: propertyCoordinates?.lng != null ? Number(propertyCoordinates.lng) : null,
         updatedat: new Date().toISOString()
       };
 
@@ -1020,8 +1052,8 @@ const PropertyForm = () => {
           
           <PropertyMap
             address={formData.address}
-            coordinates={null}
-            onCoordinatesChange={null}
+            coordinates={propertyCoordinates}
+            onCoordinatesChange={handleCoordinatesChange}
           />
         </div>
         

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import TenantSwitcher from '../common/TenantSwitcher';
 
 /**
  * Header component for admin layout
@@ -21,6 +22,7 @@ const Header = () => {
       <div className="flex items-center space-x-4">
         {user && (
           <>
+            <TenantSwitcher compact />
             <span className="text-sm text-gray-600">{user.email}</span>
             <button
               onClick={handleSignOut}

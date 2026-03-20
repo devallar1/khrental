@@ -1,0 +1,56 @@
+services:
+  web:
+    profiles:
+      - core
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: khrental-web
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${WEB_PORT:-5174}:5174"
+    env_file:
+      - .env.docker
+    environment:
+      PORT: 5174
+      NODE_ENV: production
+      MSSQL_SERVER: mssql
+      MSSQL_PORT: 1433
+      MSSQL_ENCRYPT: "false"
+      MSSQL_TRUST_SERVER_CERTIFICATE: "true"
+      VITE_API_ENDPOINT: ${WEB_PUBLIC_URL:-http://localhost:5174}
+      VITE_APP_BASE_URL: ${WEB_PUBLIC_URL:-http://localhost:5174}
+      VITE_USE_MSSQL_API: "true"
+      VITE_ENABLE_DEV_BYPASS: ${VITE_ENABLE_DEV_BYPASS:-true}
+    depends_on:
+      - mssql
+    volumes:
+      - khrental_storage:/app/public/storage
+    networks:
+      - khrental-network
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    profiles:
+      - core
+    container_name: khrental-mssql
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      SA_PASSWORD: ${MSSQL_PASSWORD:-ChangeMe123!}
+    ports:
+      - "${MSSQL_HOST_PORT:-1433}:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+    networks:
+      - khrental-network
+
+volumes:
+  mssql_data:
+  khrental_storage:
+
+networks:
+  khrental-network:
+    driver: bridge

@@ -21,6 +21,7 @@ const MaintenanceRequestDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { userData } = useAuth();
+  const appUserId = userData?.profileId || userData?.appUserId || null;
   
   // State
   const [request, setRequest] = useState(null);
@@ -66,11 +67,11 @@ const MaintenanceRequestDetails = () => {
     
     // Staff can perform actions on assigned requests
     if (userData.role === 'staff') {
-      return request.assignedto === userData.id;
+      return Boolean(appUserId) && request.assignedto === appUserId;
     }
     
     // Rentees can only view their own requests
-    return request.renteeid === userData.id;
+    return Boolean(appUserId) && request.renteeid === appUserId;
   };
   
   // Handle assign staff
@@ -271,7 +272,7 @@ const MaintenanceRequestDetails = () => {
               <>
                 {request.status === MaintenanceStatus.PENDING && (
                   <button
-                    onClick={() => handleAssignStaff(userData.id)}
+                    onClick={() => handleAssignStaff(appUserId)}
                     disabled={actionLoading}
                     className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                   >

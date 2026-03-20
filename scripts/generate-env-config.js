@@ -15,6 +15,7 @@ const envVars = [
   'VITE_EVIA_SIGN_CLIENT_ID',
   'VITE_API_ENDPOINT',
   'VITE_USE_MSSQL_API',
+  'VITE_ENABLE_DEV_BYPASS',
   'VITE_EMAIL_FROM',
   'VITE_EMAIL_FROM_NAME',
   'VITE_APP_BASE_URL'
@@ -40,6 +41,7 @@ envConfigContent += `
   console.log("Environment Variables Loaded:", {
     VITE_EVIA_SIGN_CLIENT_ID: window._env_.VITE_EVIA_SIGN_CLIENT_ID ? "Present" : "Missing",
     VITE_USE_MSSQL_API: window._env_.VITE_USE_MSSQL_API,
+    VITE_ENABLE_DEV_BYPASS: window._env_.VITE_ENABLE_DEV_BYPASS,
     VITE_EMAIL_FROM: window._env_.VITE_EMAIL_FROM
   });
   

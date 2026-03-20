@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 import MaintenanceRequestCard from '../components/maintenance/MaintenanceRequestCard';
 
 const MaintenanceList = () => {
-  const { userData } = useAuth();
+  const { userData, activeTenantId } = useAuth();
   
   // State management
   const [maintenanceRequests, setMaintenanceRequests] = useState([]);
@@ -77,7 +77,7 @@ const MaintenanceList = () => {
   // Initial fetch
   useEffect(() => {
     fetchMaintenanceRequests();
-  }, []);
+  }, [activeTenantId]);
 
   // Handle filter changes
   const handleFilterChange = (filterType, value) => {

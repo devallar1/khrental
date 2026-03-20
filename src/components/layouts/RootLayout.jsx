@@ -7,7 +7,6 @@ import RouteChangeHandler from '../common/RouteChangeHandler';
 import ForceRefresh from '../common/ForceRefresh';
 import { Toaster } from 'react-hot-toast';
 import { ConfirmContextProvider } from '../../contexts/ConfirmContext';
-import PropertyProvider from '../../contexts/PropertyContext';
 import NavigationRegistrar from './NavigationRegistrar';
 import WelcomeGuide from '../WelcomeGuide';
 
@@ -71,38 +70,36 @@ const RootLayout = () => {
       <WelcomeGuide />
       
       <ConfirmContextProvider>
-        <PropertyProvider>
-          <Toaster position="top-right" />
-          
-          {initStatus.error && showStorageWarning && (
-            <div className={`border-l-4 p-4 fixed bottom-0 right-0 z-50 max-w-md shadow-md flex justify-between ${
-              initStatus.isStorageError 
-                ? 'bg-yellow-50 border-yellow-500 text-yellow-700' 
-                : 'bg-red-50 border-red-500 text-red-700'
-            }`}>
-              <div>
-                <p className="font-medium">{initStatus.isStorageError ? 'Storage Notice' : 'Error'}</p>
-                <p className="text-sm">{initStatus.error}</p>
-                {initStatus.isStorageError && (
-                  <p className="text-xs mt-1">
-                    Note: File uploads will be unavailable. Please contact an administrator to set up the required storage buckets.
-                  </p>
-                )}
-              </div>
-              <button 
-                onClick={dismissStorageWarning}
-                className="text-gray-400 hover:text-gray-600"
-                aria-label="Dismiss"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
+        <Toaster position="top-right" />
+        
+        {initStatus.error && showStorageWarning && (
+          <div className={`border-l-4 p-4 fixed bottom-0 right-0 z-50 max-w-md shadow-md flex justify-between ${
+            initStatus.isStorageError 
+              ? 'bg-yellow-50 border-yellow-500 text-yellow-700' 
+              : 'bg-red-50 border-red-500 text-red-700'
+          }`}>
+            <div>
+              <p className="font-medium">{initStatus.isStorageError ? 'Storage Notice' : 'Error'}</p>
+              <p className="text-sm">{initStatus.error}</p>
+              {initStatus.isStorageError && (
+                <p className="text-xs mt-1">
+                  Note: File uploads will be unavailable. Please contact an administrator to set up the required storage buckets.
+                </p>
+              )}
             </div>
-          )}
-          
-          <Outlet />
-        </PropertyProvider>
+            <button 
+              onClick={dismissStorageWarning}
+              className="text-gray-400 hover:text-gray-600"
+              aria-label="Dismiss"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        )}
+        
+        <Outlet />
       </ConfirmContextProvider>
     </>
   );

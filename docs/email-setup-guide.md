@@ -6,12 +6,12 @@ This document provides the current setup for email functionality in KH Rentals.
 
 KH Rentals uses:
 
-1. **Primary Method**: SendGrid through the backend `/api/send-email` endpoint
+1. **Primary Method**: Twilio SendGrid through the backend `/api/send-email` endpoint
 2. **Fallback Method**: local simulation or configured fallback logic for development/testing flows
 
 ## Prerequisites
 
-- A SendGrid account with an API key
+- A Twilio SendGrid account with an API key
 - Access to your deployment environment settings
 
 ## Required Environment Variables
@@ -19,7 +19,7 @@ KH Rentals uses:
 Configure these in local `.env` files and in your deployment target:
 
 ```
-SENDGRID_API_KEY=your-sendgrid-api-key
+TWILIO_SENDGRID_API_KEY=your-sendgrid-api-key
 EMAIL_FROM=noreply@yourdomain.com
 EMAIL_FROM_NAME=KH Rentals
 VITE_API_ENDPOINT=https://your-app-hostname
@@ -30,17 +30,17 @@ VITE_API_ENDPOINT=https://your-app-hostname
 1. Run the application locally
 2. Trigger an invitation or notification flow
 3. Check the server logs for `/api/send-email`
-4. Confirm delivery in SendGrid activity/history
+4. Confirm delivery in Twilio SendGrid activity/history
 
 ## Troubleshooting
 
 1. **Emails not sending**
-   - Verify `SENDGRID_API_KEY`
-   - Verify sender authentication in SendGrid
+   - Verify `TWILIO_SENDGRID_API_KEY` or `SENDGRID_API_KEY`
+   - Verify sender authentication in Twilio SendGrid
    - Check server logs for delivery errors
 
 2. **Emails going to spam**
-   - Complete SPF/DKIM/domain authentication in SendGrid
+   - Complete SPF/DKIM/domain authentication in Twilio SendGrid
 
 3. **Reset or invite links not working**
    - Verify the application base URL and API endpoint values

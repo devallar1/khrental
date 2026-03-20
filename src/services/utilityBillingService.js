@@ -1140,13 +1140,6 @@ export const ensureUtilityReadingsSchema = async () => {
   }
 };
 
-// Run schema check on module load
-ensureUtilityReadingsSchema().then(result => {
-  if (!result) {
-    console.warn('Schema compatibility check failed, some features may not work correctly');
-  }
-});
-
 /**
  * Update the reading values for a utility reading
  * @param {string} readingId - The ID of the reading to update

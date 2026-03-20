@@ -1,13 +1,12 @@
-import React, { useEffect, useState, lazy, Suspense } from 'react';
+import React, { useEffect, Suspense, useMemo } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from './hooks/useAuth';
-import { Toaster, toast } from 'react-hot-toast';
+import { AuthProvider, useAuth } from './hooks/useAuth';
+import { Toaster } from 'react-hot-toast';
 import './App.css';
 import SafePropertyProvider from './components/contexts/SafePropertyProvider';
 import AppRouter from './routes';
 
-// Create a client for React Query
-const queryClient = new QueryClient({
+const createQueryClient = () => new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false, // Prevent refetching when window regains focus
@@ -32,6 +31,29 @@ function ensureEnvironmentURLs() {
     console.error('Error checking environment URLs:', error);
   }
 }
+
+const TenantScopedAppShell = () => {
+  const { activeTenantId } = useAuth();
+  const tenantScopeKey = activeTenantId || 'no-tenant';
+  const queryClient = useMemo(() => createQueryClient(), [tenantScopeKey]);
+
+  return (
+    <QueryClientProvider client={queryClient} key={tenantScopeKey}>
+      <SafePropertyProvider key={tenantScopeKey}>
+        <Suspense fallback={
+          <div className="flex justify-center items-center h-screen">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading application...</p>
+            </div>
+          </div>
+        }>
+          <AppRouter key={tenantScopeKey} />
+        </Suspense>
+      </SafePropertyProvider>
+    </QueryClientProvider>
+  );
+};
 
 function App() {
   // Fix environment URLs immediately on app initialization
@@ -62,23 +84,10 @@ function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <SafePropertyProvider>
-          <Suspense fallback={
-            <div className="flex justify-center items-center h-screen">
-              <div className="text-center">
-                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading application...</p>
-              </div>
-            </div>
-          }>
-            <AppRouter />
-          </Suspense>
-        </SafePropertyProvider>
-        <Toaster position="top-right" />
-      </AuthProvider>
-    </QueryClientProvider>
+    <AuthProvider>
+      <TenantScopedAppShell />
+      <Toaster position="top-right" />
+    </AuthProvider>
   );
 }
 

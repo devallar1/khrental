@@ -154,9 +154,10 @@ const RenteeForm = () => {
       throw error;
     }
     
+    const scopedFilePath = data?.scopedPath || data?.path || `id-copies/${fileName}`;
     const { data: urlData } = platformClient.storage
       .from(STORAGE_BUCKETS.IMAGES.split('/')[0])
-      .getPublicUrl(`id-copies/${fileName}`);
+      .getPublicUrl(scopedFilePath);
     
     return urlData.publicUrl;
   };

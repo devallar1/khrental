@@ -4,8 +4,10 @@ import { toast } from 'react-toastify';
 import { platform as platformClient } from '../../services/platformClient';
 import { UTILITY_TYPES } from '../../utils/constants';
 import { findAppUserByAuthId } from '../../services/appUserService';
+import { useAuth } from '../../hooks/useAuth';
 
 const UtilityReadingForm = () => {
+  const { activeTenantId } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -24,6 +26,17 @@ const UtilityReadingForm = () => {
   useEffect(() => {
     const fetchUserAndProperty = async () => {
       try {
+        setUser(null);
+        setProperty(null);
+        setPhotoPreview(null);
+        setFormData((prev) => ({
+          ...prev,
+          previousReading: null,
+          currentReading: '',
+          photoUrl: null,
+          readingDate: new Date().toISOString().split('T')[0]
+        }));
+
         // Get current user
         const { data: { user }, error: userError } = await platformClient.auth.getUser();
         if (userError) {
@@ -68,7 +81,7 @@ const UtilityReadingForm = () => {
     };
 
     fetchUserAndProperty();
-  }, []);
+  }, [activeTenantId]);
 
   useEffect(() => {
     const fetchLastReading = async () => {
@@ -144,7 +157,7 @@ const UtilityReadingForm = () => {
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `utility-readings/${userId}/${fileName}`;
 
-      const { error: uploadError } = await platformClient.storage
+      const { data: uploadData, error: uploadError } = await platformClient.storage
         .from('images')
         .upload(filePath, file);
 
@@ -153,9 +166,10 @@ const UtilityReadingForm = () => {
       }
 
       // Get the public URL
+      const scopedFilePath = uploadData?.scopedPath || uploadData?.path || filePath;
       const { data: { publicUrl } } = platformClient.storage
         .from('images')
-        .getPublicUrl(filePath);
+        .getPublicUrl(scopedFilePath);
 
       setFormData(prev => ({
         ...prev,

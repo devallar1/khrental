@@ -1,0 +1,19 @@
+SET XACT_ABORT ON;
+
+BEGIN TRY
+    BEGIN TRANSACTION;
+
+    IF OBJECT_ID(N'dbo.app_users', N'U') IS NOT NULL
+    BEGIN
+        IF COL_LENGTH(N'dbo.app_users', N'invited') IS NULL
+            ALTER TABLE dbo.app_users ADD invited BIT NOT NULL CONSTRAINT DF_app_users_invited DEFAULT 0;
+    END;
+
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0
+        ROLLBACK TRANSACTION;
+
+    THROW;
+END CATCH;

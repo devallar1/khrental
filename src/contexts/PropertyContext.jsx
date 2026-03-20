@@ -1,24 +1,15 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import { platform as platformClient } from '../services/platformClient';
+import { useAuth } from '../hooks/useAuth';
+import { requestMssqlApi } from '../services/mssqlApiClient';
 import { toast } from 'react-hot-toast';
 import { navigateToUnauthorized } from '../utils/navigationHelpers';
-import { getApiBaseUrl, isMssqlApiEnabled } from '../utils/env';
+import { isMssqlApiEnabled } from '../utils/env';
 
 const MAX_RECENT_PROPERTIES = 5;
 const RETRY_DELAY = 3000; // 3 seconds
 
-const fetchMssqlProperties = async () => {
-  const apiBaseUrl = getApiBaseUrl();
-  const response = await fetch(`${apiBaseUrl}/api/mssql/properties?pageSize=500`);
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || `MSSQL API request failed with status ${response.status}`);
-  }
-
-  const payload = await response.json();
-  return payload.data || [];
-};
+const fetchMssqlProperties = async () => requestMssqlApi('/api/mssql/properties?pageSize=500');
 
 // Create context
 const PropertyContext = createContext();
@@ -49,6 +40,7 @@ export function useProperty() {
 
 // Provider component
 function PropertyProvider({ children }) {
+  const { loading: authLoading, isAuthenticated, hasTenantAccess } = useAuth();
   const [properties, setProperties] = useState([]);
   const [selectedPropertyIds, setSelectedPropertyIds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,11 +54,28 @@ function PropertyProvider({ children }) {
 
   // Load properties on mount
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!isAuthenticated || !hasTenantAccess) {
+      initAttempted.current = false;
+      retryCount.current = 0;
+      setProperties([]);
+      setAccessiblePropertyIds([]);
+      setSelectedPropertyIds([]);
+      setError(null);
+      setLoading(false);
+      setInitialized(true);
+      setIsReady(true);
+      return;
+    }
+
     if (!initAttempted.current) {
       initAttempted.current = true;
       initializeContext();
     }
-  }, []);
+  }, [authLoading, isAuthenticated, hasTenantAccess]);
 
   // Main initialization function with retry logic
   const initializeContext = async () => {
@@ -116,6 +125,11 @@ function PropertyProvider({ children }) {
   // Load properties from the database
   const loadProperties = async () => {
     try {
+      if (!isAuthenticated || !hasTenantAccess) {
+        setProperties([]);
+        return [];
+      }
+
       if (isMssqlApiEnabled()) {
         try {
           const mssqlProperties = await fetchMssqlProperties();
@@ -148,6 +162,11 @@ function PropertyProvider({ children }) {
   // Load user's accessible properties
   const loadUserAccessibleProperties = async () => {
     try {
+      if (!isAuthenticated || !hasTenantAccess) {
+        setAccessiblePropertyIds([]);
+        return [];
+      }
+
       if (isMssqlApiEnabled()) {
         const allProperties = await fetchMssqlProperties();
         const propertyIds = allProperties.map((property) => property.id);

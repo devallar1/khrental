@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchData } from '../services/platformClient';
 import PropertyCard from '../components/properties/PropertyCard';
+import { useAuth } from '../hooks/useAuth';
 
 const PropertyList = () => {
+  const { activeTenantId } = useAuth();
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,6 +16,7 @@ const PropertyList = () => {
     const fetchProperties = async () => {
       try {
         setLoading(true);
+        setError(null);
         const { data, error } = await fetchData('properties');
         
         if (error) {
@@ -30,7 +33,7 @@ const PropertyList = () => {
     };
     
     fetchProperties();
-  }, []);
+  }, [activeTenantId]);
 
   // Filter and search properties
   const filteredProperties = properties.filter(property => {

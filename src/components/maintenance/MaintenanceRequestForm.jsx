@@ -12,6 +12,7 @@ import { fetchAppUser } from '../../services/appUserService';
 const MaintenanceRequestForm = ({ onSubmitSuccess, onCancel, isEditMode = false, initialData = null }) => {
   const navigate = useNavigate();
   const { user, userData } = useAuth();
+  const appUserId = userData?.profileId || userData?.appUserId || null;
   
   // Add logging for userData
   useEffect(() => {
@@ -57,7 +58,12 @@ const MaintenanceRequestForm = ({ onSubmitSuccess, onCancel, isEditMode = false,
         
         // If user is a rentee, only fetch their associated properties
         if (userData?.role === 'rentee') {
-          const userData2 = await fetchAppUser(userData.profileId || userData.id);
+          if (!appUserId) {
+            setProperties([]);
+            return;
+          }
+
+          const userData2 = await fetchAppUser(appUserId);
           
           if (userData2?.associated_property_ids?.length > 0) {
             query = query.in('id', userData2.associated_property_ids);
@@ -91,7 +97,7 @@ const MaintenanceRequestForm = ({ onSubmitSuccess, onCancel, isEditMode = false,
     if (userData) {
       fetchProperties();
     }
-  }, [userData]);
+  }, [appUserId, userData]);
   
   // Handle form input changes
   const handleInputChange = (e) => {

@@ -13,8 +13,8 @@ const FormInput = ({
   ...props
 }) => {
   return (
-    <div className={`mb-4 ${className}`}>
-      <label htmlFor={id} className="block text-sm font-bold text-gray-800 mb-1">
+    <div className={className}>
+      <label htmlFor={id} className="app-label">
         {label} {required && <span className="text-red-500 font-bold">*</span>}
       </label>
       <input
@@ -27,9 +27,7 @@ const FormInput = ({
         required={required}
         aria-required={required}
         aria-invalid={!!error}
-        className={`w-full px-3 py-2 border ${
-          error ? 'border-red-500' : 'border-gray-300'
-        } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium text-base bg-white`}
+        className={`app-input ${error ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
         {...props}
       />
       {error && <p className="mt-1 text-sm text-red-500 font-medium">{error}</p>}

@@ -12,7 +12,7 @@ import InvoiceCard from '../../components/invoices/InvoiceCard';
 import PaymentProofUpload from '../../components/invoices/PaymentProofUpload';
 
 const RenteeInvoices = () => {
-  const { user } = useAuth();
+  const { user, activeTenantId } = useAuth();
   
   // State
   const [invoices, setInvoices] = useState([]);
@@ -27,6 +27,11 @@ const RenteeInvoices = () => {
   
   // Fetch rentee's invoices
   useEffect(() => {
+    dataFetched.current = false;
+    setInvoices([]);
+    setProperties([]);
+    setError(null);
+
     // Skip if data has already been fetched or user is not available
     if (dataFetched.current || !user || !user.id) {
       return;
@@ -81,7 +86,7 @@ const RenteeInvoices = () => {
     };
     
     fetchRenteeInvoices();
-  }, [user]);
+  }, [user?.id, activeTenantId]);
   
   // Filter invoices based on search term and status filter
   const filteredInvoices = invoices.filter(invoice => {

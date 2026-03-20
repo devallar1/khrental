@@ -1,6 +1,10 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { platformClient } from '../services/platformClient.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Function to run a migration file
 async function runMigration(filePath) {
@@ -52,6 +56,9 @@ async function runAllMigrations(directory) {
   }
 }
 
-// Run migrations from the migrations directory
-const migrationsDir = path.join(__dirname, 'migrations');
-runAllMigrations(migrationsDir); 
+// Run migrations from the migrations directory or from a provided directory.
+const targetDirectory = process.argv[2]
+  ? path.resolve(process.cwd(), process.argv[2])
+  : path.join(__dirname, 'migrations');
+
+runAllMigrations(targetDirectory); 

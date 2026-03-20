@@ -73,6 +73,8 @@ If you receive a "SendGrid API key found in commit" error when trying to commit,
 2. Hard-coded keys in any JavaScript files
 3. Keys in sample or example files
 
+For email delivery, keep `TWILIO_SENDGRID_API_KEY` or `SENDGRID_API_KEY` on the server only. Do not expose them through any `VITE_` variable.
+
 ## Development
 
 Start the development server:

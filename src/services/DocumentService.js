@@ -879,9 +879,10 @@ export const saveMergedDocument = async (content, agreementId) => {
       console.log('PDF uploaded successfully:', data);
       
       // Get the public URL
+      const scopedFilePath = data?.scopedPath || data?.path || filePath;
       const { data: urlData } = platformClient.storage
         .from(STORAGE_BUCKETS.FILES)
-        .getPublicUrl(filePath);
+        .getPublicUrl(scopedFilePath);
       
       const publicUrl = urlData?.publicUrl;
       console.log('Document public URL generated:', publicUrl);
@@ -1066,9 +1067,10 @@ export const generatePdf = async (formData) => {
     }
     
     // Get the public URL for the PDF
+    const scopedPdfPath = data?.scopedPath || data?.path || pdfPath;
     const { data: urlData } = platformClient.storage
       .from(STORAGE_BUCKETS.FILES)
-      .getPublicUrl(pdfPath);
+      .getPublicUrl(scopedPdfPath);
     
     const pdfUrl = urlData.publicUrl;
     console.log('PDF generated and uploaded successfully:', pdfUrl);
@@ -1586,16 +1588,17 @@ async function createDocument(html, fileName, agreementId) {
     }
     
     // Get the public URL for the file
+    const scopedFilePath = data?.scopedPath || data?.path || filePath;
     const { data: urlData } = platformClient.storage
       .from('documents')
-      .getPublicUrl(filePath);
+      .getPublicUrl(scopedFilePath);
     
     console.log(`Document created successfully: ${urlData.publicUrl}`);
     
     return {
       success: true,
       url: urlData.publicUrl,
-      path: filePath
+      path: scopedFilePath
     };
   } catch (error) {
     console.error('Error creating document:', error);

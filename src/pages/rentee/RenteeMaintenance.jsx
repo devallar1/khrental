@@ -12,7 +12,7 @@ import MaintenanceRequestCard from '../../components/maintenance/MaintenanceRequ
 import MaintenanceRequestForm from '../../components/maintenance/MaintenanceRequestForm';
 
 const RenteeMaintenance = () => {
-  const { userData } = useAuth();
+  const { userData, activeTenantId } = useAuth();
   const navigate = useNavigate();
   
   // State
@@ -116,9 +116,11 @@ const RenteeMaintenance = () => {
   // Fetch maintenance requests when component mounts or user data changes
   useEffect(() => {
     if (userData?.id) {
+      setShowForm(false);
+      setError(null);
       fetchMaintenanceRequests();
     }
-  }, [userData?.id]);
+  }, [userData?.id, activeTenantId]);
   
   // Handle form submission success
   const handleSubmitSuccess = () => {

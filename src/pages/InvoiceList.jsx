@@ -5,8 +5,10 @@ import { INVOICE_STATUS } from '../utils/constants';
 import { fetchAppUsers } from '../services/appUserService';
 import { listProperties } from '../services/agreementService';
 import { listInvoices } from '../services/invoiceService';
+import { useAuth } from '../hooks/useAuth';
 
 const InvoiceList = () => {
+  const { activeTenantId } = useAuth();
   const [invoices, setInvoices] = useState([]);
   const [properties, setProperties] = useState([]);
   const [rentees, setRentees] = useState([]);
@@ -21,6 +23,7 @@ const InvoiceList = () => {
     const fetchInvoices = async () => {
       try {
         setLoading(true);
+        setError(null);
         
         // Fetch invoices
         const { data: invoicesData, error: invoicesError } = await listInvoices({ pageSize: 1000 });
@@ -47,7 +50,7 @@ const InvoiceList = () => {
     };
     
     fetchInvoices();
-  }, []);
+  }, [activeTenantId]);
 
   // Filter and search invoices
   const filteredInvoices = invoices.filter(invoice => {

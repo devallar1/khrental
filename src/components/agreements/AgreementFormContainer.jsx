@@ -149,7 +149,7 @@ const AgreementFormContainer = () => {
         terms: processedTerms, // Use processed terms with string values
         notes: formData.notes,
         processedcontent: typeof formData.processedContent === 'string' ? formData.processedContent : null,
-        documenturl: typeof formData.processedContent === 'string' ? formData.processedContent : null,
+        documenturl: null,
         needs_document_generation: status === AGREEMENT_STATUS.REVIEW || status === AGREEMENT_STATUS.PENDING
       };
 

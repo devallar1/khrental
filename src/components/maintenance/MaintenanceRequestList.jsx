@@ -9,6 +9,7 @@ import MaintenanceRequestCard from './MaintenanceRequestCard';
 const MaintenanceRequestList = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
+  const appUserId = userData?.profileId || userData?.appUserId || null;
   
   // State management
   const [maintenanceRequests, setMaintenanceRequests] = useState([]);
@@ -79,9 +80,21 @@ const MaintenanceRequestList = () => {
 
       // Add role-based filters
       if (userData.role === 'rentee') {
-        query = query.eq('renteeid', userData.id);
+        if (!appUserId) {
+          setMaintenanceRequests([]);
+          setIsLoading(false);
+          return;
+        }
+
+        query = query.eq('renteeid', appUserId);
       } else if (userData.role === 'maintenance_staff') {
-        query = query.eq('assignedto', userData.id);
+        if (!appUserId) {
+          setMaintenanceRequests([]);
+          setIsLoading(false);
+          return;
+        }
+
+        query = query.eq('assignedto', appUserId);
       }
 
       const { data, error: fetchError } = await query;
@@ -104,7 +117,7 @@ const MaintenanceRequestList = () => {
   // Initial fetch
   useEffect(() => {
     fetchMaintenanceRequests();
-  }, [userData.id, userData.role]);
+  }, [appUserId, userData.id, userData.role]);
 
   // Handle filter changes
   const handleFilterChange = (filterType, value) => {

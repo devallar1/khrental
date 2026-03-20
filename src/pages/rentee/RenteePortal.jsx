@@ -2,11 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { platform as platformClient } from '../../services/platformClient';
 import { useAuth } from '../../hooks/useAuth';
+import { isDevBypassEnabled } from '../../utils/env';
 import { formatCurrency, formatDate } from '../../utils/helpers';
 import { findAppUserByAuthId, getStructuredAssociations } from '../../services/appUserService';
 
+const DEV_BYPASS_ENABLED = isDevBypassEnabled();
+
 const RenteePortal = () => {
-  const { user } = useAuth();
+  const { user, activeTenantId } = useAuth();
   const [renteeData, setRenteeData] = useState(null);
   const [invoices, setInvoices] = useState([]);
   const [agreements, setAgreements] = useState([]);
@@ -15,6 +18,12 @@ const RenteePortal = () => {
   const dataFetched = useRef(false);
 
   useEffect(() => {
+    dataFetched.current = false;
+    setRenteeData(null);
+    setInvoices([]);
+    setAgreements([]);
+    setError(null);
+
     // Skip if data has already been fetched or user is not available
     if (dataFetched.current || !user) {
       return;
@@ -28,7 +37,7 @@ const RenteePortal = () => {
         setLoading(true);
         
         // For development bypass user, create mock data
-        if (process.env.NODE_ENV !== 'production' && user.id === 'dev-user-id') {
+        if (DEV_BYPASS_ENABLED && user.id === 'dev-user-id') {
           // Create mock rentee data
           const mockRentee = {
             id: 'mock-rentee-id',
@@ -206,7 +215,7 @@ const RenteePortal = () => {
     };
     
     fetchRenteeData();
-  }, [user]);
+  }, [user?.id, activeTenantId]);
 
   if (loading) {
     return (

@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { platform as platformClient } from '../services/platformClient';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { toast } from 'react-toastify';
 import UserLanguageSelector from '../components/forms/UserLanguageSelector';
-import { uploadFile } from '../services/fileService';
+import { saveImage, STORAGE_BUCKETS } from '../services/fileService';
+import { fetchAppUser, updateAppUser } from '../services/appUserService';
 import { DEFAULT_IMAGE } from '../utils/constants';
+import { getStoredPreferredLanguage, setStoredPreferredLanguage } from '../utils/userPreferences';
 
 const UserProfile = () => {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [updateSuccess, setUpdateSuccess] = useState(false);
@@ -30,24 +31,24 @@ const UserProfile = () => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const { data, error } = await platformClient
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+      const preferredLanguage = getStoredPreferredLanguage(user?.id, user?.preferred_language || 'en');
+      let appUser = null;
 
-      if (error) throw error;
-
-      if (data) {
-        setProfile({
-          full_name: data.full_name || '',
-          email: user.email || '',
-          phone: data.phone || '',
-          profile_image_url: data.profile_image_url || DEFAULT_IMAGE,
-          preferred_language: data.preferred_language || 'en'
-        });
-        setImagePreview(data.profile_image_url || DEFAULT_IMAGE);
+      if (user?.profileId) {
+        appUser = await fetchAppUser(user.profileId);
       }
+
+      const contactDetails = appUser?.contact_details || appUser?.contactDetails || user?.contactDetails || {};
+      const profileImageUrl = appUser?.profile_image_url || user?.profile_image_url || DEFAULT_IMAGE;
+
+      setProfile({
+        full_name: appUser?.name || user?.name || '',
+        email: appUser?.email || user?.email || '',
+        phone: contactDetails?.phone || '',
+        profile_image_url: profileImageUrl,
+        preferred_language: preferredLanguage
+      });
+      setImagePreview(profileImageUrl);
     } catch (error) {
       console.error('Error fetching profile:', error);
       toast.error('Failed to load profile data');
@@ -92,29 +93,46 @@ const UserProfile = () => {
       
       // Upload new image if selected
       if (imageFile) {
-        const { url, error } = await uploadFile(
-          imageFile, 
-          'profiles', 
-          `${user.id}-profile`
-        );
-        
-        if (error) throw error;
-        profileImageUrl = url;
-      }
-      
-      // Update profile in database
-      const { error } = await platformClient
-        .from('user_profiles')
-        .upsert({
-          user_id: user.id,
-          full_name: profile.full_name,
-          phone: profile.phone,
-          profile_image_url: profileImageUrl,
-          preferred_language: profile.preferred_language,
-          updated_at: new Date()
+        const uploadResult = await saveImage(imageFile, {
+          bucket: STORAGE_BUCKETS.IMAGES,
+          folder: 'profiles',
+          compress: true
         });
-        
-      if (error) throw error;
+
+        if (!uploadResult?.success || !uploadResult?.url) {
+          throw new Error(uploadResult?.error || 'Failed to upload profile image');
+        }
+
+        profileImageUrl = uploadResult.url;
+      }
+
+      const nextContactDetails = {
+        ...(user?.contactDetails || {}),
+        phone: profile.phone
+      };
+
+      if (!user?.profileId) {
+        throw new Error('No app user profile is linked to the current account');
+      }
+
+      const result = await updateAppUser(user.profileId, {
+        name: profile.full_name,
+        contact_details: nextContactDetails,
+        profile_image_url: profileImageUrl
+      });
+
+      if (!result?.success) {
+        throw new Error(result?.error || 'Failed to update profile');
+      }
+
+      setStoredPreferredLanguage(user.id, profile.preferred_language);
+      setUser({
+        ...user,
+        name: profile.full_name,
+        contactDetails: nextContactDetails,
+        profile_image_url: profileImageUrl,
+        preferred_language: profile.preferred_language
+      });
       
       setUpdateSuccess(true);
       toast.success('Profile updated successfully');

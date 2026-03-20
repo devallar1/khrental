@@ -119,9 +119,10 @@ const UtilityMeterForm = ({
       }
       
       // Get public URL for the file
+      const scopedFilePath = data?.scopedPath || data?.path || filePath;
       const { data: urlData } = platformClient.storage
         .from('media')
-        .getPublicUrl(filePath);
+        .getPublicUrl(scopedFilePath);
       
       setFormData(prev => ({
         ...prev,

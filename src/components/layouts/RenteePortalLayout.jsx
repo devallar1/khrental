@@ -4,6 +4,7 @@ import NavigationRegistrar from './NavigationRegistrar';
 import { useState, useEffect } from 'react';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import MobileNav from '../navigation/MobileNav';
+import TenantSwitcher from '../common/TenantSwitcher';
 
 const RenteePortalLayout = () => {
   const { user, logout } = useAuth();
@@ -103,17 +104,20 @@ const RenteePortalLayout = () => {
               {navigationContent}
             </div>
             <div className="absolute bottom-0 w-full border-t border-green-700 p-4 bg-green-900/50">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="space-y-3">
+                <TenantSwitcher />
+                <div className="flex items-center justify-between">
+                  <div>
                   <p className="font-medium text-white truncate">{user?.email}</p>
                   <p className="text-xs text-green-100 mt-0.5">{user?.role || 'Rentee'}</p>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="px-3 py-1 text-xs bg-green-700 hover:bg-green-600 text-white rounded-md transition-colors"
+                  >
+                    Sign Out
+                  </button>
                 </div>
-                <button
-                  onClick={handleLogout}
-                  className="px-3 py-1 text-xs bg-green-700 hover:bg-green-600 text-white rounded-md transition-colors"
-                >
-                  Sign Out
-                </button>
               </div>
             </div>
           </div>
@@ -128,17 +132,20 @@ const RenteePortalLayout = () => {
             {navigationContent}
           </div>
           <div className="absolute bottom-0 w-64 border-t border-green-700 p-4 bg-green-900/50">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="space-y-3">
+              <TenantSwitcher />
+              <div className="flex items-center justify-between">
+                <div>
                 <p className="font-medium text-white truncate">{user?.email}</p>
                 <p className="text-xs text-green-100 mt-0.5">{user?.role || 'Rentee'}</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1 text-xs bg-green-700 hover:bg-green-600 text-white rounded-md transition-colors"
+                >
+                  Sign Out
+                </button>
               </div>
-              <button
-                onClick={handleLogout}
-                className="px-3 py-1 text-xs bg-green-700 hover:bg-green-600 text-white rounded-md transition-colors"
-              >
-                Sign Out
-              </button>
             </div>
           </div>
         </div>
@@ -149,6 +156,7 @@ const RenteePortalLayout = () => {
           <header className="bg-white shadow-sm p-4 hidden md:flex justify-between items-center">
             <h1 className="text-xl font-semibold text-gray-800">Rentee Portal</h1>
             <div className="flex items-center space-x-4">
+              <TenantSwitcher compact />
               <span className="text-sm text-gray-600">{user?.email}</span>
               <button
                 onClick={handleLogout}

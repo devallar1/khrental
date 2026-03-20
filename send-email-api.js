@@ -11,14 +11,56 @@ const bodyParser = require('body-parser');
 const { SENDGRID_API_KEY, API_KEY, ALLOWED_ORIGINS, PORT } = process.env;
 const sgMail = require('@sendgrid/mail');
 
+let deprecatedSendGridEnvLogged = false;
+
+const getTwilioSendGridApiKey = () => {
+  const preferredKey = process.env.TWILIO_SENDGRID_API_KEY || process.env.SENDGRID_API_KEY || '';
+
+  if (preferredKey) {
+    return preferredKey;
+  }
+
+  const deprecatedClientKey = process.env.VITE_SENDGRID_API_KEY || '';
+  if (deprecatedClientKey && !deprecatedSendGridEnvLogged) {
+    deprecatedSendGridEnvLogged = true;
+    console.warn('[email] Using deprecated VITE_SENDGRID_API_KEY fallback. Move this value to TWILIO_SENDGRID_API_KEY or SENDGRID_API_KEY on the server.');
+  }
+
+  return deprecatedClientKey;
+};
+
+const getDefaultEmailSender = ({ from, fromName } = {}) => ({
+  email: from || process.env.EMAIL_FROM || process.env.DEFAULT_FROM_EMAIL || process.env.VITE_EMAIL_FROM || 'noreply@khrentals.com',
+  name: fromName || process.env.EMAIL_FROM_NAME || process.env.DEFAULT_FROM_NAME || process.env.VITE_EMAIL_FROM_NAME || 'KH Rentals'
+});
+
+const normalizeEmailAttachments = (attachments = []) => {
+  if (!Array.isArray(attachments)) {
+    return [];
+  }
+
+  return attachments
+    .filter((attachment) => attachment && attachment.filename && attachment.content)
+    .map((attachment) => ({
+      content: String(attachment.content),
+      filename: String(attachment.filename),
+      ...(attachment.type ? { type: String(attachment.type) } : {}),
+      ...(attachment.disposition ? { disposition: String(attachment.disposition) } : {}),
+      ...(attachment.content_id ? { content_id: String(attachment.content_id) } : {}),
+      ...(attachment.contentId ? { content_id: String(attachment.contentId) } : {})
+    }));
+};
+
+const sendGridApiKey = getTwilioSendGridApiKey();
+
 // Initialize Express app
 const app = express();
 
 // Configure SendGrid with API key
-if (SENDGRID_API_KEY) {
-  sgMail.setApiKey(SENDGRID_API_KEY);
+if (sendGridApiKey) {
+  sgMail.setApiKey(sendGridApiKey);
 } else {
-  console.error('SENDGRID_API_KEY is not set. Emails will not be sent.');
+  console.error('TWILIO_SENDGRID_API_KEY is not set. Emails will not be sent.');
 }
 
 // Middleware setup
@@ -67,7 +109,7 @@ const authenticateApiKey = (req, res, next) => {
 // Email sending endpoint
 app.post('/api/send-email', authenticateApiKey, async (req, res) => {
   try {
-    const { to, subject, html, text, from, fromName } = req.body;
+    const { to, subject, html, text, from, fromName, attachments } = req.body;
     
     // Validate required fields
     if (!to || !subject || (!html && !text)) {
@@ -78,12 +120,13 @@ app.post('/api/send-email', authenticateApiKey, async (req, res) => {
     }
     
     // If SendGrid API key is not set, simulate the email
-    if (!SENDGRID_API_KEY) {
+    if (!sendGridApiKey) {
       console.log('SIMULATING EMAIL:', { to, subject, from });
       return res.status(200).json({
         success: true,
         simulated: true,
-        message: 'Email simulated - SENDGRID_API_KEY not configured'
+        provider: 'twilio-sendgrid',
+        message: 'Email simulated - TWILIO_SENDGRID_API_KEY not configured'
       });
     }
     
@@ -91,10 +134,7 @@ app.post('/api/send-email', authenticateApiKey, async (req, res) => {
     const msg = {
       to,
       subject,
-      from: {
-        email: from || process.env.DEFAULT_FROM_EMAIL || 'noreply@khrentals.com',
-        name: fromName || process.env.DEFAULT_FROM_NAME || 'KH Rentals'
-      }
+      from: getDefaultEmailSender({ from, fromName })
     };
     
     // Add content based on what was provided
@@ -103,6 +143,11 @@ app.post('/api/send-email', authenticateApiKey, async (req, res) => {
     }
     if (text) {
       msg.text = text;
+    }
+
+    const normalizedAttachments = normalizeEmailAttachments(attachments);
+    if (normalizedAttachments.length > 0) {
+      msg.attachments = normalizedAttachments;
     }
     
     // Send the email
@@ -114,6 +159,7 @@ app.post('/api/send-email', authenticateApiKey, async (req, res) => {
     // Return success response
     return res.status(200).json({
       success: true,
+      provider: 'twilio-sendgrid',
       message: 'Email sent successfully',
       to,
       subject,

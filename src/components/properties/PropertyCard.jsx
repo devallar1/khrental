@@ -2,6 +2,36 @@ import { Link } from 'react-router-dom';
 import { formatCurrency } from '../../utils/helpers';
 import { DEFAULT_IMAGE } from '../../utils/constants';
 
+const getPrimaryImageUrl = (images = []) => {
+  if (!Array.isArray(images) || images.length === 0) {
+    return DEFAULT_IMAGE;
+  }
+
+  const normalizedImages = images
+    .map((image, index) => {
+      if (typeof image === 'string') {
+        return { image_url: image, order: index };
+      }
+
+      if (image && typeof image === 'object') {
+        return {
+          image_url: image.image_url || '',
+          order: image.order !== undefined ? image.order : index
+        };
+      }
+
+      return null;
+    })
+    .filter((image) => image && image.image_url);
+
+  if (normalizedImages.length === 0) {
+    return DEFAULT_IMAGE;
+  }
+
+  normalizedImages.sort((left, right) => (left.order || 0) - (right.order || 0));
+  return normalizedImages[0].image_url;
+};
+
 const PropertyCard = ({ property }) => {
   const { 
     id, 
@@ -17,9 +47,7 @@ const PropertyCard = ({ property }) => {
   } = property;
   
   // Use the first image or a placeholder
-  const imageUrl = images && images.length > 0 
-    ? images[0] 
-    : DEFAULT_IMAGE;
+  const imageUrl = getPrimaryImageUrl(images);
 
   // Get status badge color
   const getStatusBadgeColor = (status) => {

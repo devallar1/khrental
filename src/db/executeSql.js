@@ -40,16 +40,7 @@ const main = async () => {
     
     if (error) {
       console.error('Error executing SQL via RPC:', error);
-      
-      // Try alternative approach with direct query
-      console.log('Trying direct query approach...');
-      try {
-        await platformClient.query(sqlScript);
-        console.log('SQL script executed successfully via direct query');
-      } catch (directError) {
-        console.error('Direct query also failed:', directError);
-        process.exit(1);
-      }
+      process.exit(1);
     } else {
       console.log('SQL script executed successfully via RPC');
     }

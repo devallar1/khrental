@@ -9,7 +9,7 @@ const RenteeAgreements = () => {
   const [agreements, setAgreements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { user } = useAuth();
+  const { user, activeTenantId } = useAuth();
 
   useEffect(() => {
     const fetchAgreements = async () => {
@@ -77,7 +77,7 @@ const RenteeAgreements = () => {
     if (user?.id) {
       fetchAgreements();
     }
-  }, [user]);
+  }, [user?.id, activeTenantId]);
 
   if (loading) {
     return <div className="p-4">Loading agreements...</div>;

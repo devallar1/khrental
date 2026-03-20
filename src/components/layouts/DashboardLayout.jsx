@@ -5,8 +5,9 @@ import { USER_ROLES } from '../../utils/constants';
 import { useState, useEffect } from 'react';
 import NavigationRegistrar from './NavigationRegistrar';
 import UserLanguageSelector from '../forms/UserLanguageSelector';
-import { platform as platformClient } from '../../services/platformClient';
 import { toast } from 'react-toastify';
+import TenantSwitcher from '../common/TenantSwitcher';
+import { setStoredPreferredLanguage } from '../../utils/userPreferences';
 
 const DashboardLayout = () => {
   const { user, logout, setUser } = useAuth();
@@ -59,37 +60,35 @@ const DashboardLayout = () => {
   
   // Custom NavLink styling function
   const getNavLinkClass = ({ isActive }) => {
-    return `flex items-center w-full px-3 py-2.5 rounded-md transition-colors text-sm font-medium no-underline ${
+    return `flex items-center w-full rounded-2xl px-3 py-2.5 text-sm font-medium no-underline transition ${
       isActive 
-        ? 'bg-white text-blue-800 shadow-sm' 
-        : 'text-white hover:bg-blue-700/50'
+        ? 'bg-white text-slate-950 shadow-sm shadow-slate-950/5' 
+        : 'text-slate-200 hover:bg-white/10 hover:text-white'
     }`;
   };
   
   // Dropdown item styling function
   const getDropdownItemClass = ({ isActive }) => {
-    return `flex items-center w-full px-3 py-2 rounded-md transition-colors text-sm font-medium no-underline ${
+    return `flex items-center w-full rounded-2xl px-3 py-2 text-sm font-medium no-underline transition ${
       isActive 
-        ? 'bg-white text-blue-800 shadow-sm' 
-        : 'text-white hover:bg-blue-700/50'
+        ? 'bg-white text-slate-950 shadow-sm shadow-slate-950/5' 
+        : 'text-slate-200 hover:bg-white/10 hover:text-white'
     }`;
   };
+
+  const getSectionToggleClass = (isOpen, isHovered) => `flex items-center justify-between w-full rounded-2xl px-3 py-2.5 text-sm font-medium transition ${
+    isOpen
+      ? 'bg-white/12 text-white shadow-inner'
+      : isHovered
+        ? 'bg-white/8 text-white'
+        : 'text-slate-200 hover:bg-white/8 hover:text-white'
+  }`;
   
   // Handle language change
   const handleLanguageChange = async (language) => {
     try {
-      const { error } = await platformClient
-        .from('user_profiles')
-        .upsert({
-          user_id: user.id,
-          preferred_language: language,
-          updated_at: new Date()
-        });
-        
-      if (error) {
-        throw error;
-      }
-      
+      setStoredPreferredLanguage(user?.id, language);
+
       // Update local user state
       setUser({
         ...user,
@@ -106,20 +105,21 @@ const DashboardLayout = () => {
   // Sidebar content - extracted to avoid duplication
   const SidebarContent = () => (
     <div className="flex flex-col h-full relative">
-      <div className="p-4 sm:p-5 border-b border-blue-700">
-        <h1 className="text-xl sm:text-2xl font-bold text-white">KH Rentals</h1>
+      <div className="border-b border-white/10 p-4 sm:p-5">
+        <p className="text-[11px] uppercase tracking-[0.28em] text-sky-200">Workspace</p>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-white sm:text-2xl">KH Rentals</h1>
       </div>
       
       {/* User information moved from bottom to top */}
-      <div className="p-3 sm:p-4 border-b border-blue-700 bg-blue-900/50">
+      <div className="border-b border-white/10 bg-white/5 p-3 sm:p-4 backdrop-blur-sm">
         <div className="flex flex-col space-y-2">
           <div className="flex items-start">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0 mr-2 sm:mr-3">
+            <div className="mr-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl bg-sky-400/20 text-sm font-semibold text-white sm:mr-3 sm:h-9 sm:w-9">
               {user?.email?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div className="flex-1 min-w-0 overflow-hidden text-left">
-              <p className="text-xs text-blue-200 capitalize font-medium">{user?.role || 'User'}</p>
-              <p className="font-medium text-white truncate text-xs sm:text-sm leading-tight">{user?.email}</p>
+              <p className="text-xs font-medium capitalize text-sky-200">{user?.role || 'User'}</p>
+              <p className="truncate text-xs font-medium leading-tight text-white sm:text-sm">{user?.email}</p>
             </div>
           </div>
           
@@ -130,10 +130,12 @@ const DashboardLayout = () => {
               onChange={handleLanguageChange} 
             />
           </div>
+
+          <TenantSwitcher />
           
           <button
             onClick={handleSignOut}
-            className="w-full px-3 py-1.5 sm:py-2 bg-blue-700 hover:bg-blue-600 text-white rounded-md transition-colors text-xs sm:text-sm font-medium flex items-center justify-center"
+            className="flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/8 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/14 sm:text-sm"
           >
             Sign Out
           </button>
@@ -168,12 +170,7 @@ const DashboardLayout = () => {
               onClick={() => setAgreementsOpen(!agreementsOpen)}
               onMouseEnter={() => setAgreementHover(true)}
               onMouseLeave={() => setAgreementHover(false)}
-              className="flex items-center justify-between w-full px-3 py-2.5 rounded-md transition-colors text-sm font-medium text-white"
-              style={{ 
-                backgroundColor: (location.pathname.includes('/dashboard/agreements') || agreementsOpen) 
-                  ? '#1d4ed8' 
-                  : (agreementHover ? 'rgba(29, 78, 216, 0.5)' : 'transparent')
-              }}
+              className={getSectionToggleClass(location.pathname.includes('/dashboard/agreements') || agreementsOpen, agreementHover)}
             >
               <span className="font-medium">Agreements</span>
               {agreementsOpen ? (
@@ -184,7 +181,7 @@ const DashboardLayout = () => {
             </button>
             
             {agreementsOpen && (
-              <div className="mt-1 ml-3 space-y-1 border-l-2 border-blue-600 pl-2 z-40 py-2 bg-blue-800">
+              <div className="z-40 mt-2 ml-3 space-y-1 border-l border-white/15 pl-3 py-1">
                 <NavLink
                   to="/dashboard/agreements"
                   end
@@ -208,12 +205,7 @@ const DashboardLayout = () => {
               onClick={() => setInvoicesOpen(!invoicesOpen)}
               onMouseEnter={() => setInvoiceHover(true)}
               onMouseLeave={() => setInvoiceHover(false)}
-              className="flex items-center justify-between w-full px-3 py-2.5 rounded-md transition-colors text-sm font-medium text-white"
-              style={{ 
-                backgroundColor: (isInvoiceRoute || invoicesOpen) 
-                  ? '#1d4ed8' 
-                  : (invoiceHover ? 'rgba(29, 78, 216, 0.5)' : 'transparent')
-              }}
+              className={getSectionToggleClass(isInvoiceRoute || invoicesOpen, invoiceHover)}
             >
               <span className="font-medium">Invoices</span>
               {invoicesOpen ? (
@@ -224,7 +216,7 @@ const DashboardLayout = () => {
             </button>
             
             {invoicesOpen && (
-              <div className="mt-1 ml-3 space-y-1 border-l-2 border-blue-600 pl-2 z-40 py-2 bg-blue-800">
+              <div className="z-40 mt-2 ml-3 space-y-1 border-l border-white/15 pl-3 py-1">
                 <NavLink
                   to="/dashboard/invoices"
                   end
@@ -292,12 +284,20 @@ const DashboardLayout = () => {
             Settings
           </NavLink>
           {showAdminDashboard && (
-            <NavLink
-              to="/dashboard/admin-dashboard"
-              className={getNavLinkClass}
-            >
-              Admin Dashboard
-            </NavLink>
+            <>
+              <NavLink
+                to="/dashboard/tenant-admin"
+                className={getNavLinkClass}
+              >
+                Tenant Admin
+              </NavLink>
+              <NavLink
+                to="/dashboard/admin-dashboard"
+                className={getNavLinkClass}
+              >
+                Admin Dashboard
+              </NavLink>
+            </>
           )}
         </nav>
       </div>
@@ -309,12 +309,12 @@ const DashboardLayout = () => {
       {/* Register navigation functions */}
       <NavigationRegistrar />
       
-      <div className="flex h-screen bg-gray-100">
+      <div className="flex min-h-screen bg-transparent">
         {/* Mobile menu button */}
         <div className="lg:hidden fixed top-0 left-0 z-50 m-2 sm:m-4">
           <button 
             onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-md bg-blue-800 text-white focus:outline-none focus:ring-2 focus:ring-white"
+            className="rounded-2xl border border-slate-200 bg-white p-2 text-slate-900 shadow-sm focus:outline-none focus:ring-4 focus:ring-blue-100"
           >
             <Bars3Icon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
           </button>
@@ -329,11 +329,11 @@ const DashboardLayout = () => {
         )}
         
         {/* Mobile sidebar */}
-        <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:hidden overflow-hidden`}>
+        <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-gradient-to-b from-slate-950 via-sky-950 to-blue-900 text-white transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:hidden overflow-hidden`}>
           <div className="absolute top-0 right-0 p-1 sm:p-2">
             <button
               onClick={() => setSidebarOpen(false)}
-              className="p-1.5 sm:p-2 rounded-md text-white hover:bg-blue-700 focus:outline-none"
+              className="rounded-2xl p-1.5 text-white hover:bg-white/10 focus:outline-none sm:p-2"
             >
               <XMarkIcon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
             </button>
@@ -344,13 +344,13 @@ const DashboardLayout = () => {
         </div>
         
         {/* Desktop sidebar */}
-        <div className="hidden lg:block w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-xl h-screen overflow-hidden flex-shrink-0 relative">
+        <div className="relative hidden h-screen w-72 flex-shrink-0 overflow-hidden bg-gradient-to-b from-slate-950 via-sky-950 to-blue-900 text-white shadow-2xl shadow-sky-950/10 lg:block">
           <SidebarContent />
         </div>
         
         {/* Main Content */}
         <div className="flex-1 overflow-auto w-full lg:w-auto">
-          <div className="p-3 sm:p-4 md:p-6 mt-10 lg:mt-0">
+          <div className="mt-10 p-3 sm:p-4 md:p-6 lg:mt-0 lg:p-8">
             <Outlet />
           </div>
         </div>

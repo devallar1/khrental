@@ -101,7 +101,7 @@ export const uploadPaymentProof = async (invoiceId, file) => {
     const fileName = `${invoiceId}_${Date.now()}.${fileExt}`;
     const filePath = `payment_proofs/${fileName}`;
     
-    const { error: uploadError } = await platformClient.storage
+    const { data: uploadData, error: uploadError } = await platformClient.storage
       .from('invoices')
       .upload(filePath, file);
     
@@ -110,9 +110,10 @@ export const uploadPaymentProof = async (invoiceId, file) => {
     }
     
     // Get public URL
+    const scopedFilePath = uploadData?.scopedPath || uploadData?.path || filePath;
     const { data: urlData } = platformClient.storage
       .from('invoices')
-      .getPublicUrl(filePath);
+      .getPublicUrl(scopedFilePath);
     
     const paymentProofUrl = urlData.publicUrl;
     

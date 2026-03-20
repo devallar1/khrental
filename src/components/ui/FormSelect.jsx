@@ -14,9 +14,9 @@ const FormSelect = ({
   disabled = false
 }) => {
   return (
-    <div className={`mb-4 ${className}`}>
+    <div className={className}>
       {label && (
-        <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor={id} className="app-label">
           {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}
@@ -25,11 +25,7 @@ const FormSelect = ({
         name={name}
         value={value}
         onChange={onChange}
-        className={`w-full px-3 py-2 border ${
-          error ? 'border-red-500' : 'border-gray-300'
-        } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-          disabled ? 'bg-gray-100 cursor-not-allowed' : ''
-        }`}
+        className={`app-select ${error ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''} ${disabled ? 'cursor-not-allowed bg-slate-100 text-slate-500' : ''}`}
         required={required}
         disabled={disabled}
       >

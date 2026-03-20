@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { isDevBypassEnabled } from '../utils/env';
+import Button from '../components/ui/Button';
+import FormInput from '../components/ui/FormInput';
+
+const DEV_BYPASS_ENABLED = isDevBypassEnabled();
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -89,66 +94,59 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="auth-shell flex items-center justify-center">
+      <div className="auth-card space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to KH Rentals
-          </h2>
+          <p className="page-kicker text-center">KH Rentals</p>
+          <h1 className="auth-title mt-3">
+            Sign in to your workspace
+          </h1>
+          <p className="auth-subtitle">
+            Use your account to access tenant-aware dashboards, billing, agreements, and administration tools.
+          </p>
           
           {devBypassActive && (
-            <div className="mt-2 text-center">
-              <span className="text-red-500 text-sm font-medium">Development bypass is active</span>
-              <button 
+            <div className="mt-4 flex items-center justify-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <span className="font-medium">Development bypass is active</span>
+              <Button
                 onClick={clearDevBypass}
-                className="ml-2 text-xs text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded"
+                variant="danger"
+                size="sm"
               >
                 Clear Bypass
-              </button>
+              </Button>
             </div>
           )}
         </div>
         
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
             <span className="block sm:inline">{error}</span>
           </div>
         )}
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email-address" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+          <div className="space-y-4">
+            <FormInput
+              id="email-address"
+              label="Email address"
+              type="email"
+              autoComplete="email"
+              required
+              placeholder="name@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <FormInput
+              id="password"
+              label="Password"
+              type="password"
+              autoComplete="current-password"
+              required
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
 
           <div className="flex items-center justify-between">
@@ -160,41 +158,44 @@ const Login = () => {
           </div>
 
           <div>
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="w-full"
             >
               {loading ? 'Signing in...' : 'Sign in'}
-            </button>
+            </Button>
           </div>
         </form>
 
         {/* Development-only bypass section */}
-        {process.env.NODE_ENV !== 'production' && (
-          <div className="mt-8 border-t pt-6">
-            <h3 className="text-center text-sm font-medium text-red-600 mb-4">Development Bypass</h3>
+        {DEV_BYPASS_ENABLED && (
+          <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+            <h3 className="text-center text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Development Bypass</h3>
             <div className="flex flex-col space-y-2">
-              <button
+              <Button
                 onClick={() => handleDevBypass('admin')}
-                className="py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+                variant="secondary"
+                className="w-full"
               >
                 Login as Admin
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => handleDevBypass('staff')}
-                className="py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+                variant="secondary"
+                className="w-full"
               >
                 Login as Staff
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => handleDevBypass('rentee')}
-                className="py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+                variant="secondary"
+                className="w-full"
               >
                 Login as Rentee
-              </button>
+              </Button>
             </div>
-            <p className="text-xs text-center text-gray-500 mt-2">
+            <p className="mt-3 text-center text-xs text-slate-500">
               This bypass is only for development and should be removed in production.
             </p>
           </div>

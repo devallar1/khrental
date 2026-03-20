@@ -18,7 +18,7 @@ VITE_USE_MSSQL_API=true
 VITE_APP_BASE_URL=https://khrentals.kubeira.com
 
 # Server Email Configuration
-SENDGRID_API_KEY=your_sendgrid_api_key_here
+TWILIO_SENDGRID_API_KEY=your_twilio_sendgrid_api_key_here
 VITE_EMAIL_FROM=noreply@khrentals.kubeira.com
 VITE_EMAIL_FROM_NAME=KH Rentals
 
@@ -70,10 +70,16 @@ async function setupEnv() {
     envContent = envContent.replace(/VITE_APP_BASE_URL=.+/, `VITE_APP_BASE_URL=${appBaseUrl}`);
   }
   
-  // Get SendGrid API Key
-  const sendgridApiKey = await question('Enter your SendGrid API Key (server only): ');
+  // Get Twilio SendGrid API Key
+  const sendgridApiKey = await question('Enter your Twilio SendGrid API Key (server only): ');
   if (sendgridApiKey) {
-    envContent = envContent.replace(/SENDGRID_API_KEY=.+/, `SENDGRID_API_KEY=${sendgridApiKey}`);
+    if (/TWILIO_SENDGRID_API_KEY=.+/.test(envContent)) {
+      envContent = envContent.replace(/TWILIO_SENDGRID_API_KEY=.+/, `TWILIO_SENDGRID_API_KEY=${sendgridApiKey}`);
+    } else if (/SENDGRID_API_KEY=.+/.test(envContent)) {
+      envContent = envContent.replace(/SENDGRID_API_KEY=.+/, `SENDGRID_API_KEY=${sendgridApiKey}`);
+    } else {
+      envContent += `\nTWILIO_SENDGRID_API_KEY=${sendgridApiKey}`;
+    }
   }
 
   const eviaClientSecret = await question('Enter your Evia Sign client secret (server only, optional): ');
@@ -84,7 +90,7 @@ async function setupEnv() {
   // Write the .env file
   fs.writeFileSync(envPath, envContent);
   console.log('.env file has been created successfully!');
-  console.log('\nNOTE: Keep SENDGRID_API_KEY and EVIA_SIGN_CLIENT_SECRET on the server only.');
+  console.log('\nNOTE: Keep TWILIO_SENDGRID_API_KEY, SENDGRID_API_KEY, and EVIA_SIGN_CLIENT_SECRET on the server only.');
   console.log('\nTo start the development server with these settings, run:');
   console.log('npm run dev:with-proxy');
   

@@ -8,20 +8,64 @@ import { createPlatformRouter } from './src/api/platform/router.js';
 
 dotenv.config();
 
+let deprecatedSendGridEnvLogged = false;
+
+const getTwilioSendGridApiKey = () => {
+  const preferredKey = process.env.TWILIO_SENDGRID_API_KEY || process.env.SENDGRID_API_KEY || '';
+
+  if (preferredKey) {
+    return preferredKey;
+  }
+
+  const deprecatedClientKey = process.env.VITE_SENDGRID_API_KEY || '';
+  if (deprecatedClientKey && !deprecatedSendGridEnvLogged) {
+    deprecatedSendGridEnvLogged = true;
+    console.warn('[email] Using deprecated VITE_SENDGRID_API_KEY fallback. Move this value to TWILIO_SENDGRID_API_KEY or SENDGRID_API_KEY on the server.');
+  }
+
+  return deprecatedClientKey;
+};
+
+const getDefaultEmailSender = ({ from, fromName } = {}) => ({
+  email: from || process.env.EMAIL_FROM || process.env.DEFAULT_FROM_EMAIL || process.env.VITE_EMAIL_FROM || 'noreply@khrentals.com',
+  name: fromName || process.env.EMAIL_FROM_NAME || process.env.DEFAULT_FROM_NAME || process.env.VITE_EMAIL_FROM_NAME || 'KH Rentals'
+});
+
+const normalizeEmailAttachments = (attachments = []) => {
+  if (!Array.isArray(attachments)) {
+    return [];
+  }
+
+  return attachments
+    .filter((attachment) => attachment && attachment.filename && attachment.content)
+    .map((attachment) => ({
+      content: String(attachment.content),
+      filename: String(attachment.filename),
+      ...(attachment.type ? { type: String(attachment.type) } : {}),
+      ...(attachment.disposition ? { disposition: String(attachment.disposition) } : {}),
+      ...(attachment.content_id ? { content_id: String(attachment.content_id) } : {}),
+      ...(attachment.contentId ? { content_id: String(attachment.contentId) } : {})
+    }));
+};
+
 async function createServer() {
   const app = express();
+  const isProduction = process.env.NODE_ENV === 'production';
 
   const getEviaClientId = () => process.env.EVIA_SIGN_CLIENT_ID || process.env.VITE_EVIA_SIGN_CLIENT_ID || '';
   const getEviaClientSecret = () => process.env.EVIA_SIGN_CLIENT_SECRET || process.env.VITE_EVIA_SIGN_CLIENT_SECRET || '';
 
-  const sendEmail = async ({ to, subject, html, text, from, fromName }) => {
-    const apiKey = process.env.SENDGRID_API_KEY || process.env.VITE_SENDGRID_API_KEY;
+  const sendEmail = async ({ to, subject, html, text, from, fromName, attachments }) => {
+    const apiKey = getTwilioSendGridApiKey();
+    const sender = getDefaultEmailSender({ from, fromName });
+    const normalizedAttachments = normalizeEmailAttachments(attachments);
 
     if (!apiKey) {
       return {
         success: true,
         simulated: true,
-        message: 'Email simulated - SENDGRID_API_KEY is not configured.'
+        provider: 'twilio-sendgrid',
+        message: 'Email simulated - TWILIO_SENDGRID_API_KEY is not configured.'
       };
     }
 
@@ -33,15 +77,13 @@ async function createServer() {
       },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: to }] }],
-        from: {
-          email: from || process.env.DEFAULT_FROM_EMAIL || 'noreply@khrentals.com',
-          name: fromName || process.env.DEFAULT_FROM_NAME || 'KH Rentals'
-        },
+        from: sender,
         subject,
         content: [
           ...(text ? [{ type: 'text/plain', value: text }] : []),
           ...(html ? [{ type: 'text/html', value: html }] : [])
-        ]
+        ],
+        ...(normalizedAttachments.length > 0 ? { attachments: normalizedAttachments } : {})
       })
     });
 
@@ -53,6 +95,7 @@ async function createServer() {
     return {
       success: true,
       simulated: false,
+      provider: 'twilio-sendgrid',
       message: 'Email sent successfully.'
     };
   };
@@ -132,7 +175,7 @@ async function createServer() {
 
   app.post('/api/send-email', async (req, res, next) => {
     try {
-      const { to, subject, html, text, from, fromName } = req.body || {};
+      const { to, subject, html, text, from, fromName, attachments } = req.body || {};
 
       if (!to || !subject || (!html && !text)) {
         res.status(400).json({
@@ -142,7 +185,7 @@ async function createServer() {
         return;
       }
 
-      const result = await sendEmail({ to, subject, html, text, from, fromName });
+      const result = await sendEmail({ to, subject, html, text, from, fromName, attachments });
       res.json({
         ...result,
         to,
@@ -193,23 +236,54 @@ async function createServer() {
   app.use('/api/platform', createPlatformRouter());
   app.use('/storage', express.static(path.resolve(process.cwd(), 'public', 'storage')));
 
-  const vite = await createViteServer({
-    server: { middlewareMode: true }
-  });
+  if (isProduction) {
+    const publicPath = path.resolve(process.cwd(), 'public');
+    const distPath = path.resolve(process.cwd(), 'dist');
 
-  app.use(vite.middlewares);
+    app.use(express.static(publicPath, { index: false }));
+    app.use(express.static(distPath, { index: false }));
+
+    app.use((req, res, next) => {
+      if (!['GET', 'HEAD'].includes(req.method)) {
+        next();
+        return;
+      }
+
+      if (req.path === '/api' || req.path.startsWith('/api/') || req.path === '/storage' || req.path.startsWith('/storage/')) {
+        next();
+        return;
+      }
+
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  } else {
+    const vite = await createViteServer({
+      server: { middlewareMode: true }
+    });
+
+    app.use(vite.middlewares);
+  }
+
+  app.use('/api', (_req, res) => {
+    res.status(404).json({
+      error: 'API route not found'
+    });
+  });
 
   app.use((error, _req, res, _next) => {
     console.error('[Server] Unhandled API error:', error);
 
-    res.status(500).json({
-      error: error.message || 'Unexpected server error'
+    res.status(Number(error?.status) || 500).json({
+      error: error.message || 'Unexpected server error',
+      ...(error?.code ? { code: error.code } : {}),
+      ...(error?.details ? { details: error.details } : {})
     });
   });
 
   const port = Number(process.env.PORT) || 5174;
   const server = app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
+    console.log(`[Server] Mode: ${isProduction ? 'production' : 'development'}`);
     console.log('[Server] MSSQL status:', getMssqlConfigStatus());
   });
 

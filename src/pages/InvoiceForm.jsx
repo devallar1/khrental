@@ -302,7 +302,7 @@ const InvoiceForm = () => {
           <button
             type="button"
             onClick={() => navigate('/dashboard/invoices')}
-            className="px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
+            className="px-4 py-2 rounded-md border border-white/35 bg-white/15 text-white font-medium shadow-sm backdrop-blur-sm transition-colors hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white/70"
           >
             Cancel
           </button>

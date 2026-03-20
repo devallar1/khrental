@@ -26,7 +26,7 @@ import MaintenanceImageUpload from '../components/maintenance/MaintenanceImageUp
 const MaintenanceDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, activeTenantId } = useAuth();
   
   // State
   const [request, setRequest] = useState({
@@ -157,7 +157,7 @@ const MaintenanceDetails = () => {
     return () => {
       mounted = false;
     };
-  }, [id]);
+  }, [id, activeTenantId]);
   
   // Handle staff assignment
   const handleAssignStaff = async (assignmentData) => {

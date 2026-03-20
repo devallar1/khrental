@@ -1,4 +1,5 @@
 import { getApiBaseUrl, isMssqlApiEnabled } from '../utils/env';
+import { buildRequestContextHeaders } from './requestContext';
 
 const readErrorMessage = async (response) => {
   const contentType = response.headers.get('content-type') || '';
@@ -23,7 +24,7 @@ export const requestMssqlApi = async (path, options = {}) => {
     method,
     headers: {
       ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-      ...headers
+      ...buildRequestContextHeaders(headers)
     },
     ...(body !== undefined
       ? { body: typeof body === 'string' ? body : JSON.stringify(body) }

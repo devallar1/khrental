@@ -4,6 +4,7 @@ window._env_ = {
   VITE_EVIA_SIGN_CLIENT_ID: '', // Add your Evia Sign client ID
   VITE_API_ENDPOINT: '', // Add your API endpoint URL
   VITE_USE_MSSQL_API: 'true', // Enable the MSSQL API layer
+  VITE_ENABLE_DEV_BYPASS: 'false', // Enable local development bypass tools
   VITE_EMAIL_FROM: '', // Add sender email address
   VITE_EMAIL_FROM_NAME: '', // Add sender name
   VITE_APP_BASE_URL: '', // Base URL for the application
@@ -14,6 +15,7 @@ window._env_ = {
   console.log("Environment Variables Loaded:", {
     VITE_EVIA_SIGN_CLIENT_ID: window._env_.VITE_EVIA_SIGN_CLIENT_ID ? "Present" : "Missing",
     VITE_USE_MSSQL_API: window._env_.VITE_USE_MSSQL_API,
+    VITE_ENABLE_DEV_BYPASS: window._env_.VITE_ENABLE_DEV_BYPASS,
     VITE_EMAIL_FROM: window._env_.VITE_EMAIL_FROM
   });
   

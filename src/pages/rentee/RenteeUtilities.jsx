@@ -9,14 +9,20 @@ import { calculateUtilityAmount } from '../../services/utilityBillingService';
 import { findAppUserByAuthId } from '../../services/appUserService';
 
 const RenteeUtilities = () => {
-  const { user } = useAuth();
+  const { user, activeTenantId } = useAuth();
   const [recentReadings, setRecentReadings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    setRecentReadings([]);
+    setError(null);
     fetchRecentReadings();
-  }, []);
+  }, [user?.id, activeTenantId]);
 
   const fetchRecentReadings = async () => {
     try {

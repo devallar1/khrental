@@ -101,7 +101,7 @@ export const notifyUser = async (userId, notification) => {
  * Notification Service
  * 
  * This service provides functions for sending various types of notifications to users.
- * The primary method of notification is email, implemented through SendGrid API.
+ * The primary method of notification is email, implemented through the server-side Twilio SendGrid integration.
  * 
  * Usage example:
  * ```
@@ -121,12 +121,12 @@ export const notifyUser = async (userId, notification) => {
  * }
  * ```
  * 
- * Note: This service requires proper configuration of email credentials in environment variables:
- * - VITE_SENDGRID_API_KEY: Your SendGrid API key
+ * Note: This service requires proper server-side email configuration:
+ * - TWILIO_SENDGRID_API_KEY or SENDGRID_API_KEY: Server-side Twilio SendGrid API key
  * - VITE_EMAIL_FROM: The sender email address
  * - VITE_EMAIL_FROM_NAME: The sender name
  * 
- * Alternatively, EmailJS is used as a fallback method if SendGrid is not configured.
+ * Alternatively, EmailJS is used as a fallback method if the backend email path is unavailable.
  */
 
 /**

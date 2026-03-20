@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { platform as platformClient } from '../services/platformClient';
 import { toast } from 'react-hot-toast';
 import AgreementSummaryCard from '../components/agreements/AgreementSummaryCard';
-import { getApiBaseUrl, isMssqlApiEnabled } from '../utils/env';
+import { isMssqlApiEnabled } from '../utils/env';
 import { cancelAgreement } from '../services/agreementService';
+import { requestMssqlApi } from '../services/mssqlApiClient';
+import { useAuth } from '../hooks/useAuth';
 
 const AgreementList = () => {
+  const { activeTenantId } = useAuth();
   const navigate = useNavigate();
   const [agreements, setAgreements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,21 +22,12 @@ const AgreementList = () => {
   const [showPreview, setShowPreview] = useState(false);
 
   const fetchAgreementsFromMssql = async () => {
-    const apiBaseUrl = getApiBaseUrl();
-    const response = await fetch(`${apiBaseUrl}/api/mssql/agreements?pageSize=500`);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || `Agreement API request failed with status ${response.status}`);
-    }
-
-    const payload = await response.json();
-    return payload.data || [];
+    return requestMssqlApi('/api/mssql/agreements?pageSize=500');
   };
 
   useEffect(() => {
     fetchAgreements();
-  }, []);
+  }, [activeTenantId]);
 
   const fetchAgreements = async () => {
     try {

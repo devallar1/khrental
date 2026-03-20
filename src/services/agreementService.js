@@ -33,6 +33,32 @@ import { toDatabaseFormat } from '../utils/dataUtils';
 import { fetchAppUser, updateAppUser } from './appUserService';
 import { isMssqlApiEnabled, requestMssqlApi } from './mssqlApiClient';
 
+const isSchemaUnavailableError = (error) => {
+  const message = String(error?.message || error || '').toLowerCase();
+  return message.includes('invalid object name')
+    || message.includes('invalid column name')
+    || message.includes('schema_not_available')
+    || message.includes('are not available in the current local mssql schema');
+};
+
+const toNullableNumber = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  const normalized = String(value).replace(/[^0-9.-]/g, '');
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const fetchAgreementRecord = async (agreementId) => {
   const { data, error } = await platformClient
     .from('agreements')
@@ -264,12 +290,24 @@ export const saveAgreement = async (agreement) => {
     
     // Convert any client-side property names to match database column names
     agreementData = toDatabaseFormat(agreementData);
+
+    const derivedTerms = agreementData.terms || {};
+    agreementData = {
+      ...agreementData,
+      startdate: agreementData.startdate || derivedTerms.startDate || null,
+      enddate: agreementData.enddate || derivedTerms.endDate || null,
+      rentamount: agreementData.rentamount ?? toNullableNumber(derivedTerms.monthlyRent),
+      depositamount: agreementData.depositamount ?? toNullableNumber(derivedTerms.depositAmount)
+    };
     
     // Filter out properties that don't exist in the database schema
     const validColumns = [
       'id', 'templateid', 'renteeid', 'propertyid', 'unitid', 'status',
       'signeddate', 'startdate', 'enddate', 'eviasignreference',
-      'documenturl', 'pdfurl', 'createdat', 'updatedat', 'terms', 'notes',
+      'documenturl', 'signeddocumenturl', 'signed_document_url', 'pdfurl',
+      'signatureurl', 'signature_pdf_url', 'evia_document_id',
+      'title', 'content', 'processedcontent',
+      'rentamount', 'depositamount', 'createdat', 'updatedat', 'terms', 'notes',
       'needs_document_generation',
       // New fields for enhanced signature status tracking
       'signature_status', 'signature_sent_at', 'signature_completed_at',
@@ -626,6 +664,9 @@ export const getTemplate = async (templateId) => {
       try {
         return await requestMssqlApi(`/api/mssql/agreement-templates/${templateId}`);
       } catch (mssqlError) {
+        if (isSchemaUnavailableError(mssqlError)) {
+          return null;
+        }
         console.error('Error fetching template from MSSQL, falling back to the local compatibility layer:', mssqlError);
       }
     }
@@ -655,6 +696,9 @@ export const listTemplates = async ({ language } = {}) => {
         : '/api/mssql/agreement-templates?pageSize=500';
       return await requestMssqlApi(query);
     } catch (mssqlError) {
+      if (isSchemaUnavailableError(mssqlError)) {
+        return [];
+      }
       console.error('Error loading templates from MSSQL, falling back to the local compatibility layer:', mssqlError);
     }
   }
@@ -684,6 +728,9 @@ export const createTemplate = async (templateData) => {
         body: templateData
       });
     } catch (mssqlError) {
+      if (isSchemaUnavailableError(mssqlError)) {
+        throw new Error('Agreement templates are not available in the current local MSSQL schema.');
+      }
       console.error('Error creating template in MSSQL, falling back to the local compatibility layer:', mssqlError);
     }
   }
@@ -709,6 +756,9 @@ export const updateTemplate = async (templateId, templateData) => {
         body: templateData
       });
     } catch (mssqlError) {
+      if (isSchemaUnavailableError(mssqlError)) {
+        throw new Error('Agreement templates are not available in the current local MSSQL schema.');
+      }
       console.error('Error updating template in MSSQL, falling back to the local compatibility layer:', mssqlError);
     }
   }
@@ -734,6 +784,9 @@ export const deleteTemplate = async (templateId) => {
         method: 'DELETE'
       });
     } catch (mssqlError) {
+      if (isSchemaUnavailableError(mssqlError)) {
+        throw new Error('Agreement templates are not available in the current local MSSQL schema.');
+      }
       console.error('Error deleting template in MSSQL, falling back to the local compatibility layer:', mssqlError);
     }
   }
@@ -1037,9 +1090,10 @@ export const handleEviaSignWebhook = async (webhookPayload) => {
             console.error('Error uploading signed document:', uploadError);
           } else {
             // Get the public URL
+            const scopedFilePath = uploadData?.scopedPath || uploadData?.path || `agreements/${agreement.id}/signed_agreement.pdf`;
             const { data: { publicUrl } } = platformClient.storage
               .from('files')
-              .getPublicUrl(`agreements/${agreement.id}/signed_agreement.pdf`);
+              .getPublicUrl(scopedFilePath);
 
             updateData.signed_document_url = publicUrl;
             updateData.pdfurl = publicUrl; // For backward compatibility

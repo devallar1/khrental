@@ -14,7 +14,7 @@ import CommentSection from '../../components/maintenance/CommentSection';
 const RenteeMaintenanceDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { userData } = useAuth();
+  const { userData, activeTenantId } = useAuth();
   
   // State
   const [request, setRequest] = useState(null);
@@ -94,7 +94,7 @@ const RenteeMaintenanceDetails = () => {
     if (id && userData?.id) {
       fetchRequestData();
     }
-  }, [id, userData?.id]);
+  }, [id, userData?.id, activeTenantId]);
   
   // Handle request cancellation
   const handleCancelRequest = async () => {

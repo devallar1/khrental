@@ -5,8 +5,10 @@ import { UTILITY_TYPES } from '../../utils/constants';
 import { formatCurrency } from '../../utils/helpers';
 import { calculateUtilityAmount } from '../../services/utilityBillingService';
 import { findAppUserByAuthId } from '../../services/appUserService';
+import { useAuth } from '../../hooks/useAuth';
 
 const UtilityHistory = () => {
+  const { activeTenantId } = useAuth();
   const [loading, setLoading] = useState(false);
   const [readings, setReadings] = useState([]);
   const [selectedReading, setSelectedReading] = useState(null);
@@ -20,6 +22,10 @@ const UtilityHistory = () => {
   useEffect(() => {
     const fetchUserAndProperty = async () => {
       try {
+        setUser(null);
+        setProperty(null);
+        setReadings([]);
+
         // Get current user
         const { data: { user }, error: userError } = await platformClient.auth.getUser();
         if (userError) throw userError;
@@ -50,7 +56,7 @@ const UtilityHistory = () => {
     };
 
     fetchUserAndProperty();
-  }, []);
+  }, [activeTenantId]);
 
   useEffect(() => {
     if (user && property) {

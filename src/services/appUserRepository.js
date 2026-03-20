@@ -1,5 +1,8 @@
 import { platform as platformClient } from './platformClient';
 import { isMssqlApiEnabled, requestMssqlApi } from './mssqlApiClient';
+import { getDevBypassRole, loadStoredSession } from './requestContext';
+
+const hasRequestIdentity = () => Boolean(loadStoredSession()?.user?.id || getDevBypassRole());
 
 export const ensureValidTimestamps = (record) => {
   if (!record) {
@@ -331,6 +334,10 @@ export const fetchAppUserRecord = async (id) => {
 
 export const fetchAppUsersRecord = async (userType, filters = {}) => {
   try {
+    if (!hasRequestIdentity()) {
+      return [];
+    }
+
     if (isMssqlApiEnabled()) {
       try {
         const searchParams = new URLSearchParams();

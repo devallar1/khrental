@@ -37,6 +37,14 @@ export const getApiBaseUrl = () => {
 
 export const isMssqlApiEnabled = () => getEnvVar('VITE_USE_MSSQL_API') === 'true';
 
+export const isDevBypassEnabled = () => {
+  if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+    return true;
+  }
+
+  return getEnvVar('VITE_ENABLE_DEV_BYPASS') === 'true';
+};
+
 // Get the application base URL consistently
 export const getAppBaseUrl = () => {
   const browserWindow = typeof window !== 'undefined' ? window : undefined;
@@ -72,4 +80,5 @@ export const ENV = {
   API_ENDPOINT: getEnvVar('VITE_API_ENDPOINT'),
   APP_BASE_URL: getEnvVar('VITE_APP_BASE_URL'),
   USE_MSSQL_API: getEnvVar('VITE_USE_MSSQL_API'),
+  ENABLE_DEV_BYPASS: getEnvVar('VITE_ENABLE_DEV_BYPASS'),
 }; 

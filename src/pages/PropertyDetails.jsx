@@ -26,6 +26,12 @@ const PropertyDetails = () => {
   const [organizedImages, setOrganizedImages] = useState([]);
   const [agreements, setAgreements] = useState([]);
   const [maintenanceRequests, setMaintenanceRequests] = useState([]);
+
+  const propertyCoordinates = property?.coordinates && typeof property.coordinates === 'object'
+    ? property.coordinates
+    : (property?.latitude != null && property?.longitude != null)
+      ? { lat: Number(property.latitude), lng: Number(property.longitude) }
+      : null;
   
   // Function to organize images by category
   const organizeImagesByCategory = (images) => {
@@ -581,7 +587,7 @@ const PropertyDetails = () => {
             <h2 className="text-lg font-medium mb-4">Location</h2>
             <PropertyMap 
               address={property.address || ''} 
-              coordinates={property.coordinates || null} 
+              coordinates={propertyCoordinates} 
               readOnly={true} 
             />
           </div>

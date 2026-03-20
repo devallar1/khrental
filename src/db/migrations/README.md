@@ -20,6 +20,44 @@ Run the migration file with the SQL tool used for your environment.
 
 ## Current Migrations
 
+### Multi-tenant foundation for MSSQL
+
+#### 20260317_01_create_multi_tenant_foundation.sql
+
+**Purpose:** Introduces the non-breaking schema foundation for multi-tenancy in SQL Server by:
+- creating `tenants`
+- creating `tenant_memberships`
+- creating `tenant_settings`
+- adding nullable `tenant_id` columns to tenant-owned business tables
+- adding indexes and safe foreign keys
+
+**When to run this:** First step of Sprint 01 when starting the multi-tenant migration.
+
+#### 20260317_02_backfill_default_tenant.sql
+
+**Purpose:** Backfills the new multi-tenant schema by:
+- creating a default tenant if needed
+- assigning the default tenant to legacy business rows
+- creating baseline memberships for existing internal users
+
+**When to run this:** Immediately after `20260317_01_create_multi_tenant_foundation.sql`.
+
+**Recommended order:**
+1. `20260317_01_create_multi_tenant_foundation.sql`
+2. `20260317_02_backfill_default_tenant.sql`
+
+**Run with npm scripts:**
+```bash
+npm run migrate:tenant:foundation
+npm run migrate:tenant:backfill
+```
+
+**Verification checks:**
+- `SELECT id, name, slug FROM tenants;`
+- `SELECT COUNT(*) AS unscoped_app_users FROM app_users WHERE tenant_id IS NULL;`
+- `SELECT COUNT(*) AS unscoped_properties FROM properties WHERE tenant_id IS NULL;`
+- `SELECT COUNT(*) AS memberships FROM tenant_memberships;`
+
 ### 1. Fix Utility Reading Rejection (202309015_fix_rejection_constraints.sql)
 
 **Purpose:** Fixes issues with rejecting utility readings by:
@@ -45,7 +83,7 @@ Run the migration file with the SQL tool used for your environment.
 If you encounter issues running migrations:
 
 1. **Permission errors**: Make sure you're using an account with the necessary permissions.
-2. **Syntax errors**: Some SQL syntax might vary between Postgres versions. If you get syntax errors, check for version-specific commands.
+2. **Syntax errors**: Some older scripts in this directory were originally written for Postgres-style environments. The new multi-tenant foundation scripts are written for MSSQL. Confirm you are using the correct script set for the active database engine.
 3. **Constraint errors**: If you see constraint violation errors, check for existing data that might violate new constraints.
 
 For persistent issues, you can:
