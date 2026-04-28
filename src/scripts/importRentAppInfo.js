@@ -76,14 +76,20 @@ const PROPERTY_BUCKETS = [
   {
     propertyName: 'Waterfall Residences',
     tenantSlug: TENANT_HOLDINGS,
-    description: 'Owned by Kubeira Holdings Private Limited — confirm',
+    description: 'Owned by Kubeira Holdings Private Limited (single villa in a 50-villa compound)',
     propertytype: 'residential'
   },
   {
-    propertyName: 'Matale Property',
+    propertyName: 'Three Creeks',
     tenantSlug: TENANT_HOLDINGS,
-    description: 'Owned by Kubeira Holdings Private Limited (jointly held with the Kubeira family — consolidated land parcels)',
+    description: 'Matale property (Three Creeks Estate). Owned by Kubeira Holdings Private Limited (jointly held with the Kubeira family — consolidated land parcels). Currently leased to Auraya Private Limited.',
     propertytype: 'mixed'
+  },
+  {
+    propertyName: 'Malabe HQ',
+    tenantSlug: TENANT_FAMILY,
+    description: 'Malabe HQ property (Kubeira family — operational HQ). Previously leased to Anura Bandara; lease ended, property reclaimed for HQ use and not being re-listed.',
+    propertytype: 'residential'
   },
   {
     propertyName: UNASSIGNED_BUCKET,
@@ -134,7 +140,17 @@ const toNumber = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 
-const normalizeUnitNumber = (v) => upper(v).replace(/\s+/g, ' ').trim();
+// Unit numbers are stored without dashes for consistency — Sheet 1 and Sheet 2
+// disagree on dash usage (K121A vs K121-A), so we drop them on the way in.
+const normalizeUnitNumber = (v) => upper(v).replace(/-/g, '').replace(/\s+/g, ' ').trim();
+
+/**
+ * Known typo aliases — Sheet 2 column header → canonical unit number used
+ * elsewhere. Add to this map when a confirmed-typo pair shows up.
+ */
+const UNIT_ALIASES = new Map([
+  ['A412F', 'A421F']
+]);
 
 /**
  * Generate candidate forms of a unit code for fuzzy lookup. The xlsx is
@@ -149,9 +165,11 @@ const candidateUnitForms = (code) => {
   forms.add(noSpaces);
   const noDashes = noSpaces.replace(/-/g, '');
   forms.add(noDashes);
-  // Strip leading alpha prefix (V/WF/M/KI etc.) — covers Sheet 2's prefixed codes.
   forms.add(noDashes.replace(/^[A-Z]+/, ''));
   forms.add(u.replace(/^[A-Z]+/, ''));
+  for (const f of [...forms]) {
+    if (UNIT_ALIASES.has(f)) forms.add(UNIT_ALIASES.get(f));
+  }
   return [...forms].filter(Boolean);
 };
 
@@ -383,7 +401,8 @@ const bucketForRow = ({ city, nickname, cashCredited }) => {
   if (HEYANTUDUWA_VARIANTS.includes(c) || cc.includes('VISHWARA')) return 'Vishwara Residences';
   if (n === 'TECHONE') return 'Kubeira IT Park';
   if (c === 'THALAWAKALE' || n === 'SUDARAKA') return 'Waterfall Residences';
-  if (c === 'MATALE') return 'Matale Property';
+  if (c === 'MATALE') return 'Three Creeks';
+  if (c === 'MALABE') return 'Malabe HQ';
   return UNASSIGNED_BUCKET;
 };
 
