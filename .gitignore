@@ -47,6 +47,9 @@ build/
 # Rental data spreadsheets (contain NICs, names, addresses — PII)
 RENTAPPINFO*.xlsx
 
+# Source documents for batch ingestion (contracts, deeds, scans — PII / legal)
+import-data/
+
 # Temporary files
 *.tmp
 *.temp
