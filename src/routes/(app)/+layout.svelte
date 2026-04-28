@@ -1,6 +1,6 @@
 <script>
 	import { page } from '$app/stores';
-	import { Menu, X, Home, Building2, Users, FileText, Receipt, Wrench, Camera, UsersRound, Settings, ShieldCheck, LayoutDashboard, ChevronDown, ChevronUp } from 'lucide-svelte';
+	import { Menu, X, Home, Building2, Users, FileText, Receipt, Wrench, Camera, UsersRound, Settings, ShieldCheck, LayoutDashboard, ChevronDown, ChevronUp, Crown } from 'lucide-svelte';
 
 	let { children, data } = $props();
 	let sidebarOpen = $state(false);
@@ -43,6 +43,7 @@
 
 	const navItems = [
 		{ path: '/dashboard', label: 'Dashboard', icon: Home },
+		{ path: '/manager', label: "Manager's Ledger", icon: Crown },
 		{ path: '/properties', label: 'Properties', icon: Building2 },
 		{ path: '/rentees', label: 'Rentees', icon: Users },
 	];
