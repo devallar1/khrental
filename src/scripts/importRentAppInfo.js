@@ -541,17 +541,25 @@ const upsertRentee = async (state, { tenantId, nic, name, phone, permanentAddres
 };
 
 const upsertAgreement = async (state, { tenantId, propertyid, unitid, renteeid, rentamount, depositamount, periodText, legacyRef, salesCommission, occupancyStatus }) => {
+  // Match across all statuses so re-imports don't resurrect agreements that
+  // were manually cancelled in the DB after the spreadsheet went stale.
   const existing = await runSingleQuery(
-    `SELECT id, rentamount, depositamount, terms, notes
+    `SELECT id, rentamount, depositamount, terms, notes, status
      FROM agreements
      WHERE tenant_id = @tenantId
        AND propertyid = @propertyid
        AND unitid = @unitid
        AND renteeid = @renteeid
-       AND status IN ('draft','signed')
      ORDER BY createdat DESC LIMIT 1`,
     { tenantId, propertyid, unitid, renteeid }
   );
+
+  // If the agreement was deliberately cancelled in the DB, the spreadsheet is
+  // stale on this row — leave the cancellation in place.
+  if (existing && existing.status === 'cancelled') {
+    state.bump('agreements', 'skipped');
+    return existing.id;
+  }
 
   const status = upper(occupancyStatus) === 'OCCUPIED' ? 'signed' : 'draft';
   const notesParts = [];
