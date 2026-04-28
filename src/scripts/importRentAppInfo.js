@@ -136,10 +136,23 @@ const toNumber = (v) => {
 
 const normalizeUnitNumber = (v) => upper(v).replace(/\s+/g, ' ').trim();
 
-const stripLeadingPrefix = (code) => {
-  const c = upper(code).replace(/[^A-Z0-9/-]/g, '');
-  if (/^[AKM]\d/.test(c)) return c;
-  return c.replace(/^[A-Z]+/, '');
+/**
+ * Generate candidate forms of a unit code for fuzzy lookup. The xlsx is
+ * inconsistent between sheets — same physical unit appears as e.g.
+ * "K121A" (Sheet 1) vs "K121-A" (Sheet 2), or "816/1/11" vs "M816/1/11",
+ * or "A211 A" vs "A211A". We try each form before synthesizing a new unit.
+ */
+const candidateUnitForms = (code) => {
+  const u = upper(code).trim();
+  const forms = new Set([u]);
+  const noSpaces = u.replace(/\s+/g, '');
+  forms.add(noSpaces);
+  const noDashes = noSpaces.replace(/-/g, '');
+  forms.add(noDashes);
+  // Strip leading alpha prefix (V/WF/M/KI etc.) — covers Sheet 2's prefixed codes.
+  forms.add(noDashes.replace(/^[A-Z]+/, ''));
+  forms.add(u.replace(/^[A-Z]+/, ''));
+  return [...forms].filter(Boolean);
 };
 
 const summarizeReasons = (entries) => {
@@ -358,14 +371,16 @@ const seedAllBuckets = async (state) => {
 // Bucketing logic
 // ----------------------------------------------------------------------------
 
+const HEYANTUDUWA_VARIANTS = ['HEYANTUDUWA', 'HEIYANTHUDUWA', 'HEYANTHUDUWA', 'HEIYANTUDUWA'];
+
 const bucketForRow = ({ city, nickname, cashCredited }) => {
-  const c = upper(city);
+  const c = upper(city).replace(/\s+/g, '');
   const n = upper(nickname);
   const cc = upper(cashCredited);
 
   if (c === 'KOTTE') return 'Kotte Residence';
   if (c === 'ATHURUGIRIYA') return 'Kubeira Research Escape';
-  if (c === 'HEYANTUDUWA' || cc.includes('VISHWARA')) return 'Vishwara Residences';
+  if (HEYANTUDUWA_VARIANTS.includes(c) || cc.includes('VISHWARA')) return 'Vishwara Residences';
   if (n === 'TECHONE') return 'Kubeira IT Park';
   if (c === 'THALAWAKALE' || n === 'SUDARAKA') return 'Waterfall Residences';
   if (c === 'MATALE') return 'Matale Property';
@@ -432,20 +447,22 @@ const upsertRentee = async (state, { tenantId, nic, name, phone, permanentAddres
   let existing = null;
   if (nic && !isCorporate) {
     existing = await runSingleQuery(
-      `SELECT id, contact_details, permanent_address
+      `SELECT id, contact_details, permanent_address, national_id
        FROM app_users
        WHERE tenant_id = @tenantId AND national_id = @nic
        LIMIT 1`,
       { tenantId, nic }
     );
-  } else {
+  }
+  // Fallback: match by name within the same tenant (handles Sheet 2 rentees with no NIC,
+  // and bridges them to a Sheet 1 rentee with the same name + a NIC).
+  if (!existing && name) {
     existing = await runSingleQuery(
-      `SELECT id, contact_details, permanent_address
+      `SELECT id, contact_details, permanent_address, national_id
        FROM app_users
        WHERE tenant_id = @tenantId
          AND user_type = 'rentee'
-         AND name = @name
-         AND (national_id IS NULL OR national_id = '')
+         AND UPPER(name) = UPPER(@name)
        LIMIT 1`,
       { tenantId, name }
     );
@@ -463,6 +480,10 @@ const upsertRentee = async (state, { tenantId, nic, name, phone, permanentAddres
     if (!existing.permanent_address && permanentAddress) {
       updates.push('permanent_address = @permanent_address');
       params.permanent_address = permanentAddress;
+    }
+    if (!existing.national_id && nic && !isCorporate) {
+      updates.push('national_id = @national_id');
+      params.national_id = nic;
     }
     if (updates.length === 0) {
       state.bump('app_users', 'skipped');
@@ -786,24 +807,6 @@ const ingestSheet1 = async (state, workbook) => {
 // Phase B: Sheet 2 ingest
 // ----------------------------------------------------------------------------
 
-const findExpenseRow = (rows, label) => {
-  for (let r = 3; r < rows.length; r++) {
-    if (upper(trim(rows[r]?.[0])) === upper(label)) return r;
-  }
-  return null;
-};
-
-const formatBillingPeriod = (cell) => {
-  if (cell == null || cell === '') return null;
-  if (cell instanceof Date) return cell.toISOString().slice(0, 10);
-  if (typeof cell === 'number') {
-    const epoch = new Date(Date.UTC(1899, 11, 30));
-    const d = new Date(epoch.getTime() + cell * 86400000);
-    return d.toISOString().slice(0, 10);
-  }
-  return trim(cell);
-};
-
 const guessBucketFromUnitCode = (unitCode, tenantNick) => {
   if (upper(tenantNick) === 'TECHONE') return 'Kubeira IT Park';
   const c = upper(unitCode);
@@ -812,6 +815,33 @@ const guessBucketFromUnitCode = (unitCode, tenantNick) => {
   if (c.startsWith('A')) return 'Kubeira Research Escape';
   if (c.startsWith('K')) return 'Kotte Residence';
   return UNASSIGNED_BUCKET;
+};
+
+/**
+ * Sheet 2 is a 12-month rolling ledger. Column 0 has the row labels: a
+ * repeating block of (RENT, ELECTRICITY, WATER, INTERNET, AC SEVISE FEE,
+ * OTHER DUES, "{MONTH} TOTAL", PAID AMOUNT) per month. We parse the
+ * column-0 labels once to identify month-block boundaries, then for each
+ * unit column we emit one invoice per month-block that has any data.
+ */
+const findMonthBlocks = (rows) => {
+  const totalRows = [];
+  for (let r = 3; r < rows.length; r++) {
+    const lbl = upper(trim(rows[r]?.[0] || ''));
+    if (lbl.endsWith('TOTAL') && !lbl.includes('PAID')) totalRows.push(r);
+  }
+  return totalRows.map((totalRow, i) => {
+    // Block starts after the previous block's PAID AMOUNT row, or row 3 for the first block.
+    const start = i === 0 ? 3 : totalRows[i - 1] + 2;
+    let paidRow = null;
+    for (let r = totalRow + 1; r < rows.length; r++) {
+      const lbl = upper(trim(rows[r]?.[0] || ''));
+      if (lbl === 'PAID AMOUNT') { paidRow = r; break; }
+      if (lbl.endsWith('TOTAL')) break;
+    }
+    const monthName = trim(rows[totalRow]?.[0]).replace(/\s+TOTAL\s*$/i, '').trim();
+    return { start, totalRow, paidRow, monthName };
+  });
 };
 
 const ingestSheet2 = async (state, workbook) => {
@@ -828,34 +858,28 @@ const ingestSheet2 = async (state, workbook) => {
   }
 
   const headerRow = rows[0];
-  const dateRow = rows[1] || [];
   const tenantRow = rows[2] || [];
+  const monthBlocks = findMonthBlocks(rows);
+  state.log('info', `Sheet 2: ${monthBlocks.length} month block(s) detected: ${monthBlocks.map((b) => b.monthName).join(', ')}`);
 
   for (let col = 1; col < headerRow.length; col++) {
     const unitCode = trim(headerRow[col]);
     if (!unitCode) continue;
     const tenantNick = trim(tenantRow[col]);
-    const billingPeriod = formatBillingPeriod(dateRow[col]);
 
-    // Try exact match first against any tenant.
-    let unit = await runSingleQuery(
-      `SELECT u.id, u.propertyid, u.tenant_id
-       FROM property_units u
-       WHERE UPPER(u.unitnumber) = @code
-       LIMIT 1`,
-      { code: upper(unitCode) }
-    );
-    if (!unit) {
-      const stripped = stripLeadingPrefix(unitCode);
-      if (stripped && stripped !== upper(unitCode)) {
-        unit = await runSingleQuery(
-          `SELECT u.id, u.propertyid, u.tenant_id
-           FROM property_units u
-           WHERE UPPER(u.unitnumber) = @code
-           LIMIT 1`,
-          { code: stripped }
-        );
-      }
+    // Resolve the unit + agreement context. Try multiple normalized forms
+    // before falling back to synthesis, since Sheet 1 and Sheet 2 disagree
+    // on prefixes / dashes / spaces for the same physical unit.
+    let unit = null;
+    for (const form of candidateUnitForms(unitCode)) {
+      unit = await runSingleQuery(
+        `SELECT u.id, u.propertyid, u.tenant_id
+         FROM property_units u
+         WHERE REPLACE(REPLACE(UPPER(u.unitnumber), ' ', ''), '-', '') = @code
+         LIMIT 1`,
+        { code: form.replace(/\s+/g, '').replace(/-/g, '') }
+      );
+      if (unit) break;
     }
 
     let unitid = unit?.id || null;
@@ -872,12 +896,13 @@ const ingestSheet2 = async (state, workbook) => {
       const isCorporate = upper(tenantNick) === 'TECHONE'
         || upper(tenantNick).includes('PVT')
         || upper(tenantNick).includes('LIMITED');
-      const rentRow = findExpenseRow(rows, 'RENT');
-      const rent = rentRow != null ? toNumber(rows[rentRow]?.[col]) : null;
+      // Use the first month-block's RENT as the baseline rent on the agreement.
+      const firstBlockRentRow = monthBlocks.length
+        ? findExpenseRowInBlock(rows, monthBlocks[0], 'RENT')
+        : null;
+      const rent = firstBlockRentRow != null ? toNumber(rows[firstBlockRentRow]?.[col]) : null;
       unitid = await upsertPropertyUnit(state, {
-        tenantId,
-        propertyid,
-        unitnumber,
+        tenantId, propertyid, unitnumber,
         description: 'Synthesized from Sheet 2 (no Sheet 1 row)',
         status: 'occupied',
         squarefeet: null
@@ -885,21 +910,13 @@ const ingestSheet2 = async (state, workbook) => {
       state.synthesizedFromSheet2.push({ unitCode: unitnumber, bucket: bucketName, tenant: tenantNick });
       if (tenantNick) {
         renteeid = await upsertRentee(state, {
-          tenantId,
-          nic: null,
-          name: tenantNick,
-          phone: null,
-          permanentAddress: null,
-          propertyid,
-          isCorporate
+          tenantId, nic: null, name: tenantNick,
+          phone: null, permanentAddress: null,
+          propertyid, isCorporate
         });
         await upsertAgreement(state, {
-          tenantId,
-          propertyid,
-          unitid,
-          renteeid,
-          rentamount: rent,
-          depositamount: null,
+          tenantId, propertyid, unitid, renteeid,
+          rentamount: rent, depositamount: null,
           periodText: null,
           legacyRef: `sheet2:${unitCode}`,
           salesCommission: null,
@@ -917,45 +934,48 @@ const ingestSheet2 = async (state, workbook) => {
     }
 
     if (!renteeid) {
-      state.log('info', `Sheet 2 col ${col} (${unitCode}): no rentee — skipping invoice`);
+      state.log('info', `Sheet 2 col ${col} (${unitCode}): no rentee — skipping invoices`);
       continue;
     }
 
-    const components = {};
-    let totalamount = 0;
-    let paidAmount = null;
-    for (let r = 3; r < rows.length; r++) {
-      const label = trim(rows[r]?.[0]);
-      if (!label) continue;
-      const amount = toNumber(rows[r]?.[col]);
-      const upperLabel = upper(label);
-      if (upperLabel === 'PAID AMOUNT') {
-        paidAmount = amount;
-        continue;
+    // One invoice per month-block that has any non-zero charges.
+    for (const block of monthBlocks) {
+      const components = {};
+      let totalamount = 0;
+      for (let r = block.start; r < block.totalRow; r++) {
+        const label = trim(rows[r]?.[0]);
+        if (!label) continue;
+        const upperLabel = upper(label);
+        if (upperLabel === 'PAID AMOUNT' || upperLabel.endsWith('TOTAL')) continue;
+        const amount = toNumber(rows[r]?.[col]);
+        if (amount != null && amount !== 0) {
+          components[label] = amount;
+          totalamount += amount;
+        }
       }
-      if (upperLabel.endsWith('TOTAL') || upperLabel === 'TOTAL') continue;
-      if (amount != null) {
-        components[label] = amount;
-        totalamount += amount;
-      }
+      if (Object.keys(components).length === 0) continue;
+
+      const paidAmount = block.paidRow != null ? toNumber(rows[block.paidRow]?.[col]) : null;
+      const status = paidAmount != null && totalamount > 0 && Math.abs(paidAmount - totalamount) < 0.01
+        ? 'paid'
+        : 'pending';
+
+      await upsertInvoice(state, {
+        tenantId, propertyid, renteeid,
+        billingperiod: block.monthName.toUpperCase(),
+        components,
+        totalamount,
+        status
+      });
     }
-
-    if (Object.keys(components).length === 0) continue;
-
-    const status = paidAmount != null && totalamount > 0 && Math.abs(paidAmount - totalamount) < 0.01
-      ? 'paid'
-      : 'pending';
-
-    await upsertInvoice(state, {
-      tenantId,
-      propertyid,
-      renteeid,
-      billingperiod: billingPeriod || `sheet2:${unitCode}`,
-      components,
-      totalamount,
-      status
-    });
   }
+};
+
+const findExpenseRowInBlock = (rows, block, label) => {
+  for (let r = block.start; r < block.totalRow; r++) {
+    if (upper(trim(rows[r]?.[0] || '')) === upper(label)) return r;
+  }
+  return null;
 };
 
 // ----------------------------------------------------------------------------
