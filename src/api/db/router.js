@@ -1,5 +1,5 @@
 import express from 'express';
-import { getMssqlConfigStatus, isMssqlConfigured } from './config.js';
+import { getPgConfigStatus, isPgConfigured } from './config.js';
 import { createTenantContextMiddleware, serializeTenantContext } from '../tenant/context.js';
 import {
   createAppUser,
@@ -57,12 +57,12 @@ const getPagination = (req) => ({
 
 const isMissingSchemaError = (error) => {
   const message = String(error?.message || error || '').toLowerCase();
-  return message.includes('invalid object name') || message.includes('invalid column name');
+  return message.includes('does not exist') || message.includes('column') && message.includes('does not exist');
 };
 
 const sendSchemaUnavailable = (res, resourceLabel) => {
   res.status(409).json({
-    error: `${resourceLabel} are not available in the current local MSSQL schema.`,
+    error: `${resourceLabel} are not available in the current local database schema.`,
     code: 'SCHEMA_NOT_AVAILABLE'
   });
 };
@@ -79,7 +79,7 @@ const ensureAdminUser = (req, res, next) => {
   next();
 };
 
-export const createMssqlRouter = () => {
+export const createDbRouter = () => {
   const router = express.Router();
   const requireAdmin = createTenantContextMiddleware({
     requireUser: true,
@@ -95,13 +95,13 @@ export const createMssqlRouter = () => {
   router.get('/health', (_req, res) => {
     res.json({
       ok: true,
-      provider: 'mssql',
-      ...getMssqlConfigStatus()
+      provider: 'postgresql',
+      ...getPgConfigStatus()
     });
   });
 
   router.use((req, res, next) => {
-    if (!isMssqlConfigured()) {
+    if (!isPgConfigured()) {
       res.status(503).json({
         error: 'MSSQL is not configured.',
         required: [
@@ -124,7 +124,8 @@ export const createMssqlRouter = () => {
     const userId = req.headers['x-user-id'];
     const email = req.headers['x-user-email'];
 
-    if (!authId && !userId && !email) {
+    // If dev bypass resolved a user via tenant context middleware, use that
+    if (!authId && !userId && !email && !req.user) {
       res.status(401).json({
         error: 'Missing identity headers. Provide x-auth-id, x-user-id, or x-user-email.'
       });

@@ -1,19 +1,18 @@
-SET XACT_ABORT ON;
+-- Add app user invitation fields migration for PostgreSQL
+-- Adds the invited column to app_users table
 
-BEGIN TRY
-    BEGIN TRANSACTION;
+BEGIN;
 
-    IF OBJECT_ID(N'dbo.app_users', N'U') IS NOT NULL
-    BEGIN
-        IF COL_LENGTH(N'dbo.app_users', N'invited') IS NULL
-            ALTER TABLE dbo.app_users ADD invited BIT NOT NULL CONSTRAINT DF_app_users_invited DEFAULT 0;
-    END;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'app_users'
+    ) THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'app_users' AND column_name = 'invited') THEN
+            ALTER TABLE app_users ADD COLUMN invited BOOLEAN NOT NULL DEFAULT FALSE;
+        END IF;
+    END IF;
+END $$;
 
-    COMMIT TRANSACTION;
-END TRY
-BEGIN CATCH
-    IF @@TRANCOUNT > 0
-        ROLLBACK TRANSACTION;
-
-    THROW;
-END CATCH;
+COMMIT;

@@ -1,43 +1,50 @@
-SET XACT_ABORT ON;
+-- Augment properties schema migration for PostgreSQL
+-- Adds additional columns to the properties table
 
-BEGIN TRY
-    BEGIN TRANSACTION;
+BEGIN;
 
-    IF OBJECT_ID(N'dbo.properties', N'U') IS NOT NULL
-    BEGIN
-        IF COL_LENGTH(N'dbo.properties', N'unitconfiguration') IS NULL
-            ALTER TABLE dbo.properties ADD unitconfiguration NVARCHAR(255) NULL;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'properties'
+    ) THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'unitconfiguration') THEN
+            ALTER TABLE properties ADD COLUMN unitconfiguration VARCHAR(255);
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'checklistitems') IS NULL
-            ALTER TABLE dbo.properties ADD checklistitems NVARCHAR(MAX) NULL;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'checklistitems') THEN
+            ALTER TABLE properties ADD COLUMN checklistitems TEXT[];
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'description') IS NULL
-            ALTER TABLE dbo.properties ADD description NVARCHAR(MAX) NULL;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'description') THEN
+            ALTER TABLE properties ADD COLUMN description TEXT;
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'squarefeet') IS NULL
-            ALTER TABLE dbo.properties ADD squarefeet DECIMAL(18, 2) NULL;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'squarefeet') THEN
+            ALTER TABLE properties ADD COLUMN squarefeet DECIMAL(18,2);
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'yearbuilt') IS NULL
-            ALTER TABLE dbo.properties ADD yearbuilt INT NULL;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'yearbuilt') THEN
+            ALTER TABLE properties ADD COLUMN yearbuilt INTEGER;
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'availablefrom') IS NULL
-            ALTER TABLE dbo.properties ADD availablefrom DATETIMEOFFSET NULL;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'availablefrom') THEN
+            ALTER TABLE properties ADD COLUMN availablefrom TIMESTAMPTZ;
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'amenities') IS NULL
-            ALTER TABLE dbo.properties ADD amenities NVARCHAR(MAX) NULL;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'amenities') THEN
+            ALTER TABLE properties ADD COLUMN amenities TEXT[];
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'electricity_rate') IS NULL
-            ALTER TABLE dbo.properties ADD electricity_rate DECIMAL(18, 2) NULL;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'electricity_rate') THEN
+            ALTER TABLE properties ADD COLUMN electricity_rate DECIMAL(18,2);
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'water_rate') IS NULL
-            ALTER TABLE dbo.properties ADD water_rate DECIMAL(18, 2) NULL;
-    END;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'water_rate') THEN
+            ALTER TABLE properties ADD COLUMN water_rate DECIMAL(18,2);
+        END IF;
+    END IF;
+END $$;
 
-    COMMIT TRANSACTION;
-END TRY
-BEGIN CATCH
-    IF @@TRANCOUNT > 0
-        ROLLBACK TRANSACTION;
-
-    THROW;
-END CATCH;
+COMMIT;
