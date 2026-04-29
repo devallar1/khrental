@@ -1,0 +1,32 @@
+# LAN-side reverse proxy for KH Rental.
+#
+# Runs on x99. Forwards inbound HTTP requests from x99's local network
+# to the khrental dev server on nucbox over Tailscale.
+#
+# nucbox's hostname must resolve from x99 — that's what Tailscale's
+# MagicDNS gives you (verify with `ssh user@x99 ping nucbox`).
+
+:80 {
+	# Strip server header so we don't advertise Caddy externally
+	header -Server
+
+	# Forward everything to the SvelteKit dev server on nucbox.
+	# Change the port if you switch nucbox to the production build.
+	reverse_proxy http://nucbox:5175 {
+		# Pass the original Host header along (some flows depend on it)
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+
+		# Vite uses websockets for HMR — these are the upgrade headers
+		header_up Connection {>Connection}
+		header_up Upgrade {>Upgrade}
+	}
+
+	# Quick health check
+	@health path /__mirror/health
+	handle @health {
+		respond "ok" 200
+	}
+}

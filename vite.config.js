@@ -6,6 +6,13 @@ export default defineConfig({
 	server: {
 		port: 5173,
 		host: true,
-		allowedHosts: ['nucbox', 'localhost', '127.0.0.1', '.local']
+		allowedHosts: [
+			'nucbox',
+			'localhost',
+			'127.0.0.1',
+			'.local',
+			'x99',          // x99 condor — LAN mirror via Tailscale (see docker/mirror/)
+			'condor'        // alias if MagicDNS uses the model name
+		]
 	},
 });
