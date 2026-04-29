@@ -1,292 +1,244 @@
-SET XACT_ABORT ON;
+-- Agreement workflow schema migration for PostgreSQL
+-- Creates/augments property_units, agreements, and invoices tables
+-- Adds columns to properties, sets up foreign keys and indexes
 
-BEGIN TRY
-    BEGIN TRANSACTION;
+BEGIN;
 
-    IF OBJECT_ID(N'dbo.properties', N'U') IS NOT NULL
-    BEGIN
-        IF COL_LENGTH(N'dbo.properties', N'address') IS NULL
-            ALTER TABLE dbo.properties ADD address NVARCHAR(500) NULL;
+-- ============================================================
+-- Add columns to properties if they don't exist
+-- ============================================================
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'properties'
+    ) THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'address') THEN
+            ALTER TABLE properties ADD COLUMN address TEXT;
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'propertytype') IS NULL
-            ALTER TABLE dbo.properties ADD propertytype NVARCHAR(100) NULL;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'propertytype') THEN
+            ALTER TABLE properties ADD COLUMN propertytype VARCHAR(100);
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'status') IS NULL
-            ALTER TABLE dbo.properties ADD status NVARCHAR(50) NOT NULL CONSTRAINT DF_properties_status DEFAULT N'available';
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'status') THEN
+            ALTER TABLE properties ADD COLUMN status VARCHAR(50) NOT NULL DEFAULT 'available';
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'rentalvalues') IS NULL
-            ALTER TABLE dbo.properties ADD rentalvalues NVARCHAR(MAX) NULL;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'rentalvalues') THEN
+            ALTER TABLE properties ADD COLUMN rentalvalues JSONB;
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'terms') IS NULL
-            ALTER TABLE dbo.properties ADD terms NVARCHAR(MAX) NULL;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'terms') THEN
+            ALTER TABLE properties ADD COLUMN terms JSONB;
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'bank_name') IS NULL
-            ALTER TABLE dbo.properties ADD bank_name NVARCHAR(255) NULL;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'bank_name') THEN
+            ALTER TABLE properties ADD COLUMN bank_name VARCHAR(255);
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'bank_branch') IS NULL
-            ALTER TABLE dbo.properties ADD bank_branch NVARCHAR(255) NULL;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'bank_branch') THEN
+            ALTER TABLE properties ADD COLUMN bank_branch VARCHAR(255);
+        END IF;
 
-        IF COL_LENGTH(N'dbo.properties', N'bank_account_number') IS NULL
-            ALTER TABLE dbo.properties ADD bank_account_number NVARCHAR(255) NULL;
-    END;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'bank_account_number') THEN
+            ALTER TABLE properties ADD COLUMN bank_account_number VARCHAR(255);
+        END IF;
+    END IF;
+END $$;
 
-    IF OBJECT_ID(N'dbo.property_units', N'U') IS NULL
-    BEGIN
-        CREATE TABLE dbo.property_units (
-            id UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_property_units PRIMARY KEY DEFAULT NEWID(),
-            tenant_id UNIQUEIDENTIFIER NOT NULL,
-            propertyid UNIQUEIDENTIFIER NOT NULL,
-            unitnumber NVARCHAR(100) NOT NULL,
-            floor NVARCHAR(100) NULL,
-            bedrooms INT NULL,
-            bathrooms INT NULL,
-            squarefeet DECIMAL(18, 2) NULL,
-            description NVARCHAR(MAX) NULL,
-            rentalvalues NVARCHAR(MAX) NULL,
-            terms NVARCHAR(MAX) NULL,
-            bank_name NVARCHAR(255) NULL,
-            bank_branch NVARCHAR(255) NULL,
-            bank_account_number NVARCHAR(255) NULL,
-            status NVARCHAR(50) NOT NULL CONSTRAINT DF_property_units_status DEFAULT N'available',
-            createdat DATETIMEOFFSET NOT NULL CONSTRAINT DF_property_units_createdat DEFAULT SYSUTCDATETIME(),
-            updatedat DATETIMEOFFSET NOT NULL CONSTRAINT DF_property_units_updatedat DEFAULT SYSUTCDATETIME()
-        );
-    END;
+-- ============================================================
+-- Create property_units table (if not exists)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS property_units (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    tenant_id UUID,
+    propertyid UUID NOT NULL,
+    unitnumber VARCHAR(100) NOT NULL,
+    floor VARCHAR(100),
+    bedrooms INTEGER,
+    bathrooms INTEGER,
+    squarefeet DECIMAL(18,2),
+    description TEXT,
+    rentalvalues JSONB,
+    terms JSONB,
+    bank_name VARCHAR(255),
+    bank_branch VARCHAR(255),
+    bank_account_number VARCHAR(255),
+    status VARCHAR(50) NOT NULL DEFAULT 'available',
+    createdat TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updatedat TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
-    IF OBJECT_ID(N'dbo.agreements', N'U') IS NULL
-    BEGIN
-        CREATE TABLE dbo.agreements (
-            id UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_agreements PRIMARY KEY DEFAULT NEWID(),
-            tenant_id UNIQUEIDENTIFIER NOT NULL,
-            templateid UNIQUEIDENTIFIER NULL,
-            renteeid UNIQUEIDENTIFIER NULL,
-            propertyid UNIQUEIDENTIFIER NULL,
-            unitid UNIQUEIDENTIFIER NULL,
-            status NVARCHAR(50) NOT NULL CONSTRAINT DF_agreements_status DEFAULT N'draft',
-            startdate DATETIMEOFFSET NULL,
-            enddate DATETIMEOFFSET NULL,
-            rentamount DECIMAL(18, 2) NULL,
-            depositamount DECIMAL(18, 2) NULL,
-            documenturl NVARCHAR(MAX) NULL,
-            signeddocumenturl NVARCHAR(MAX) NULL,
-            signed_document_url NVARCHAR(MAX) NULL,
-            signatureurl NVARCHAR(MAX) NULL,
-            signature_pdf_url NVARCHAR(MAX) NULL,
-            pdfurl NVARCHAR(MAX) NULL,
-            evia_document_id NVARCHAR(255) NULL,
-            eviasignreference NVARCHAR(255) NULL,
-            title NVARCHAR(255) NULL,
-            content NVARCHAR(MAX) NULL,
-            processedcontent NVARCHAR(MAX) NULL,
-            terms NVARCHAR(MAX) NULL,
-            notes NVARCHAR(MAX) NULL,
-            needs_document_generation BIT NOT NULL CONSTRAINT DF_agreements_needs_document_generation DEFAULT 0,
-            signature_status NVARCHAR(100) NULL,
-            signature_sent_at DATETIMEOFFSET NULL,
-            signature_completed_at DATETIMEOFFSET NULL,
-            signatories_status NVARCHAR(MAX) NULL,
-            signeddate DATETIMEOFFSET NULL,
-            cancellation_reason NVARCHAR(MAX) NULL,
-            createdat DATETIMEOFFSET NOT NULL CONSTRAINT DF_agreements_createdat DEFAULT SYSUTCDATETIME(),
-            updatedat DATETIMEOFFSET NOT NULL CONSTRAINT DF_agreements_updatedat DEFAULT SYSUTCDATETIME()
-        );
-    END;
+-- ============================================================
+-- Create agreements table (if not exists)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS agreements (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    tenant_id UUID,
+    templateid UUID,
+    renteeid UUID,
+    propertyid UUID,
+    unitid UUID,
+    status VARCHAR(50) NOT NULL DEFAULT 'draft',
+    startdate DATE,
+    enddate DATE,
+    rentamount DECIMAL(18,2),
+    depositamount DECIMAL(18,2),
+    documenturl TEXT,
+    signeddocumenturl TEXT,
+    signed_document_url TEXT,
+    signatureurl TEXT,
+    signature_pdf_url TEXT,
+    pdfurl TEXT,
+    evia_document_id VARCHAR(255),
+    eviasignreference VARCHAR(255),
+    title VARCHAR(255),
+    content TEXT,
+    processedcontent TEXT,
+    terms JSONB,
+    notes TEXT,
+    needs_document_generation BOOLEAN NOT NULL DEFAULT FALSE,
+    signature_status VARCHAR(100),
+    signature_sent_at TIMESTAMPTZ,
+    signature_completed_at TIMESTAMPTZ,
+    signatories_status JSONB,
+    signeddate TIMESTAMPTZ,
+    cancellation_reason TEXT,
+    createdat TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updatedat TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
-    IF OBJECT_ID(N'dbo.invoices', N'U') IS NULL
-    BEGIN
-        CREATE TABLE dbo.invoices (
-            id UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_invoices PRIMARY KEY DEFAULT NEWID(),
-            tenant_id UNIQUEIDENTIFIER NOT NULL,
-            renteeid UNIQUEIDENTIFIER NULL,
-            propertyid UNIQUEIDENTIFIER NULL,
-            billingperiod NVARCHAR(100) NULL,
-            components NVARCHAR(MAX) NULL,
-            totalamount DECIMAL(18, 2) NULL,
-            status NVARCHAR(50) NOT NULL CONSTRAINT DF_invoices_status DEFAULT N'pending',
-            paymentproofurl NVARCHAR(MAX) NULL,
-            paymentdate DATETIMEOFFSET NULL,
-            duedate DATETIMEOFFSET NULL,
-            notes NVARCHAR(MAX) NULL,
-            createdat DATETIMEOFFSET NOT NULL CONSTRAINT DF_invoices_createdat DEFAULT SYSUTCDATETIME(),
-            updatedat DATETIMEOFFSET NOT NULL CONSTRAINT DF_invoices_updatedat DEFAULT SYSUTCDATETIME()
-        );
-    END;
+-- ============================================================
+-- Create invoices table (if not exists)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS invoices (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    tenant_id UUID,
+    renteeid UUID,
+    propertyid UUID,
+    billingperiod VARCHAR(100),
+    components JSONB,
+    totalamount DECIMAL(18,2),
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    paymentproofurl TEXT,
+    paymentdate TIMESTAMPTZ,
+    duedate DATE,
+    notes TEXT,
+    createdat TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updatedat TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
-    IF OBJECT_ID(N'dbo.tenants', N'U') IS NOT NULL
-       AND OBJECT_ID(N'dbo.property_units', N'U') IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_property_units_tenant')
-    BEGIN
-        ALTER TABLE dbo.property_units
-            ADD CONSTRAINT FK_property_units_tenant
-            FOREIGN KEY (tenant_id) REFERENCES dbo.tenants(id);
-    END;
+-- ============================================================
+-- Foreign keys (idempotent)
+-- ============================================================
+DO $$
+BEGIN
+    -- property_units -> tenants
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_property_units_tenant') THEN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'tenants') THEN
+            ALTER TABLE property_units
+                ADD CONSTRAINT fk_property_units_tenant
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+        END IF;
+    END IF;
 
-    IF OBJECT_ID(N'dbo.properties', N'U') IS NOT NULL
-       AND OBJECT_ID(N'dbo.property_units', N'U') IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_property_units_property')
-    BEGIN
-        ALTER TABLE dbo.property_units
-            ADD CONSTRAINT FK_property_units_property
-            FOREIGN KEY (propertyid) REFERENCES dbo.properties(id);
-    END;
+    -- property_units -> properties
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_property_units_property') THEN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'properties') THEN
+            ALTER TABLE property_units
+                ADD CONSTRAINT fk_property_units_property
+                FOREIGN KEY (propertyid) REFERENCES properties(id);
+        END IF;
+    END IF;
 
-    IF OBJECT_ID(N'dbo.tenants', N'U') IS NOT NULL
-       AND OBJECT_ID(N'dbo.agreements', N'U') IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_agreements_tenant')
-    BEGIN
-        ALTER TABLE dbo.agreements
-            ADD CONSTRAINT FK_agreements_tenant
-            FOREIGN KEY (tenant_id) REFERENCES dbo.tenants(id);
-    END;
+    -- agreements -> tenants
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_agreements_tenant') THEN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'tenants') THEN
+            ALTER TABLE agreements
+                ADD CONSTRAINT fk_agreements_tenant
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+        END IF;
+    END IF;
 
-    IF OBJECT_ID(N'dbo.properties', N'U') IS NOT NULL
-       AND OBJECT_ID(N'dbo.agreements', N'U') IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_agreements_property')
-    BEGIN
-        ALTER TABLE dbo.agreements
-            ADD CONSTRAINT FK_agreements_property
-            FOREIGN KEY (propertyid) REFERENCES dbo.properties(id);
-    END;
+    -- agreements -> properties
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_agreements_property') THEN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'properties') THEN
+            ALTER TABLE agreements
+                ADD CONSTRAINT fk_agreements_property
+                FOREIGN KEY (propertyid) REFERENCES properties(id);
+        END IF;
+    END IF;
 
-    IF OBJECT_ID(N'dbo.property_units', N'U') IS NOT NULL
-       AND OBJECT_ID(N'dbo.agreements', N'U') IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_agreements_unit')
-    BEGIN
-        ALTER TABLE dbo.agreements
-            ADD CONSTRAINT FK_agreements_unit
-            FOREIGN KEY (unitid) REFERENCES dbo.property_units(id);
-    END;
+    -- agreements -> property_units
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_agreements_unit') THEN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'property_units') THEN
+            ALTER TABLE agreements
+                ADD CONSTRAINT fk_agreements_unit
+                FOREIGN KEY (unitid) REFERENCES property_units(id);
+        END IF;
+    END IF;
 
-    IF OBJECT_ID(N'dbo.app_users', N'U') IS NOT NULL
-       AND OBJECT_ID(N'dbo.agreements', N'U') IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_agreements_rentee')
-    BEGIN
-        ALTER TABLE dbo.agreements
-            ADD CONSTRAINT FK_agreements_rentee
-            FOREIGN KEY (renteeid) REFERENCES dbo.app_users(id);
-    END;
+    -- agreements -> app_users (rentee)
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_agreements_rentee') THEN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'app_users') THEN
+            ALTER TABLE agreements
+                ADD CONSTRAINT fk_agreements_rentee
+                FOREIGN KEY (renteeid) REFERENCES app_users(id);
+        END IF;
+    END IF;
 
-    IF OBJECT_ID(N'dbo.agreement_templates', N'U') IS NOT NULL
-       AND OBJECT_ID(N'dbo.agreements', N'U') IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_agreements_template')
-    BEGIN
-        ALTER TABLE dbo.agreements
-            ADD CONSTRAINT FK_agreements_template
-            FOREIGN KEY (templateid) REFERENCES dbo.agreement_templates(id);
-    END;
+    -- agreements -> agreement_templates
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_agreements_template') THEN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'agreement_templates') THEN
+            ALTER TABLE agreements
+                ADD CONSTRAINT fk_agreements_template
+                FOREIGN KEY (templateid) REFERENCES agreement_templates(id);
+        END IF;
+    END IF;
 
-    IF OBJECT_ID(N'dbo.tenants', N'U') IS NOT NULL
-       AND OBJECT_ID(N'dbo.invoices', N'U') IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_invoices_tenant')
-    BEGIN
-        ALTER TABLE dbo.invoices
-            ADD CONSTRAINT FK_invoices_tenant
-            FOREIGN KEY (tenant_id) REFERENCES dbo.tenants(id);
-    END;
+    -- invoices -> tenants
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_invoices_tenant') THEN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'tenants') THEN
+            ALTER TABLE invoices
+                ADD CONSTRAINT fk_invoices_tenant
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+        END IF;
+    END IF;
 
-    IF OBJECT_ID(N'dbo.properties', N'U') IS NOT NULL
-       AND OBJECT_ID(N'dbo.invoices', N'U') IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_invoices_property')
-    BEGIN
-        ALTER TABLE dbo.invoices
-            ADD CONSTRAINT FK_invoices_property
-            FOREIGN KEY (propertyid) REFERENCES dbo.properties(id);
-    END;
+    -- invoices -> properties
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_invoices_property') THEN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'properties') THEN
+            ALTER TABLE invoices
+                ADD CONSTRAINT fk_invoices_property
+                FOREIGN KEY (propertyid) REFERENCES properties(id);
+        END IF;
+    END IF;
 
-    IF OBJECT_ID(N'dbo.app_users', N'U') IS NOT NULL
-       AND OBJECT_ID(N'dbo.invoices', N'U') IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_invoices_rentee')
-    BEGIN
-        ALTER TABLE dbo.invoices
-            ADD CONSTRAINT FK_invoices_rentee
-            FOREIGN KEY (renteeid) REFERENCES dbo.app_users(id);
-    END;
+    -- invoices -> app_users (rentee)
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_invoices_rentee') THEN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'app_users') THEN
+            ALTER TABLE invoices
+                ADD CONSTRAINT fk_invoices_rentee
+                FOREIGN KEY (renteeid) REFERENCES app_users(id);
+        END IF;
+    END IF;
+END $$;
 
-    IF OBJECT_ID(N'dbo.property_units', N'U') IS NOT NULL
-       AND NOT EXISTS (
-            SELECT 1 FROM sys.indexes WHERE name = N'IX_property_units_tenant_id' AND object_id = OBJECT_ID(N'dbo.property_units')
-       )
-    BEGIN
-        CREATE INDEX IX_property_units_tenant_id ON dbo.property_units (tenant_id);
-    END;
+-- ============================================================
+-- Indexes (idempotent)
+-- ============================================================
+CREATE INDEX IF NOT EXISTS ix_property_units_tenant_id ON property_units (tenant_id);
+CREATE INDEX IF NOT EXISTS ix_property_units_propertyid ON property_units (propertyid);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_property_units_propertyid_unitnumber ON property_units (propertyid, unitnumber);
 
-    IF OBJECT_ID(N'dbo.property_units', N'U') IS NOT NULL
-       AND NOT EXISTS (
-            SELECT 1 FROM sys.indexes WHERE name = N'IX_property_units_propertyid' AND object_id = OBJECT_ID(N'dbo.property_units')
-       )
-    BEGIN
-        CREATE INDEX IX_property_units_propertyid ON dbo.property_units (propertyid);
-    END;
+CREATE INDEX IF NOT EXISTS ix_agreements_tenant_id ON agreements (tenant_id);
+CREATE INDEX IF NOT EXISTS ix_agreements_propertyid ON agreements (propertyid);
+CREATE INDEX IF NOT EXISTS ix_agreements_renteeid ON agreements (renteeid);
+CREATE INDEX IF NOT EXISTS ix_agreements_status ON agreements (status);
 
-    IF OBJECT_ID(N'dbo.property_units', N'U') IS NOT NULL
-       AND NOT EXISTS (
-            SELECT 1 FROM sys.indexes WHERE name = N'UX_property_units_propertyid_unitnumber' AND object_id = OBJECT_ID(N'dbo.property_units')
-       )
-    BEGIN
-        CREATE UNIQUE INDEX UX_property_units_propertyid_unitnumber ON dbo.property_units (propertyid, unitnumber);
-    END;
+CREATE INDEX IF NOT EXISTS ix_invoices_tenant_id ON invoices (tenant_id);
+CREATE INDEX IF NOT EXISTS ix_invoices_propertyid ON invoices (propertyid);
+CREATE INDEX IF NOT EXISTS ix_invoices_renteeid ON invoices (renteeid);
 
-    IF OBJECT_ID(N'dbo.agreements', N'U') IS NOT NULL
-       AND NOT EXISTS (
-            SELECT 1 FROM sys.indexes WHERE name = N'IX_agreements_tenant_id' AND object_id = OBJECT_ID(N'dbo.agreements')
-       )
-    BEGIN
-        CREATE INDEX IX_agreements_tenant_id ON dbo.agreements (tenant_id);
-    END;
-
-    IF OBJECT_ID(N'dbo.agreements', N'U') IS NOT NULL
-       AND NOT EXISTS (
-            SELECT 1 FROM sys.indexes WHERE name = N'IX_agreements_propertyid' AND object_id = OBJECT_ID(N'dbo.agreements')
-       )
-    BEGIN
-        CREATE INDEX IX_agreements_propertyid ON dbo.agreements (propertyid);
-    END;
-
-    IF OBJECT_ID(N'dbo.agreements', N'U') IS NOT NULL
-       AND NOT EXISTS (
-            SELECT 1 FROM sys.indexes WHERE name = N'IX_agreements_renteeid' AND object_id = OBJECT_ID(N'dbo.agreements')
-       )
-    BEGIN
-        CREATE INDEX IX_agreements_renteeid ON dbo.agreements (renteeid);
-    END;
-
-    IF OBJECT_ID(N'dbo.agreements', N'U') IS NOT NULL
-       AND NOT EXISTS (
-            SELECT 1 FROM sys.indexes WHERE name = N'IX_agreements_status' AND object_id = OBJECT_ID(N'dbo.agreements')
-       )
-    BEGIN
-        CREATE INDEX IX_agreements_status ON dbo.agreements (status);
-    END;
-
-    IF OBJECT_ID(N'dbo.invoices', N'U') IS NOT NULL
-       AND NOT EXISTS (
-            SELECT 1 FROM sys.indexes WHERE name = N'IX_invoices_tenant_id' AND object_id = OBJECT_ID(N'dbo.invoices')
-       )
-    BEGIN
-        CREATE INDEX IX_invoices_tenant_id ON dbo.invoices (tenant_id);
-    END;
-
-    IF OBJECT_ID(N'dbo.invoices', N'U') IS NOT NULL
-       AND NOT EXISTS (
-            SELECT 1 FROM sys.indexes WHERE name = N'IX_invoices_propertyid' AND object_id = OBJECT_ID(N'dbo.invoices')
-       )
-    BEGIN
-        CREATE INDEX IX_invoices_propertyid ON dbo.invoices (propertyid);
-    END;
-
-    IF OBJECT_ID(N'dbo.invoices', N'U') IS NOT NULL
-       AND NOT EXISTS (
-            SELECT 1 FROM sys.indexes WHERE name = N'IX_invoices_renteeid' AND object_id = OBJECT_ID(N'dbo.invoices')
-       )
-    BEGIN
-        CREATE INDEX IX_invoices_renteeid ON dbo.invoices (renteeid);
-    END;
-
-    COMMIT TRANSACTION;
-END TRY
-BEGIN CATCH
-    IF @@TRANCOUNT > 0
-        ROLLBACK TRANSACTION;
-
-    THROW;
-END CATCH;
+COMMIT;

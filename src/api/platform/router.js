@@ -2,9 +2,9 @@ import express from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { runQuery, runSingleQuery } from '../mssql/query.js';
-import { createAppUser, findAppUserByEmail, updateAppUser } from '../mssql/repositories.js';
-import { isMssqlConfigured } from '../mssql/config.js';
+import { runQuery, runSingleQuery } from '../db/query.js';
+import { createAppUser, findAppUserByEmail, updateAppUser } from '../db/repositories.js';
+import { isPgConfigured } from '../db/config.js';
 import { createTenantContextMiddleware, serializeTenantContext } from '../tenant/context.js';
 
 const STORAGE_ROOT = path.resolve(process.cwd(), 'public', 'storage');
@@ -155,19 +155,19 @@ const mapRow = (row) => {
   return mapped;
 };
 
-const isMssqlUnavailableError = (error) => {
+const isDbUnavailableError = (error) => {
   const message = String(error?.message || error || '');
-  return message.includes('MSSQL is not configured');
+  return message.includes('PostgreSQL is not configured') || message.includes('ECONNREFUSED');
 };
 
 const isMissingTableError = (error) => {
   const message = String(error?.message || error || '').toLowerCase();
-  return message.includes('invalid object name') || message.includes('invalid column name');
+  return message.includes('does not exist') || (error?.code === '42P01') || (error?.code === '42703');
 };
 
 const isInvalidUniqueIdentifierError = (error) => {
   const message = String(error?.message || error || '').toLowerCase();
-  return message.includes('conversion failed when converting from a character string to uniqueidentifier');
+  return message.includes('invalid input syntax for type uuid') || (error?.code === '22P02');
 };
 
 const isTenantScopedTable = (table) => TENANT_SCOPED_TABLES.has(String(table || '').toLowerCase());
@@ -536,12 +536,12 @@ const executeSelect = async ({ table, select = '*', filters = [], order = [], li
     ? ' ORDER BY ' + orderSpecs.map((entry) => `${ensureIdentifier(entry.column, 'order column')} ${entry.ascending === false ? 'DESC' : 'ASC'}`).join(', ')
     : '';
 
-  const topClause = limit && !range ? `TOP ${Number(limit)}` : '';
+  const limitClause = limit && !range ? ` LIMIT ${Number(limit)}` : '';
   const offsetClause = range
-    ? ` OFFSET ${Math.max(Number(range.from) || 0, 0)} ROWS FETCH NEXT ${Math.max((Number(range.to) || 0) - (Number(range.from) || 0) + 1, 1)} ROWS ONLY`
+    ? ` LIMIT ${Math.max((Number(range.to) || 0) - (Number(range.from) || 0) + 1, 1)} OFFSET ${Math.max(Number(range.from) || 0, 0)}`
     : '';
 
-  const queryText = `SELECT ${topClause} * FROM ${safeTable} ${whereClause}${orderClause}${offsetClause}`.replace(/\s+/g, ' ').trim();
+  const queryText = `SELECT * FROM ${safeTable} ${whereClause}${orderClause}${limitClause}${offsetClause}`.replace(/\s+/g, ' ').trim();
   let rows;
 
   try {
@@ -586,7 +586,7 @@ const executeInsert = async ({ table, payload, tenantId = null }) => {
     });
 
     const result = await runQuery(
-      `INSERT INTO ${safeTable} (${columns.join(', ')}) OUTPUT INSERTED.* VALUES (${values.join(', ')})`,
+      `INSERT INTO ${safeTable} (${columns.join(', ')}) VALUES (${values.join(', ')}) RETURNING *`,
       params
     );
     inserted.push(...result.map(mapRow));
@@ -618,7 +618,7 @@ const executeUpdate = async ({ table, payload, filters = [], tenantId = null }) 
 
   try {
     rows = await runQuery(
-      `UPDATE ${safeTable} SET ${assignments.join(', ')} OUTPUT INSERTED.* ${whereClause}`,
+      `UPDATE ${safeTable} SET ${assignments.join(', ')} ${whereClause} RETURNING *`,
       params
     );
   } catch (error) {
@@ -644,7 +644,7 @@ const executeDelete = async ({ table, filters = [], tenantId = null }) => {
 
   try {
     rows = await runQuery(
-      `DELETE FROM ${safeTable} OUTPUT DELETED.* ${whereClause}`,
+      `DELETE FROM ${safeTable} ${whereClause} RETURNING *`,
       params
     );
   } catch (error) {
@@ -671,7 +671,7 @@ const executeUpsert = async ({ table, payload, tenantId = null }) => {
       let existing = null;
 
       try {
-        existing = await runSingleQuery(`SELECT TOP 1 * FROM ${safeTable} ${whereClause}`, params);
+        existing = await runSingleQuery(`SELECT * FROM ${safeTable} ${whereClause} LIMIT 1`, params);
       } catch (error) {
         if (!isInvalidUniqueIdentifierError(error)) {
           throw error;
@@ -725,7 +725,7 @@ const executeRpc = async (name, args = {}, tenantContext = null) => {
       const readingId = args.reading_id || args.readingId;
       if (!readingId) throw new Error('reading_id is required');
       const rows = await runQuery(
-        `UPDATE utility_readings SET status = 'rejected', updatedat = @updatedat OUTPUT INSERTED.* WHERE id = @readingId AND tenant_id = @tenantId`,
+        `UPDATE utility_readings SET status = 'rejected', updatedat = @updatedat WHERE id = @readingId AND tenant_id = @tenantId RETURNING *`,
         { readingId, tenantId: tenantContext.tenantId, updatedat: new Date().toISOString() }
       );
       return { data: rows.map(mapRow)[0] || null, error: null };
@@ -736,7 +736,7 @@ const executeRpc = async (name, args = {}, tenantContext = null) => {
       const status = args.new_status || args.status;
       if (!agreementId || !status) throw new Error('agreement_id and status are required');
       const rows = await runQuery(
-        `UPDATE agreements SET status = @status, updatedat = @updatedat OUTPUT INSERTED.* WHERE id = @agreementId AND tenant_id = @tenantId`,
+        `UPDATE agreements SET status = @status, updatedat = @updatedat WHERE id = @agreementId AND tenant_id = @tenantId RETURNING *`,
         { agreementId, tenantId: tenantContext.tenantId, status, updatedat: new Date().toISOString() }
       );
       return { data: rows.map(mapRow)[0] || null, error: null };
@@ -874,7 +874,7 @@ export const createPlatformRouter = () => {
       let result;
       switch (action) {
         case 'select':
-          if (!isMssqlConfigured()) {
+          if (!isPgConfigured()) {
             result = {
               data: head ? null : [],
               count: count ? 0 : null,
@@ -914,7 +914,7 @@ export const createPlatformRouter = () => {
         auditPlatformRejection(req, error.code || 'PLATFORM_QUERY_REJECTED', { table, action, message: error.message });
       }
 
-      if (action === 'select' && (isMssqlUnavailableError(error) || isMissingTableError(error))) {
+      if (action === 'select' && (isDbUnavailableError(error) || isMissingTableError(error))) {
         res.json({
           data: head ? null : [],
           count: count ? 0 : null,
@@ -934,7 +934,7 @@ export const createPlatformRouter = () => {
 
   router.post('/rpc/:name', async (req, res, next) => {
     try {
-      if (!isMssqlConfigured()) {
+      if (!isPgConfigured()) {
         if (req.params.name === 'get_table_columns') {
           res.json({ data: [], error: null, meta: { databaseConfigured: false } });
           return;
@@ -959,7 +959,7 @@ export const createPlatformRouter = () => {
         auditPlatformRejection(req, error.code || 'PLATFORM_RPC_REJECTED', { rpc: req.params.name, message: error.message });
       }
 
-      if (req.params.name === 'get_table_columns' && isMssqlUnavailableError(error)) {
+      if (req.params.name === 'get_table_columns' && isDbUnavailableError(error)) {
         res.json({ data: [], error: null, meta: { databaseConfigured: false } });
         return;
       }

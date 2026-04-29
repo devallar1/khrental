@@ -39,6 +39,16 @@ Thumbs.db
 # Build output
 dist/
 build/
+.svelte-kit/
+
+# Claude Code session artifacts
+.claude/
+
+# Rental data spreadsheets (contain NICs, names, addresses — PII)
+RENTAPPINFO*.xlsx
+
+# Source documents for batch ingestion (contracts, deeds, scans — PII / legal)
+import-data/
 
 # Temporary files
 *.tmp
@@ -58,6 +68,7 @@ WEBHOOK_README.md
 # API keys
 public/env-config.js
 .env*
+!.env.docker.example
 public/env-config.js
 
 # Test files

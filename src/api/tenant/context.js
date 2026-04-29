@@ -1,4 +1,4 @@
-import { runQuery, runSingleQuery } from '../mssql/query.js';
+import { runQuery, runSingleQuery } from '../db/query.js';
 
 const TABLE_EXISTS_CACHE = new Map();
 const TABLE_CACHE_TTL_MS = 30_000;
@@ -16,7 +16,7 @@ const normalizeString = (value) => {
 
 const isMissingTableError = (error) => {
   const message = String(error?.message || error || '').toLowerCase();
-  return message.includes('invalid object name') || message.includes('invalid column name');
+  return message.includes('does not exist') || (error?.code === '42P01') || (error?.code === '42703');
 };
 
 const createTenantContextError = (status, message, code, details = undefined) => {
@@ -36,8 +36,11 @@ const tableExists = async (tableName) => {
   }
 
   const row = await runSingleQuery(
-    `SELECT CASE WHEN OBJECT_ID(@objectName, 'U') IS NULL THEN 0 ELSE 1 END AS exists_value`,
-    { objectName: `dbo.${tableName}` }
+    `SELECT CASE WHEN EXISTS (
+       SELECT 1 FROM information_schema.tables
+       WHERE table_schema = 'public' AND table_name = @tableName
+     ) THEN 1 ELSE 0 END AS exists_value`,
+    { tableName }
   );
 
   const exists = Boolean(row?.exists_value);
@@ -72,9 +75,10 @@ const getUserForIdentity = async ({ authId, userId, email }) => {
   try {
     if (authId) {
       const user = await runSingleQuery(
-        `SELECT TOP 1 *
+        `SELECT *
          FROM app_users
-         WHERE auth_id = @authId`,
+         WHERE auth_id = @authId
+         LIMIT 1`,
         { authId }
       );
 
@@ -85,9 +89,10 @@ const getUserForIdentity = async ({ authId, userId, email }) => {
 
     if (userId) {
       const user = await runSingleQuery(
-        `SELECT TOP 1 *
+        `SELECT *
          FROM app_users
-         WHERE id = @userId`,
+         WHERE id = @userId
+         LIMIT 1`,
         { userId }
       );
 
@@ -98,9 +103,10 @@ const getUserForIdentity = async ({ authId, userId, email }) => {
 
     if (email) {
       return runSingleQuery(
-        `SELECT TOP 1 *
+        `SELECT *
          FROM app_users
-         WHERE email = @email`,
+         WHERE email = @email
+         LIMIT 1`,
         { email }
       );
     }
@@ -141,7 +147,7 @@ const listMembershipsForUser = async (appUserId) => {
          t.name AS tenant_name,
          t.slug AS tenant_slug,
          t.status AS tenant_status,
-         t.[plan] AS tenant_plan,
+         t."plan" AS tenant_plan,
          t.createdat AS tenant_createdat,
          t.updatedat AS tenant_updatedat
        FROM tenant_memberships tm
@@ -302,17 +308,19 @@ const getFallbackTenantSelection = async (requestedTenantId) => {
   try {
     const tenant = requestedTenantId
       ? await runSingleQuery(
-          `SELECT TOP 1 *
+          `SELECT *
            FROM tenants
            WHERE id = @tenantId
-             AND ([status] IS NULL OR [status] = 'active')`,
+             AND (status IS NULL OR status = 'active')
+           LIMIT 1`,
           { tenantId: requestedTenantId }
         )
       : await runSingleQuery(
-          `SELECT TOP 1 *
+          `SELECT *
            FROM tenants
-           WHERE [status] IS NULL OR [status] = 'active'
-           ORDER BY CASE WHEN slug = 'default' THEN 0 ELSE 1 END, createdat ASC`
+           WHERE status IS NULL OR status = 'active'
+           ORDER BY CASE WHEN slug = 'default' THEN 0 ELSE 1 END, createdat ASC
+           LIMIT 1`
         );
 
     return {

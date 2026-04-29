@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { paginateQuery, runQuery, runSingleQuery } from './query.js';
-import { getMssqlPool, sql } from './pool.js';
+import { getPool } from './pool.js';
 
 const DEFAULT_PAGE_SIZE = 50;
 const TABLE_COLUMN_CACHE = new Map();
@@ -162,9 +162,10 @@ const serializeTenantSettingsValue = (key, value) => {
 
 const isMissingColumnError = (error, columnName = '') => {
   const message = String(error?.message || error || '').toLowerCase();
+  const code = String(error?.code || '');
   const normalizedColumnName = String(columnName || '').toLowerCase();
-  return message.includes('invalid column name')
-    && (!normalizedColumnName || message.includes(`'${normalizedColumnName}'`));
+  return (code === '42703' || message.includes('column') && message.includes('does not exist'))
+    && (!normalizedColumnName || message.includes(`"${normalizedColumnName}"`));
 };
 
 const createRepositoryError = (status, message, code, details = undefined) => {
@@ -181,29 +182,15 @@ const isUniqueIdentifier = (value) => UNIQUE_IDENTIFIER_REGEX.test(String(value 
 
 const getTableColumns = async (tableName) => {
   const normalizedTableName = String(tableName || '').trim().toLowerCase();
-  if (!normalizedTableName) {
-    return new Set();
-  }
+  if (!normalizedTableName) return new Set();
+  if (TABLE_COLUMN_CACHE.has(normalizedTableName)) return TABLE_COLUMN_CACHE.get(normalizedTableName);
 
-  if (TABLE_COLUMN_CACHE.has(normalizedTableName)) {
-    return TABLE_COLUMN_CACHE.get(normalizedTableName);
-  }
-
-  const pool = await getMssqlPool();
-  const request = new sql.Request(pool);
-  request.input('tableName', sql.NVarChar, normalizedTableName);
-
-  const result = await request.query(`
-    SELECT COLUMN_NAME
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = 'dbo'
-      AND TABLE_NAME = @tableName
-  `);
-
-  const columns = new Set(
-    (result.recordset || []).map((row) => String(row.COLUMN_NAME || '').trim().toLowerCase()).filter(Boolean)
+  const rows = await runQuery(
+    `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND lower(table_name) = @tableName`,
+    { tableName: normalizedTableName }
   );
 
+  const columns = new Set(rows.map((row) => String(row.column_name || '').trim().toLowerCase()).filter(Boolean));
   TABLE_COLUMN_CACHE.set(normalizedTableName, columns);
   return columns;
 };
@@ -447,9 +434,10 @@ const ensureTenantSlugAvailable = async (slug, excludeTenantId = null) => {
   }
 
   const existing = await runSingleQuery(
-    `SELECT TOP 1 id
+    `SELECT id
      FROM tenants
-     WHERE slug = @slug${excludeTenantId ? '\n       AND id <> @excludeTenantId' : ''}`,
+     WHERE slug = @slug${excludeTenantId ? '\n       AND id <> @excludeTenantId' : ''}
+     LIMIT 1`,
     excludeTenantId ? { slug, excludeTenantId } : { slug }
   );
 
@@ -466,9 +454,10 @@ const upsertTenantSettingsByTenantId = async (tenantId, payload = {}, tenantName
   }
 
   const existing = await runSingleQuery(
-    `SELECT TOP 1 tenant_id
+    `SELECT tenant_id
      FROM tenant_settings
-     WHERE tenant_id = @tenantId`,
+     WHERE tenant_id = @tenantId
+     LIMIT 1`,
     { tenantId }
   );
 
@@ -612,7 +601,7 @@ const getTenantMembershipByTenantAndId = async (tenantId, membershipId) => {
   }
 
   const row = await runSingleQuery(
-    `SELECT TOP 1
+    `SELECT
        tm.id,
        tm.tenant_id,
        tm.app_user_id,
@@ -624,7 +613,7 @@ const getTenantMembershipByTenantAndId = async (tenantId, membershipId) => {
        t.name AS tenant_name,
        t.slug AS tenant_slug,
        t.status AS tenant_status,
-       t.[plan] AS tenant_plan,
+       t."plan" AS tenant_plan,
        au.email AS app_user_email,
        au.name AS app_user_name,
        au.role AS app_user_role,
@@ -635,7 +624,8 @@ const getTenantMembershipByTenantAndId = async (tenantId, membershipId) => {
      INNER JOIN tenants t ON t.id = tm.tenant_id
      INNER JOIN app_users au ON au.id = tm.app_user_id
      WHERE tm.tenant_id = @tenantId
-       AND tm.id = @membershipId`,
+       AND tm.id = @membershipId
+     LIMIT 1`,
     { tenantId, membershipId }
   );
 
@@ -670,10 +660,11 @@ const ensureTenantScopedEntity = async ({ table, id, tenantId, label = table }) 
   }
 
   const row = await runSingleQuery(
-    `SELECT TOP 1 id
+    `SELECT id
      FROM ${table}
      WHERE id = @id
-       AND tenant_id = @tenantId`,
+       AND tenant_id = @tenantId
+     LIMIT 1`,
     { id, tenantId: assertTenantId(tenantId) }
   );
 
@@ -699,9 +690,10 @@ const ensureInvoiceRelationships = async ({ tenantId, payload = {} }) => {
 export const getCurrentUserProfile = async ({ authId, userId, email }) => {
   if (authId) {
     const authUser = await runSingleQuery(
-      `SELECT TOP 1 *
+      `SELECT *
        FROM app_users
-       WHERE auth_id = @authId`,
+       WHERE auth_id = @authId
+       LIMIT 1`,
       { authId }
     );
 
@@ -712,9 +704,10 @@ export const getCurrentUserProfile = async ({ authId, userId, email }) => {
 
   if (userId) {
     const user = await runSingleQuery(
-      `SELECT TOP 1 *
+      `SELECT *
        FROM app_users
-       WHERE id = @userId`,
+       WHERE id = @userId
+       LIMIT 1`,
       { userId }
     );
 
@@ -723,9 +716,10 @@ export const getCurrentUserProfile = async ({ authId, userId, email }) => {
 
   if (email) {
     const user = await runSingleQuery(
-      `SELECT TOP 1 *
+      `SELECT *
        FROM app_users
-       WHERE email = @email`,
+       WHERE email = @email
+       LIMIT 1`,
       { email }
     );
 
@@ -745,7 +739,7 @@ export const listTenants = async ({ status, search, page = 1, pageSize = DEFAULT
   }
 
   if (search) {
-    filters.push('(t.name LIKE @search OR t.slug LIKE @search)');
+    filters.push('(t.name ILIKE @search OR t.slug ILIKE @search)');
     params.search = `%${String(search).trim()}%`;
   }
 
@@ -782,7 +776,7 @@ export const getTenantById = async (id) => {
   }
 
   const tenant = await runSingleQuery(
-    `SELECT TOP 1
+    `SELECT
        t.*,
        ts.branding_json,
        ts.email_json,
@@ -797,7 +791,8 @@ export const getTenantById = async (id) => {
        ) AS membership_count
      FROM tenants t
      LEFT JOIN tenant_settings ts ON ts.tenant_id = t.id
-     WHERE t.id = @id`,
+     WHERE t.id = @id
+     LIMIT 1`,
     { id }
   );
 
@@ -824,20 +819,20 @@ export const createTenant = async (payload = {}) => {
       name,
       slug,
       status,
-      [plan],
+      "plan",
       createdat,
       updatedat
     )
-    OUTPUT INSERTED.*
     VALUES (
-      COALESCE(@id, NEWID()),
+      COALESCE(@id, gen_random_uuid()),
       @name,
       @slug,
       @status,
       @plan,
       @createdat,
       @updatedat
-    )`,
+    )
+    RETURNING *`,
     {
       id: normalizedPayload.id || null,
       name: normalizedPayload.name,
@@ -903,7 +898,7 @@ export const updateTenantById = async (id, payload = {}) => {
      SET name = @name,
          slug = @slug,
          status = @status,
-         [plan] = @plan,
+         "plan" = @plan,
          updatedat = @updatedat
      WHERE id = @id`,
     params
@@ -927,7 +922,7 @@ export const listTenantMemberships = async (tenantId, { status, search, page = 1
   }
 
   if (search) {
-    filters.push('(au.email LIKE @search OR au.name LIKE @search)');
+    filters.push('(au.email ILIKE @search OR au.name ILIKE @search)');
     params.search = `%${String(search).trim()}%`;
   }
 
@@ -945,7 +940,7 @@ export const listTenantMemberships = async (tenantId, { status, search, page = 1
         t.name AS tenant_name,
         t.slug AS tenant_slug,
         t.status AS tenant_status,
-        t.[plan] AS tenant_plan,
+        t."plan" AS tenant_plan,
         au.email AS app_user_email,
         au.name AS app_user_name,
         au.role AS app_user_role,
@@ -986,10 +981,11 @@ export const createTenantMembership = async (tenantId, payload = {}) => {
   }
 
   const existingMembership = await runSingleQuery(
-    `SELECT TOP 1 id
+    `SELECT id
      FROM tenant_memberships
      WHERE tenant_id = @tenantId
-       AND app_user_id = @appUserId`,
+       AND app_user_id = @appUserId
+     LIMIT 1`,
     { tenantId, appUserId }
   );
 
@@ -1017,9 +1013,8 @@ export const createTenantMembership = async (tenantId, payload = {}) => {
       createdat,
       updatedat
     )
-    OUTPUT INSERTED.*
     VALUES (
-      COALESCE(@id, NEWID()),
+      COALESCE(@id, gen_random_uuid()),
       @tenantId,
       @appUserId,
       @role,
@@ -1027,7 +1022,8 @@ export const createTenantMembership = async (tenantId, payload = {}) => {
       @isDefault,
       @createdat,
       @updatedat
-    )`,
+    )
+    RETURNING *`,
     {
       id: payload.id || null,
       tenantId,
@@ -1127,13 +1123,15 @@ export const getAppUserById = async (id, tenantId) => {
   }
 
   const queryText = hasTenantScope(tenantId)
-    ? `SELECT TOP 1 *
+    ? `SELECT *
        FROM app_users
        WHERE id = @id
-         AND tenant_id = @tenantId`
-    : `SELECT TOP 1 *
+         AND tenant_id = @tenantId
+       LIMIT 1`
+    : `SELECT *
        FROM app_users
-       WHERE id = @id`;
+       WHERE id = @id
+       LIMIT 1`;
 
   const user = await runSingleQuery(queryText, hasTenantScope(tenantId) ? { id, tenantId: assertTenantId(tenantId) } : { id });
 
@@ -1142,13 +1140,15 @@ export const getAppUserById = async (id, tenantId) => {
 
 export const findAppUserByEmail = async (email, tenantId) => {
   const queryText = hasTenantScope(tenantId)
-    ? `SELECT TOP 1 *
+    ? `SELECT *
        FROM app_users
        WHERE email = @email
-         AND tenant_id = @tenantId`
-    : `SELECT TOP 1 *
+         AND tenant_id = @tenantId
+       LIMIT 1`
+    : `SELECT *
        FROM app_users
-       WHERE email = @email`;
+       WHERE email = @email
+       LIMIT 1`;
 
   const user = await runSingleQuery(queryText, hasTenantScope(tenantId) ? { email, tenantId: assertTenantId(tenantId) } : { email });
 
@@ -1157,13 +1157,15 @@ export const findAppUserByEmail = async (email, tenantId) => {
 
 export const findAppUserByAuthId = async (authId, tenantId) => {
   const queryText = hasTenantScope(tenantId)
-    ? `SELECT TOP 1 *
+    ? `SELECT *
        FROM app_users
        WHERE auth_id = @authId
-         AND tenant_id = @tenantId`
-    : `SELECT TOP 1 *
+         AND tenant_id = @tenantId
+       LIMIT 1`
+    : `SELECT *
        FROM app_users
-       WHERE auth_id = @authId`;
+       WHERE auth_id = @authId
+       LIMIT 1`;
 
   const user = await runSingleQuery(queryText, hasTenantScope(tenantId) ? { authId, tenantId: assertTenantId(tenantId) } : { authId });
 
@@ -1192,7 +1194,7 @@ export const listAppUsers = async ({ tenantId, userType, email, authId, search, 
   }
 
   if (search) {
-    filters.push('(email LIKE @search OR name LIKE @search)');
+    filters.push('(email ILIKE @search OR name ILIKE @search)');
     params.search = `%${String(search).trim()}%`;
   }
 
@@ -1242,8 +1244,8 @@ export const createAppUser = async (payload = {}) => {
 
   const rows = await runQuery(
     `INSERT INTO app_users (${columns.join(', ')})
-     OUTPUT INSERTED.*
-     VALUES (${values.join(', ')})`,
+     VALUES (${values.join(', ')})
+     RETURNING *`,
     params
   );
 
@@ -1280,8 +1282,8 @@ export const updateAppUser = async (id, payload = {}) => {
   const rows = await runQuery(
     `UPDATE app_users
      SET ${assignments.join(', ')}
-     OUTPUT INSERTED.*
-     WHERE id = @id${hasTenantScope(tenantId) ? '\n       AND tenant_id = @tenantId' : ''}`,
+     WHERE id = @id${hasTenantScope(tenantId) ? '\n       AND tenant_id = @tenantId' : ''}
+     RETURNING *`,
     params
   );
 
@@ -1299,15 +1301,23 @@ export const deleteAppUserById = async (id, tenantId) => {
     return null;
   }
 
-  const rows = await runQuery(
+  const existing = await runSingleQuery(
+    `SELECT * FROM app_users WHERE id = @id AND tenant_id = @tenantId LIMIT 1`,
+    { id, tenantId: assertTenantId(tenantId) }
+  );
+
+  if (!existing) {
+    return null;
+  }
+
+  await runQuery(
     `DELETE FROM app_users
-     OUTPUT DELETED.*
      WHERE id = @id
        AND tenant_id = @tenantId`,
     { id, tenantId: assertTenantId(tenantId) }
   );
 
-  return mapAppUserRow(rows[0] || null);
+  return mapAppUserRow(existing);
 };
 
 export const getAppUserInvitationStatus = async (id, tenantId) => {
@@ -1317,13 +1327,15 @@ export const getAppUserInvitationStatus = async (id, tenantId) => {
 
   const scopedParams = hasTenantScope(tenantId) ? { id, tenantId: assertTenantId(tenantId) } : { id };
   const invitationQuery = hasTenantScope(tenantId)
-    ? `SELECT TOP 1 id, email, invited, auth_id
+    ? `SELECT id, email, invited, auth_id
        FROM app_users
        WHERE id = @id
-         AND tenant_id = @tenantId`
-    : `SELECT TOP 1 id, email, invited, auth_id
+         AND tenant_id = @tenantId
+       LIMIT 1`
+    : `SELECT id, email, invited, auth_id
        FROM app_users
-       WHERE id = @id`;
+       WHERE id = @id
+       LIMIT 1`;
 
   let user;
 
@@ -1335,13 +1347,15 @@ export const getAppUserInvitationStatus = async (id, tenantId) => {
     }
 
     const fallbackQuery = hasTenantScope(tenantId)
-      ? `SELECT TOP 1 id, email, auth_id
+      ? `SELECT id, email, auth_id
          FROM app_users
          WHERE id = @id
-           AND tenant_id = @tenantId`
-      : `SELECT TOP 1 id, email, auth_id
+           AND tenant_id = @tenantId
+         LIMIT 1`
+      : `SELECT id, email, auth_id
          FROM app_users
-         WHERE id = @id`;
+         WHERE id = @id
+         LIMIT 1`;
 
     user = await runSingleQuery(fallbackQuery, scopedParams);
 
@@ -1369,10 +1383,11 @@ export const listProperties = async ({ tenantId, page = 1, pageSize = DEFAULT_PA
 });
 
 export const getPropertyById = async (id, tenantId) => runSingleQuery(
-  `SELECT TOP 1 *
+  `SELECT *
    FROM properties
    WHERE id = @id
-     AND tenant_id = @tenantId`,
+     AND tenant_id = @tenantId
+   LIMIT 1`,
   { id, tenantId: assertTenantId(tenantId) }
 );
 
@@ -1398,9 +1413,9 @@ export const updatePropertyById = async (id, payload = {}, tenantId) => {
   const rows = await runQuery(
     `UPDATE properties
      SET ${assignments.join(', ')}
-     OUTPUT INSERTED.*
      WHERE id = @id
-       AND tenant_id = @tenantId`,
+       AND tenant_id = @tenantId
+     RETURNING *`,
     params
   );
 
@@ -1452,10 +1467,11 @@ export const listAgreementTemplates = async ({ tenantId, language, page = 1, pag
 };
 
 export const getAgreementTemplateById = async (id, tenantId) => runSingleQuery(
-  `SELECT TOP 1 *
+  `SELECT *
    FROM agreement_templates
    WHERE id = @id
-     AND tenant_id = @tenantId`,
+     AND tenant_id = @tenantId
+   LIMIT 1`,
   { id, tenantId: assertTenantId(tenantId) }
 );
 
@@ -1482,9 +1498,8 @@ export const createAgreementTemplate = async (payload = {}, tenantId) => {
       createdat,
       updatedat
     )
-    OUTPUT INSERTED.*
     VALUES (
-      COALESCE(@id, NEWID()),
+      COALESCE(@id, gen_random_uuid()),
       @tenant_id,
       @name,
       @language,
@@ -1492,7 +1507,8 @@ export const createAgreementTemplate = async (payload = {}, tenantId) => {
       @version,
       @createdat,
       @updatedat
-    )`,
+    )
+    RETURNING *`,
     {
       id,
       tenant_id,
@@ -1529,9 +1545,9 @@ export const updateAgreementTemplate = async (id, payload = {}, tenantId) => {
   const rows = await runQuery(
     `UPDATE agreement_templates
      SET ${assignments.join(', ')}
-     OUTPUT INSERTED.*
      WHERE id = @id
-       AND tenant_id = @tenantId`,
+       AND tenant_id = @tenantId
+     RETURNING *`,
     params
   );
 
@@ -1539,22 +1555,31 @@ export const updateAgreementTemplate = async (id, payload = {}, tenantId) => {
 };
 
 export const deleteAgreementTemplateById = async (id, tenantId) => {
-  const rows = await runQuery(
+  const existing = await runSingleQuery(
+    `SELECT * FROM agreement_templates WHERE id = @id AND tenant_id = @tenantId LIMIT 1`,
+    { id, tenantId: assertTenantId(tenantId) }
+  );
+
+  if (!existing) {
+    return null;
+  }
+
+  await runQuery(
     `DELETE FROM agreement_templates
-     OUTPUT DELETED.*
      WHERE id = @id
        AND tenant_id = @tenantId`,
     { id, tenantId: assertTenantId(tenantId) }
   );
 
-  return rows[0] || null;
+  return existing;
 };
 
 export const getPropertyUnitById = async (id, tenantId) => runSingleQuery(
-  `SELECT TOP 1 *
+  `SELECT *
    FROM property_units
    WHERE id = @id
-     AND tenant_id = @tenantId`,
+     AND tenant_id = @tenantId
+   LIMIT 1`,
   { id, tenantId: assertTenantId(tenantId) }
 );
 
@@ -1618,10 +1643,11 @@ export const listInvoices = async ({
 
 export const getInvoiceById = async (id, tenantId) => {
   const row = await runSingleQuery(
-    `SELECT TOP 1 *
+    `SELECT *
      FROM invoices
      WHERE id = @id
-       AND tenant_id = @tenantId`,
+       AND tenant_id = @tenantId
+     LIMIT 1`,
     { id, tenantId: assertTenantId(tenantId) }
   );
 
@@ -1664,9 +1690,8 @@ export const createInvoice = async (payload = {}, tenantId) => {
       createdat,
       updatedat
     )
-    OUTPUT INSERTED.*
     VALUES (
-      COALESCE(@id, NEWID()),
+      COALESCE(@id, gen_random_uuid()),
       @tenant_id,
       @renteeid,
       @propertyid,
@@ -1680,7 +1705,8 @@ export const createInvoice = async (payload = {}, tenantId) => {
       @notes,
       @createdat,
       @updatedat
-    )`,
+    )
+    RETURNING *`,
     {
       id,
       tenant_id,
@@ -1727,9 +1753,9 @@ export const updateInvoice = async (id, payload = {}, tenantId) => {
   const rows = await runQuery(
     `UPDATE invoices
      SET ${assignments.join(', ')}
-     OUTPUT INSERTED.*
      WHERE id = @id
-       AND tenant_id = @tenantId`,
+       AND tenant_id = @tenantId
+     RETURNING *`,
     params
   );
 
@@ -1853,7 +1879,6 @@ export const createAgreement = async (payload, tenantId) => {
       createdat,
       updatedat
     )
-    OUTPUT INSERTED.*
     VALUES (
       @tenant_id,
       @templateid,
@@ -1887,7 +1912,8 @@ export const createAgreement = async (payload, tenantId) => {
       @cancellation_reason,
       @createdat,
       @updatedat
-    )`,
+    )
+    RETURNING *`,
     {
       tenant_id,
       templateid,
@@ -1948,9 +1974,9 @@ export const updateAgreement = async (id, payload, tenantId) => {
   const rows = await runQuery(
     `UPDATE agreements
      SET ${assignments.join(', ')}
-     OUTPUT INSERTED.*
      WHERE id = @id
-       AND tenant_id = @tenantId`,
+       AND tenant_id = @tenantId
+     RETURNING *`,
     params
   );
 
@@ -1958,109 +1984,157 @@ export const updateAgreement = async (id, payload, tenantId) => {
 };
 
 export const deleteAgreementById = async (id, tenantId) => {
-  const rows = await runQuery(
+  const existing = await runSingleQuery(
+    `SELECT * FROM agreements WHERE id = @id AND tenant_id = @tenantId LIMIT 1`,
+    { id, tenantId: assertTenantId(tenantId) }
+  );
+
+  if (!existing) {
+    return null;
+  }
+
+  await runQuery(
     `DELETE FROM agreements
-     OUTPUT DELETED.*
      WHERE id = @id
        AND tenant_id = @tenantId`,
     { id, tenantId: assertTenantId(tenantId) }
   );
 
-  return rows[0] || null;
+  return existing;
 };
 
 export const markAgreementSigned = async (id, tenantId) => {
-  const pool = await getMssqlPool();
-  const transaction = new sql.Transaction(pool);
-  await transaction.begin();
+  const pool = getPool();
+  const client = await pool.connect();
 
   try {
-    const agreementRequest = new sql.Request(transaction);
-    agreementRequest.input('id', id);
-    agreementRequest.input('tenantId', assertTenantId(tenantId));
-    agreementRequest.input('signeddate', new Date().toISOString());
-    agreementRequest.input('updatedat', new Date().toISOString());
+    await client.query('BEGIN');
 
-    const agreementResult = await agreementRequest.query(`
-      UPDATE agreements
-      SET status = 'signed',
-          signeddate = @signeddate,
-          updatedat = @updatedat
-      OUTPUT INSERTED.*
-      WHERE id = @id
-        AND tenant_id = @tenantId
-    `);
+    const { text: agText, values: agValues } = (() => {
+      const params = { id, tenantId: assertTenantId(tenantId), signeddate: new Date().toISOString(), updatedat: new Date().toISOString() };
+      const paramMap = new Map();
+      const vals = [];
+      const sql = `
+        UPDATE agreements
+        SET status = 'signed',
+            signeddate = @signeddate,
+            updatedat = @updatedat
+        WHERE id = @id
+          AND tenant_id = @tenantId
+        RETURNING *
+      `.replace(/@([A-Za-z_][A-Za-z0-9_]*)/g, (_match, name) => {
+        if (paramMap.has(name)) return `$${paramMap.get(name)}`;
+        vals.push(params[name] !== undefined ? params[name] : null);
+        const index = vals.length;
+        paramMap.set(name, index);
+        return `$${index}`;
+      });
+      return { text: sql, values: vals };
+    })();
 
-    const updatedAgreement = agreementResult.recordset[0];
+    const agreementResult = await client.query(agText, agValues);
+    const updatedAgreement = agreementResult.rows[0];
 
     if (!updatedAgreement) {
       throw new Error('Agreement not found');
     }
 
     if (updatedAgreement.propertyid) {
-      const propertyRequest = new sql.Request(transaction);
-      propertyRequest.input('propertyId', updatedAgreement.propertyid);
-      propertyRequest.input('tenantId', tenantId);
-      propertyRequest.input('updatedat', new Date().toISOString());
-      await propertyRequest.query(`
+      const params = { propertyId: updatedAgreement.propertyid, tenantId, updatedat: new Date().toISOString() };
+      const paramMap = new Map();
+      const vals = [];
+      const sql = `
         UPDATE properties
         SET status = 'available',
             updatedat = @updatedat
         WHERE id = @propertyId
           AND tenant_id = @tenantId
-      `);
+      `.replace(/@([A-Za-z_][A-Za-z0-9_]*)/g, (_match, name) => {
+        if (paramMap.has(name)) return `$${paramMap.get(name)}`;
+        vals.push(params[name] !== undefined ? params[name] : null);
+        const index = vals.length;
+        paramMap.set(name, index);
+        return `$${index}`;
+      });
+      await client.query(sql, vals);
     }
 
     if (updatedAgreement.unitid) {
-      const unitRequest = new sql.Request(transaction);
-      unitRequest.input('unitId', updatedAgreement.unitid);
-      unitRequest.input('tenantId', tenantId);
-      unitRequest.input('updatedat', new Date().toISOString());
-      await unitRequest.query(`
+      const params = { unitId: updatedAgreement.unitid, tenantId, updatedat: new Date().toISOString() };
+      const paramMap = new Map();
+      const vals = [];
+      const sql = `
         UPDATE property_units
         SET status = 'occupied',
             updatedat = @updatedat
         WHERE id = @unitId
           AND tenant_id = @tenantId
-      `);
+      `.replace(/@([A-Za-z_][A-Za-z0-9_]*)/g, (_match, name) => {
+        if (paramMap.has(name)) return `$${paramMap.get(name)}`;
+        vals.push(params[name] !== undefined ? params[name] : null);
+        const index = vals.length;
+        paramMap.set(name, index);
+        return `$${index}`;
+      });
+      await client.query(sql, vals);
     }
 
     if (updatedAgreement.renteeid && updatedAgreement.propertyid) {
-      const userRequest = new sql.Request(transaction);
-      userRequest.input('renteeId', updatedAgreement.renteeid);
-      userRequest.input('tenantId', tenantId);
-      const userResult = await userRequest.query(`
-        SELECT TOP 1 associated_property_ids
+      const params1 = { renteeId: updatedAgreement.renteeid, tenantId };
+      const paramMap1 = new Map();
+      const vals1 = [];
+      const sql1 = `
+        SELECT associated_property_ids
         FROM app_users
         WHERE id = @renteeId
           AND tenant_id = @tenantId
-      `);
+        LIMIT 1
+      `.replace(/@([A-Za-z_][A-Za-z0-9_]*)/g, (_match, name) => {
+        if (paramMap1.has(name)) return `$${paramMap1.get(name)}`;
+        vals1.push(params1[name] !== undefined ? params1[name] : null);
+        const index = vals1.length;
+        paramMap1.set(name, index);
+        return `$${index}`;
+      });
+      const userResult = await client.query(sql1, vals1);
 
-      const currentRaw = userResult.recordset[0]?.associated_property_ids;
+      const currentRaw = userResult.rows[0]?.associated_property_ids;
       const currentValue = parseJsonValue(currentRaw);
       const currentProperties = Array.isArray(currentValue) ? currentValue : [];
 
       if (!currentProperties.includes(updatedAgreement.propertyid)) {
         currentProperties.push(updatedAgreement.propertyid);
-        const updateUserRequest = new sql.Request(transaction);
-        updateUserRequest.input('renteeId', updatedAgreement.renteeid);
-        updateUserRequest.input('tenantId', tenantId);
-        updateUserRequest.input('associatedPropertyIds', JSON.stringify(currentProperties));
-        updateUserRequest.input('updatedat', new Date().toISOString());
-        await updateUserRequest.query(`
+        const params2 = {
+          renteeId: updatedAgreement.renteeid,
+          tenantId,
+          associatedPropertyIds: JSON.stringify(currentProperties),
+          updatedat: new Date().toISOString()
+        };
+        const paramMap2 = new Map();
+        const vals2 = [];
+        const sql2 = `
           UPDATE app_users
           SET associated_property_ids = @associatedPropertyIds,
               updatedat = @updatedat
           WHERE id = @renteeId
             AND tenant_id = @tenantId
-        `);
+        `.replace(/@([A-Za-z_][A-Za-z0-9_]*)/g, (_match, name) => {
+          if (paramMap2.has(name)) return `$${paramMap2.get(name)}`;
+          vals2.push(params2[name] !== undefined ? params2[name] : null);
+          const index = vals2.length;
+          paramMap2.set(name, index);
+          return `$${index}`;
+        });
+        await client.query(sql2, vals2);
       }
     }
 
-    await transaction.commit();
+    await client.query('COMMIT');
     return getAgreementById(id, tenantId);
   } catch (error) {
-    await transaction.rollback();
+    await client.query('ROLLBACK');
     throw error;
+  } finally {
+    client.release();
   }
 };

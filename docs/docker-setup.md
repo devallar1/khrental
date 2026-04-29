@@ -5,28 +5,19 @@
 This project can run in Docker with:
 
 - one `web` container for the application
-- one separate `mssql` container for local development
+- one `postgres` container for the database
 - a mounted Docker volume for `/app/public/storage`
 
-The app container uses a pinned Alpine-based Node image (`node:22-alpine3.22`) to keep the runtime smaller, reduce the vulnerability surface where practical, and avoid unnecessary risk from adopting a newer major runtime too early.
+The app container uses a pinned Alpine-based Node image (`node:22-alpine3.22`). The database uses `postgres:16-alpine`.
 
-This setup is intended to support local development, testing, and future deployment packaging. It does not replace the multi-tenant implementation work.
-
-## Files Added
+## Files
 
 - [Dockerfile](../Dockerfile)
 - [docker-compose.yml](../docker-compose.yml)
 - [.dockerignore](../.dockerignore)
 - [.env.docker.example](../.env.docker.example)
-
-## Important Notes
-
-- SQL Server runs as a separate container, not inside the app container.
-- The `web` image is Alpine-based. SQL Server is not Alpine-based because the official SQL Server container is not provided as an Alpine image.
-- The application reads MSSQL connection settings from environment variables.
-- Persistent uploaded files are stored in a Docker volume mounted to `/app/public/storage`.
-- The current container runs the Node server directly and generates `public/env-config.js` at startup.
-- Only the containers needed to run this app are included by default. Redis, RabbitMQ, PostgreSQL, and observability tools are not added because the current codebase does not require them at runtime.
+- [docker/docker-entrypoint.sh](../docker/docker-entrypoint.sh)
+- [docker/init-db.mjs](../docker/init-db.mjs)
 
 ## Prerequisites
 
@@ -37,69 +28,67 @@ This setup is intended to support local development, testing, and future deploym
 
 ### 1. Create the Docker env file
 
-Copy `.env.docker.example` to `.env.docker` and adjust values as needed.
+```bash
+cp .env.docker.example .env.docker
+```
+
+Edit `.env.docker` to change the database password or add optional integrations (SendGrid, Evia Sign).
 
 ### 2. Build and start the containers
 
 ```bash
-docker compose --profile core up --build
+docker compose up --build
 ```
+
+On first run, the entrypoint script will:
+- Generate the browser env config (`public/env-config.js`)
+- Wait for PostgreSQL to be ready
+- Run all database migrations automatically
+- Start the Express server
 
 ### 3. Open the application
 
-Use:
-
-- `http://localhost:5174`
+Visit: `http://localhost:5174`
 
 ### 4. Stop the containers
 
 ```bash
-docker compose --profile core down
+docker compose down
 ```
 
-To also remove volumes:
+To also remove volumes (database data and uploaded files):
 
 ```bash
-docker compose --profile core down -v
+docker compose down -v
 ```
 
-## Default Services
+## Services
 
 ### `web`
 
-Responsibilities:
-- starts the KH Rentals server
-- generates browser env config on startup
-- exposes the app on port `5174`
+- Starts the KH Rentals server
+- Generates browser env config on startup
+- Runs database migrations on startup
+- Exposes the app on port `5174`
 
-### `mssql`
+### `postgres`
 
-Responsibilities:
-- runs SQL Server 2022 Developer edition for local use
-- exposes port `1433`
-- persists database files in a Docker volume
-
-## Profiles
-
-### `core`
-
-Starts the minimum required stack for this project:
-
-- `web`
-- `mssql`
+- Runs PostgreSQL 16 (Alpine)
+- Exposes port `5432`
+- Persists database files in a Docker volume
+- Health check ensures the database is ready before the web container starts
 
 ## Environment Variables
 
 Key variables used by the app container:
 
 - `PORT`
-- `MSSQL_SERVER`
-- `MSSQL_PORT`
-- `MSSQL_DATABASE`
-- `MSSQL_USER`
-- `MSSQL_PASSWORD`
-- `MSSQL_ENCRYPT`
-- `MSSQL_TRUST_SERVER_CERTIFICATE`
+- `PG_HOST`
+- `PG_PORT`
+- `PG_DATABASE`
+- `PG_USER`
+- `PG_PASSWORD`
+- `DATABASE_URL` (alternative to individual PG_* variables)
 - `VITE_API_ENDPOINT`
 - `VITE_APP_BASE_URL`
 - `VITE_USE_MSSQL_API`
@@ -108,7 +97,7 @@ Optional integration variables:
 
 - `EVIA_SIGN_CLIENT_ID`
 - `EVIA_SIGN_CLIENT_SECRET`
-- `SENDGRID_API_KEY`
+- `SENDGRID_API_KEY` or `TWILIO_SENDGRID_API_KEY`
 - `DEFAULT_FROM_EMAIL`
 - `DEFAULT_FROM_NAME`
 
@@ -120,46 +109,41 @@ The compose setup uses a named Docker volume for:
 
 This keeps uploaded files outside the container filesystem so they survive container recreation.
 
-## Current Runtime Model
+## Database Migrations
 
-The current Docker setup is intentionally simple:
+Migrations run automatically on container startup via `docker/init-db.mjs`. The script:
 
-- app runs in one Node container
-- SQL Server runs separately
-- storage uses a mounted volume
+1. Waits for PostgreSQL to accept connections
+2. Creates the `pgcrypto` extension for UUID generation
+3. Creates a `_migrations` tracking table
+4. Runs all `2026*.sql` files from `src/db/migrations/` that haven't been applied yet
 
-This is intentionally minimal. Based on the current codebase, no additional infrastructure containers are required to boot the application.
-
-This fits the current codebase and the sprint plan. It also keeps the app ready for future multi-service evolution if needed.
-
-## Recommended Production Direction
-
-For production, prefer:
-
-- app in a container
-- SQL Server as an external managed database
-- mounted or managed persistent storage
-- environment variables injected by the hosting platform
+Migrations are idempotent — restarting the container won't re-run already-applied migrations.
 
 ## Troubleshooting
 
-### SQL Server takes time to start
-If the app starts before SQL Server is fully ready, wait a bit and retry. The app already handles missing MSSQL configuration more safely than before, but initial DB startup can still take some time.
-
 ### Port conflicts
-If `5174` or `1433` is already in use, update the compose port mapping.
+If `5174` or `5432` is already in use, update the compose port mapping or set `WEB_PORT` / `PG_HOST_PORT` in your environment.
 
 ### Login or API issues
 Check container logs:
 
 ```bash
 docker compose logs web
-docker compose logs mssql
+docker compose logs postgres
 ```
 
 ### Rebuild after dependency changes
 If `package.json` changes, rebuild:
 
 ```bash
-docker compose --profile core up --build
+docker compose up --build
+```
+
+### Reset database
+To start fresh:
+
+```bash
+docker compose down -v
+docker compose up --build
 ```

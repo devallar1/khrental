@@ -1,0 +1,20 @@
+# Docker compose for the x99 mirror.
+#
+# Runs Caddy as a thin reverse proxy. network_mode: host so Caddy can
+# resolve `nucbox` via Tailscale MagicDNS (which lives on the host's
+# network namespace), and so it binds directly to x99's LAN IP on :80.
+
+services:
+  proxy:
+    image: caddy:2-alpine
+    container_name: khrental-mirror
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

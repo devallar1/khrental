@@ -3,7 +3,7 @@ import cors from 'cors';
 import path from 'node:path';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
-import { closeMssqlPool, createMssqlRouter, getMssqlConfigStatus } from './src/api/mssql/index.js';
+import { closePool, createDbRouter, getPgConfigStatus } from './src/api/db/index.js';
 import { createPlatformRouter } from './src/api/platform/router.js';
 
 dotenv.config();
@@ -169,7 +169,7 @@ async function createServer() {
     res.json({
       ok: true,
       server: 'kh-rentals-dev-server',
-      database: getMssqlConfigStatus()
+      database: getPgConfigStatus()
     });
   });
 
@@ -232,7 +232,7 @@ async function createServer() {
     }
   });
 
-  app.use('/api/mssql', createMssqlRouter());
+  app.use('/api/mssql', createDbRouter());
   app.use('/api/platform', createPlatformRouter());
   app.use('/storage', express.static(path.resolve(process.cwd(), 'public', 'storage')));
 
@@ -284,14 +284,14 @@ async function createServer() {
   const server = app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
     console.log(`[Server] Mode: ${isProduction ? 'production' : 'development'}`);
-    console.log('[Server] MSSQL status:', getMssqlConfigStatus());
+    console.log('[Server] Database status:', getPgConfigStatus());
   });
 
   const shutdown = async () => {
     console.log('\n[Server] Shutting down...');
     server.close();
-    await closeMssqlPool().catch((error) => {
-      console.error('[Server] Error closing MSSQL pool:', error);
+    await closePool().catch((error) => {
+      console.error('[Server] Error closing database pool:', error);
     });
     process.exit(0);
   };

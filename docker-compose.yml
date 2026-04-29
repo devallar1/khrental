@@ -1,7 +1,5 @@
 services:
   web:
-    profiles:
-      - core
     build:
       context: .
       dockerfile: Dockerfile
@@ -15,40 +13,43 @@ services:
     environment:
       PORT: 5174
       NODE_ENV: production
-      MSSQL_SERVER: mssql
-      MSSQL_PORT: 1433
-      MSSQL_ENCRYPT: "false"
-      MSSQL_TRUST_SERVER_CERTIFICATE: "true"
+      PG_HOST: postgres
+      PG_PORT: 5432
       VITE_API_ENDPOINT: ${WEB_PUBLIC_URL:-http://localhost:5174}
       VITE_APP_BASE_URL: ${WEB_PUBLIC_URL:-http://localhost:5174}
       VITE_USE_MSSQL_API: "true"
       VITE_ENABLE_DEV_BYPASS: ${VITE_ENABLE_DEV_BYPASS:-true}
     depends_on:
-      - mssql
+      postgres:
+        condition: service_healthy
     volumes:
       - khrental_storage:/app/public/storage
     networks:
       - khrental-network
 
-  mssql:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    profiles:
-      - core
-    container_name: khrental-mssql
+  postgres:
+    image: postgres:16-alpine
+    container_name: khrental-postgres
     restart: unless-stopped
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_PID: Developer
-      SA_PASSWORD: ${MSSQL_PASSWORD:-ChangeMe123!}
+      POSTGRES_DB: ${PG_DATABASE:-khrental}
+      POSTGRES_USER: ${PG_USER:-khrental}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-changeme}
     ports:
-      - "${MSSQL_HOST_PORT:-1433}:1433"
+      - "${PG_HOST_PORT:-5432}:5432"
     volumes:
-      - mssql_data:/var/opt/mssql
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U ${PG_USER:-khrental} -d ${PG_DATABASE:-khrental}
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     networks:
       - khrental-network
 
 volumes:
-  mssql_data:
+  pg_data:
   khrental_storage:
 
 networks:
