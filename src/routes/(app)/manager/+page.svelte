@@ -293,13 +293,41 @@
 			maxZoom: 3,
 			minZoom: 0.2,
 			zoomDoubleClickSpeed: 1,
-			smoothScroll: false,
+			// Pan inertia: anvaka panzoom's built-in kinetic glide after release.
+			smoothScroll: { amplitude: 0.45, minVelocity: 8 },
 			// Skip pan when mousedown is on an interactive child, a property card, or a sticky note.
 			beforeMouseDown: (e) =>
-				e.target.closest('button, a, input, form, label, select, textarea, .property-card, .sticky-note') !== null
+				e.target.closest('button, a, input, form, label, select, textarea, .property-card, .sticky-note') !== null,
+			// Zoom inertia: route every wheel tick through smoothZoom (animated)
+			// instead of panzoom's default instant zoom. Pivot from the cursor —
+			// coordinates must be in the viewport's (owner's) coord space, NOT
+			// the panzoomed element's rect (which shifts with the transform and
+			// causes the focal point to drift along the panned axis).
+			beforeWheel: (e) => {
+				e.preventDefault();
+				const r = viewportEl?.getBoundingClientRect();
+				if (!r) return true;
+				const x = e.clientX - r.left;
+				const y = e.clientY - r.top;
+				const delta = e.deltaY * (e.deltaMode > 0 ? 100 : 1);
+				const scaleMultiplier = Math.exp(-delta * 0.0015);
+				pzInstance.smoothZoom(x, y, scaleMultiplier);
+				return true; // cancel the default instant zoom
+			}
 		});
+		// Push camera transform into CSS vars so the ambient haze parallaxes
+		const onTransform = () => {
+			if (!viewportEl) return;
+			const t = pzInstance.getTransform();
+			viewportEl.style.setProperty('--cam-x', `${t.x}px`);
+			viewportEl.style.setProperty('--cam-y', `${t.y}px`);
+			viewportEl.style.setProperty('--cam-scale', String(t.scale));
+		};
+		pzInstance.on('transform', onTransform);
+		onTransform();
 		return {
 			destroy() {
+				pzInstance?.off('transform', onTransform);
 				pzInstance?.dispose();
 				pzInstance = null;
 			}
@@ -315,6 +343,29 @@
 		if (!pzInstance) return;
 		pzInstance.zoomAbs(0, 0, 1);
 		pzInstance.moveTo(0, 0);
+	}
+
+	/**
+	 * Update CSS vars on the viewport for the mouse-following spotlight.
+	 * Bypasses Svelte reactivity since this fires at 60+Hz.
+	 *  --mouse-x / --mouse-y  = cursor in viewport-screen pixels
+	 *  --cam-x / --cam-y      = panzoom transform (camera offset)
+	 *  --cam-scale            = panzoom zoom factor
+	 */
+	function onViewportMouseMove(e) {
+		if (!viewportEl) return;
+		const r = viewportEl.getBoundingClientRect();
+		viewportEl.style.setProperty('--mouse-x', `${e.clientX - r.left}px`);
+		viewportEl.style.setProperty('--mouse-y', `${e.clientY - r.top}px`);
+		// Spotlight grows when the cursor is over a property card, shrinks over canvas
+		const overCard = e.target.closest && e.target.closest('.property-card');
+		viewportEl.style.setProperty('--spot-size', overCard ? '520px' : '160px');
+		const t = pzInstance?.getTransform();
+		if (t) {
+			viewportEl.style.setProperty('--cam-x', `${t.x}px`);
+			viewportEl.style.setProperty('--cam-y', `${t.y}px`);
+			viewportEl.style.setProperty('--cam-scale', String(t.scale));
+		}
 	}
 
 	const propertyTypeIcon = (t) => {
@@ -351,15 +402,21 @@
 
 <svelte:head>
 	<title>Manager — KH Rentals</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
 </svelte:head>
 
-<div class="dark">
-<div class="-m-3 min-h-screen bg-slate-950 p-3 text-slate-100 sm:-m-4 sm:p-4 md:-m-6 md:p-6 lg:-m-8 lg:p-8">
+<div class="dark aqua-theme">
+<div class="-m-3 min-h-screen p-3 sm:-m-4 sm:p-4 md:-m-6 md:p-6 lg:-m-8 lg:p-8" style="background: var(--bg); color: var(--ink); font-family: 'Inter Tight', system-ui, sans-serif;">
 	{#if !selectedProperty}
 		<div class="mb-6 flex items-center justify-between">
 			<div>
-				<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl dark:text-slate-50">Manager</h1>
-				<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{realm.length} {realm.length === 1 ? 'property' : 'properties'} across active tenants</p>
+				<h1 class="page-title text-2xl font-bold sm:text-3xl">Manager</h1>
+				<p class="mt-1 text-sm" style="color: var(--ink-3);">
+					<span class="aqua-dot mr-1" style="vertical-align: middle;"></span>
+					{realm.length} {realm.length === 1 ? 'property' : 'properties'} across active tenants
+				</p>
 			</div>
 		</div>
 	{/if}
@@ -385,7 +442,7 @@
 	{#if !selectedProperty}
 		<!-- Pan/zoom + reset controls -->
 		<div class="mb-2 flex items-center justify-between gap-2">
-			<p class="text-[11px] uppercase tracking-wide text-slate-500">drag empty space to pan · drag a card to reposition · wheel to zoom</p>
+			<p class="text-[11px] uppercase tracking-wide" style="color: var(--ink-4); letter-spacing: 0.12em;">drag empty space to pan · drag a card to reposition · wheel to zoom</p>
 			<div class="flex items-center gap-1.5">
 				<button type="button" onclick={resetLayout} class="zoom-btn !w-auto !px-2.5 text-[11px] font-semibold uppercase tracking-wide" title="Reset card positions">Reset layout</button>
 				<button type="button" onclick={() => zoomAtCenter(2)} class="zoom-btn" title="Zoom in"><Plus class="h-4 w-4" /></button>
@@ -399,6 +456,7 @@
 			bind:this={viewportEl}
 			class="canvas-viewport"
 			oncontextmenu={onCanvasContextMenu}
+			onmousemove={onViewportMouseMove}
 			role="presentation"
 		>
 		<!-- World layer — large enough to roam in -->
@@ -421,40 +479,40 @@
 					onclick={() => (selectedPropertyId = property.id)}
 					onmousedown={(e) => onCardMouseDown(e, property.id)}
 					data-property-id={property.id}
-					class="property-card group flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 text-left shadow-md transition hover:border-slate-700 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500
+					class="property-card group flex flex-col rounded-2xl border text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400
 						{variant === 'empty' ? 'card-empty' : ''}
 						{variant === 'single' ? 'card-single' : ''}
 						{variant === 'multi' ? 'card-multi' : ''}"
 					style={`position: absolute; left: ${pos.x}px; top: ${pos.y}px; ${variant === 'multi' ? `--token-rows:${tokenRows};` : ''}`}
 				>
 					<!-- Header -->
-					<div class="flex items-start justify-between gap-3 {variant === 'empty' ? 'border-b border-slate-800 p-3' : 'p-4'}">
+					<div class="card-header flex items-start justify-between gap-3 {variant === 'empty' ? 'p-3' : 'p-4'}">
 						<div class="flex min-w-0 items-start gap-3">
-							<div class="flex {variant === 'empty' ? 'h-8 w-8' : 'h-10 w-10'} flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-900">
+							<div class="card-iconwell flex {variant === 'empty' ? 'h-8 w-8' : 'h-10 w-10'} flex-shrink-0 items-center justify-center rounded-xl">
 								<Icon class={variant === 'empty' ? 'h-4 w-4' : 'h-5 w-5'} />
 							</div>
 							<div class="min-w-0">
-								<h2 class="truncate {variant === 'empty' ? 'text-sm' : 'text-base'} font-semibold text-slate-100">{property.name}</h2>
-								<div class="mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 {badge.chip}">
-									<span class="h-1.5 w-1.5 rounded-full {badge.dot}"></span>
+								<h2 class="card-title truncate {variant === 'empty' ? 'text-sm' : 'text-base'} font-semibold">{property.name}</h2>
+								<div class="tenant-chip mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium" data-slug={property.tenant_slug}>
+									<span class="aqua-dot"></span>
 									{badge.label}
 								</div>
 							</div>
 						</div>
-						<ArrowRight class="h-4 w-4 flex-shrink-0 text-slate-600 transition group-hover:text-slate-400" />
+						<ArrowRight class="h-4 w-4 flex-shrink-0 transition" style="color: var(--ink-4);" />
 					</div>
 
 					{#if variant !== 'empty'}
 						<!-- Estate utility bills strip -->
-						<div class="flex items-center justify-between gap-1 border-y border-slate-800 bg-slate-950/40 px-4 py-2">
+						<div class="utility-strip flex items-center justify-between gap-1 px-4 py-2">
 							{#each [
-								{ Icon: Zap, label: 'Electricity', tint: 'text-amber-400' },
-								{ Icon: Droplets, label: 'Water', tint: 'text-sky-400' },
-								{ Icon: Wifi, label: 'SLT', tint: 'text-emerald-400' }
+								{ Icon: Zap, label: 'Electricity', tint: 'oklch(0.80 0.16 65)' },
+								{ Icon: Droplets, label: 'Water', tint: 'var(--aqua)' },
+								{ Icon: Wifi, label: 'SLT', tint: 'oklch(0.78 0.13 165)' }
 							] as bill}
 								<span class="utility-chip" title={`${bill.label} · no bill recorded`}>
-									<bill.Icon class="h-3.5 w-3.5 {bill.tint}" />
-									<span class="ml-1 text-[10px] uppercase tracking-wide text-slate-500">—</span>
+									<bill.Icon class="h-3.5 w-3.5" style={`color: ${bill.tint};`} />
+									<span class="ml-1 text-[10px] uppercase tracking-wide" style="color: var(--ink-4);">—</span>
 								</span>
 							{/each}
 						</div>
@@ -489,7 +547,7 @@
 								<span class="text-[11px] uppercase tracking-wide text-slate-500">
 									{sole.rentee_id ? 'occupied' : 'vacant'}
 								</span>
-								<span class="font-mono text-base font-semibold tabular-nums text-slate-100">
+								<span class="mono-num text-base font-semibold tabular-nums" style="color: var(--aqua); text-shadow: 0 0 16px oklch(0.86 0.13 195 / 0.4);">
 									{fmtMoney(stats.totalRent)}
 								</span>
 							</div>
@@ -517,7 +575,7 @@
 								<span class="text-[11px] uppercase tracking-wide text-slate-500">
 									{stats.occupied}/{stats.total} occupied
 								</span>
-								<span class="font-mono text-base font-semibold tabular-nums text-slate-100">
+								<span class="mono-num text-base font-semibold tabular-nums" style="color: var(--aqua); text-shadow: 0 0 16px oklch(0.86 0.13 195 / 0.4);">
 									{fmtMoney(stats.totalRent)}
 								</span>
 							</div>
@@ -768,6 +826,68 @@
 </div>
 
 <style>
+	/* ─── Aquamarine theme tokens (OKLCH, à la solarsems) ───────────────── */
+	:global(.aqua-theme) {
+		--bg:        oklch(0.16 0.025 220);     /* deep cool blue-black */
+		--panel:     oklch(0.215 0.028 220);    /* card surface */
+		--panel-2:   oklch(0.255 0.030 220);    /* nested panel */
+		--line:      oklch(0.32 0.030 220);     /* borders */
+		--line-soft: oklch(0.275 0.028 220);    /* soft dividers */
+		--ink:       oklch(0.97 0.012 200);     /* primary text */
+		--ink-2:     oklch(0.78 0.018 200);     /* secondary */
+		--ink-3:     oklch(0.58 0.020 200);     /* tertiary / muted */
+		--ink-4:     oklch(0.42 0.020 220);     /* labels */
+
+		--aqua:      oklch(0.86 0.13 195);      /* primary accent — bright aquamarine */
+		--aqua-2:    oklch(0.72 0.14 200);      /* mid aquamarine */
+		--aqua-dim:  oklch(0.55 0.11 210);      /* dimmed accent */
+
+		--good:      oklch(0.78 0.13 165);      /* occupied / positive */
+		--warn:      oklch(0.78 0.16 65);
+		--bad:       oklch(0.66 0.18 25);
+
+		--r:    14px;
+		--r-sm: 10px;
+	}
+
+	/* Glow halo helper — drop on any panel or card */
+	:global(.aqua-theme) .glow-haze {
+		position: relative;
+		overflow: hidden;
+	}
+	:global(.aqua-theme) .glow-haze::before {
+		content: '';
+		position: absolute;
+		inset: auto -120px -260px auto;
+		width: 420px;
+		height: 420px;
+		border-radius: 50%;
+		background: radial-gradient(circle, oklch(0.86 0.13 195 / 0.20) 0%, oklch(0.86 0.13 195 / 0) 60%);
+		pointer-events: none;
+	}
+
+	/* Pulsing live dot */
+	@keyframes aqua-pulse {
+		0%, 100% { box-shadow: 0 0 0 3px oklch(0.86 0.13 195 / 0.18); }
+		50%      { box-shadow: 0 0 0 7px oklch(0.86 0.13 195 / 0); }
+	}
+	:global(.aqua-theme) .aqua-dot {
+		display: inline-block;
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: var(--aqua);
+		box-shadow: 0 0 0 3px oklch(0.86 0.13 195 / 0.18);
+		animation: aqua-pulse 2.4s infinite;
+	}
+
+	/* Mono numerals à la solarsems stat figures */
+	:global(.aqua-theme) .mono-num {
+		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-feature-settings: 'zero', 'ss02';
+		letter-spacing: -0.01em;
+	}
+
 	.unit-token {
 		width: 44px;
 		height: 52px;
@@ -780,20 +900,26 @@
 		cursor: default;
 	}
 	.unit-token.occupied {
-		background: linear-gradient(180deg, #10b981 0%, #047857 100%);
-		color: white;
-		box-shadow: 0 1px 2px rgba(4, 120, 87, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+		background: linear-gradient(160deg, oklch(0.86 0.13 195) 0%, oklch(0.55 0.11 210) 100%);
+		color: oklch(0.16 0.025 220);
+		box-shadow:
+			0 0 0 1px oklch(0.86 0.13 195 / 0.4) inset,
+			0 4px 14px -4px oklch(0.86 0.13 195 / 0.55);
 	}
 	.unit-token.vacant {
-		background: linear-gradient(180deg, #f1f5f9 0%, #cbd5e1 100%);
-		color: #64748b;
-		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
-		border: 1px solid #cbd5e1;
+		background: var(--panel-2);
+		color: var(--ink-3);
+		border: 1px solid var(--line);
 	}
 	.unit-token:hover {
 		transform: translateY(-1px) scale(1.05);
-		box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+		filter: brightness(1.1);
 		z-index: 1;
+	}
+	.unit-token.occupied:hover {
+		box-shadow:
+			0 0 0 1px oklch(0.86 0.13 195 / 0.6) inset,
+			0 6px 20px -4px oklch(0.86 0.13 195 / 0.7);
 	}
 
 	.unit-token-xl {
@@ -810,16 +936,52 @@
 		position: relative;
 		height: calc(100vh - 160px);
 		min-height: 500px;
-		border: 1px solid #1e293b;
-		border-radius: 16px;
+		border: 1px solid var(--line);
+		border-radius: var(--r);
 		overflow: hidden;
+		/* Cursor-following spotlight + camera-anchored ambient haze + base color.
+		   --mouse-x / --mouse-y are written from JS at 60Hz.
+		   --cam-x / --cam-y move with the panzoom transform so the secondary
+		   gradient appears anchored to the world (parallaxes with pan/zoom). */
+		--mouse-x: 50%;
+		--mouse-y: 50%;
+		--cam-x: 0px;
+		--cam-y: 0px;
+		--cam-scale: 1;
+		--spot-size: 160px;
 		background:
-			radial-gradient(circle at 25% 25%, rgba(56, 189, 248, 0.04) 0%, transparent 40%),
-			radial-gradient(circle at 75% 75%, rgba(16, 185, 129, 0.04) 0%, transparent 40%),
-			#020617;
+			radial-gradient(
+				circle var(--spot-size) at var(--mouse-x) var(--mouse-y),
+				oklch(0.86 0.13 195 / 0.22) 0%,
+				oklch(0.86 0.13 195 / 0.07) 30%,
+				oklch(0.86 0.13 195 / 0) 70%
+			),
+			radial-gradient(
+				circle 900px at calc(20% + var(--cam-x) * 0.15) calc(30% + var(--cam-y) * 0.15),
+				oklch(0.55 0.11 210 / 0.12) 0%,
+				oklch(0.55 0.11 210 / 0) 60%
+			),
+			radial-gradient(
+				circle 700px at calc(80% + var(--cam-x) * 0.2) calc(75% + var(--cam-y) * 0.2),
+				oklch(0.86 0.13 195 / 0.08) 0%,
+				oklch(0.86 0.13 195 / 0) 60%
+			),
+			oklch(0.12 0.025 220);
 		cursor: grab;
+		transition: --spot-size 180ms ease;
 	}
 	.canvas-viewport:active { cursor: grabbing; }
+	@property --spot-size {
+		syntax: '<length>';
+		inherits: true;
+		initial-value: 160px;
+	}
+
+	:global(.aqua-theme .page-title) {
+		color: var(--ink);
+		text-shadow: 0 0 32px oklch(0.86 0.13 195 / 0.3);
+		letter-spacing: -0.01em;
+	}
 
 	:global(.zoom-btn) {
 		display: inline-flex;
@@ -828,13 +990,18 @@
 		width: 32px;
 		height: 32px;
 		border-radius: 8px;
-		border: 1px solid #334155;
-		background: #0f172a;
-		color: #e2e8f0;
+		border: 1px solid var(--line);
+		background: var(--panel);
+		color: var(--ink-2);
 		cursor: pointer;
-		transition: background 100ms ease, border-color 100ms ease;
+		transition: background 100ms ease, border-color 100ms ease, color 100ms ease, box-shadow 100ms ease;
 	}
-	:global(.zoom-btn:hover) { background: #1e293b; border-color: #475569; }
+	:global(.zoom-btn:hover) {
+		background: var(--panel-2);
+		border-color: oklch(0.86 0.13 195 / 0.4);
+		color: var(--aqua);
+		box-shadow: 0 0 18px -2px oklch(0.86 0.13 195 / 0.3);
+	}
 
 	/* Sticky notes */
 	.sticky-note {
@@ -946,8 +1113,72 @@
 		width: 320px;
 		aspect-ratio: 5 / 7;
 		cursor: grab;
+		background: var(--panel) !important;
+		border-color: var(--line-soft) !important;
+		color: var(--ink);
+		position: relative;
+		overflow: hidden;
+		box-shadow:
+			0 1px 0 oklch(1 0 0 / 0.04) inset,
+			0 6px 20px -8px oklch(0.05 0 0 / 0.6);
+		transition: transform 120ms ease, border-color 120ms ease, box-shadow 200ms ease;
 	}
 	.property-card:active { cursor: grabbing; }
+	.property-card:hover {
+		border-color: oklch(0.86 0.13 195 / 0.45) !important;
+		box-shadow:
+			0 1px 0 oklch(1 0 0 / 0.06) inset,
+			0 8px 28px -6px oklch(0.86 0.13 195 / 0.18),
+			0 0 0 1px oklch(0.86 0.13 195 / 0.12);
+	}
+	/* Soft aquamarine haze in the bottom-right of every card */
+	.property-card::before {
+		content: '';
+		position: absolute;
+		inset: auto -90px -180px auto;
+		width: 360px;
+		height: 360px;
+		border-radius: 50%;
+		background: radial-gradient(circle, oklch(0.86 0.13 195 / 0.18) 0%, oklch(0.86 0.13 195 / 0) 60%);
+		pointer-events: none;
+		z-index: 0;
+		transition: opacity 200ms ease;
+	}
+
+	.card-header { border-bottom: 1px solid var(--line-soft); background: oklch(0.18 0.025 220 / 0.6); }
+	.card-iconwell {
+		background: linear-gradient(160deg, oklch(0.86 0.13 195 / 0.25), oklch(0.55 0.11 210 / 0.25));
+		color: var(--aqua);
+		box-shadow:
+			0 0 0 1px oklch(0.86 0.13 195 / 0.35) inset,
+			0 0 18px -2px oklch(0.86 0.13 195 / 0.35);
+	}
+	.card-title {
+		color: var(--ink);
+		text-shadow: 0 0 24px oklch(0.86 0.13 195 / 0.18);
+	}
+	.tenant-chip {
+		background: oklch(0.86 0.13 195 / 0.08);
+		color: var(--aqua);
+		border: 1px solid oklch(0.86 0.13 195 / 0.25);
+	}
+	.tenant-chip[data-slug='kubeira-family']    { color: oklch(0.78 0.16 25); background: oklch(0.78 0.16 25 / 0.08); border-color: oklch(0.78 0.16 25 / 0.3); }
+	.tenant-chip[data-slug='kubeira-holdings']  { color: oklch(0.78 0.13 165); background: oklch(0.78 0.13 165 / 0.08); border-color: oklch(0.78 0.13 165 / 0.3); }
+	.tenant-chip[data-slug='kubeira-it-park']   { color: var(--aqua); background: oklch(0.86 0.13 195 / 0.08); border-color: oklch(0.86 0.13 195 / 0.3); }
+	.tenant-chip[data-slug='vishwara-holdings'] { color: oklch(0.80 0.16 75); background: oklch(0.80 0.16 75 / 0.08); border-color: oklch(0.80 0.16 75 / 0.3); }
+	.tenant-chip[data-slug='kubeira-family'] .aqua-dot { background: oklch(0.78 0.16 25); box-shadow: 0 0 0 3px oklch(0.78 0.16 25 / 0.18); animation-name: pulse-rose; }
+	.tenant-chip[data-slug='kubeira-holdings'] .aqua-dot { background: oklch(0.78 0.13 165); box-shadow: 0 0 0 3px oklch(0.78 0.13 165 / 0.18); animation-name: pulse-good; }
+	.tenant-chip[data-slug='vishwara-holdings'] .aqua-dot { background: oklch(0.80 0.16 75); box-shadow: 0 0 0 3px oklch(0.80 0.16 75 / 0.18); animation-name: pulse-warm; }
+	@keyframes pulse-rose { 0%,100%{box-shadow:0 0 0 3px oklch(0.78 0.16 25 / 0.18);} 50%{box-shadow:0 0 0 7px oklch(0.78 0.16 25 / 0);} }
+	@keyframes pulse-good { 0%,100%{box-shadow:0 0 0 3px oklch(0.78 0.13 165 / 0.18);} 50%{box-shadow:0 0 0 7px oklch(0.78 0.13 165 / 0);} }
+	@keyframes pulse-warm { 0%,100%{box-shadow:0 0 0 3px oklch(0.80 0.16 75 / 0.18);} 50%{box-shadow:0 0 0 7px oklch(0.80 0.16 75 / 0);} }
+	.property-card > * { position: relative; z-index: 1; }
+	/* Single-unit "showcase" cards get a stronger halo */
+	.property-card.card-single::before {
+		background: radial-gradient(circle, oklch(0.86 0.13 195 / 0.28) 0%, oklch(0.86 0.13 195 / 0) 60%);
+		width: 460px;
+		height: 460px;
+	}
 
 	.card-empty { width: 280px; aspect-ratio: 5 / 7; }
 	.card-single { width: 360px; aspect-ratio: 5 / 7; }
@@ -957,6 +1188,11 @@
 		min-height: calc(220px + var(--token-rows, 1) * 52px);
 	}
 
+	.utility-strip {
+		border-top: 1px solid var(--line-soft);
+		border-bottom: 1px solid var(--line-soft);
+		background: oklch(0.13 0.025 220 / 0.55);
+	}
 	.utility-chip {
 		display: inline-flex;
 		align-items: center;
@@ -964,11 +1200,14 @@
 		flex: 1;
 		padding: 4px 6px;
 		border-radius: 6px;
-		background: rgba(15, 23, 42, 0.6);
-		border: 1px solid rgba(51, 65, 85, 0.6);
-		transition: background 100ms ease;
+		background: oklch(0.20 0.025 220 / 0.7);
+		border: 1px solid var(--line-soft);
+		transition: background 100ms ease, border-color 100ms ease;
 	}
-	.property-card:hover .utility-chip { background: rgba(15, 23, 42, 0.8); }
+	.property-card:hover .utility-chip {
+		background: oklch(0.24 0.030 220 / 0.85);
+		border-color: oklch(0.86 0.13 195 / 0.18);
+	}
 
 	:global(.dark) .unit-token.occupied {
 		background: linear-gradient(180deg, #059669 0%, #064e3b 100%);
