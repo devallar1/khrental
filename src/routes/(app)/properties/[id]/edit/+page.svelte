@@ -1,6 +1,6 @@
 <script>
 	import { enhance } from '$app/forms';
-	import { ArrowLeft } from 'lucide-svelte';
+	import { ArrowLeft, Map } from 'lucide-svelte';
 
 	let { data, form } = $props();
 
@@ -23,14 +23,23 @@
 
 <div class="mx-auto max-w-2xl">
 	<!-- Header -->
-	<div class="mb-6 flex items-center gap-3">
+	<div class="mb-6 flex items-center justify-between gap-3">
+		<div class="flex items-center gap-3">
+			<a
+				href="/properties/{property.id}"
+				class="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+			>
+				<ArrowLeft class="h-4 w-4" />
+			</a>
+			<h1 class="text-2xl font-bold text-slate-900">Edit Property</h1>
+		</div>
 		<a
-			href="/properties/{property.id}"
-			class="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+			href="/properties/{property.id}/footprint"
+			class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
 		>
-			<ArrowLeft class="h-4 w-4" />
+			<Map class="h-4 w-4" />
+			Edit footprints
 		</a>
-		<h1 class="text-2xl font-bold text-slate-900">Edit Property</h1>
 	</div>
 
 	{#if form?.error}

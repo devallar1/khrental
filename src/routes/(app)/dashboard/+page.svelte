@@ -53,8 +53,10 @@
 				<span class="text-sm text-slate-600">Tenant: {data.tenant?.name || 'None'} ({data.tenant?.slug || '-'})</span>
 			</div>
 			<div class="flex items-center gap-2">
-				<span class="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
-				<span class="text-sm text-slate-600">Auth: Dev bypass (real auth deferred)</span>
+				<span class="h-2.5 w-2.5 rounded-full {data.user?.is_dev_bypass ? 'bg-amber-500' : 'bg-emerald-500'}"></span>
+				<span class="text-sm text-slate-600">
+					Auth: {data.user?.is_dev_bypass ? 'Dev bypass' : `Better-Auth · ${data.user?.role || 'unknown'}`}
+				</span>
 			</div>
 		</div>
 	</div>

@@ -7,15 +7,13 @@ export const load = ({ locals, url }) => {
 		throw redirect(303, `/login?next=${encodeURIComponent(target)}`);
 	}
 
-	// Rentees never see the staff app shell — bounce them to their portal.
-	if (locals.user.role === 'rentee') {
-		throw redirect(303, '/portal');
+	// Staff never land in /portal — send them to the staff dashboard.
+	if (locals.user.role !== 'rentee') {
+		throw redirect(303, '/dashboard');
 	}
 
 	return {
 		user: locals.user,
-		tenantId: locals.tenantId,
-		tenant: locals.tenant,
-		tenants: locals.tenants
+		tenant: locals.tenant
 	};
 };

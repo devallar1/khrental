@@ -9,6 +9,9 @@
 		Group, Palette
 	} from 'lucide-svelte';
 	import panzoom from 'panzoom';
+	import PropertyMap from '$lib/components/PropertyMap.svelte';
+
+	const hasCoords = (p) => p && p.latitude != null && p.longitude != null;
 
 	let { data, form } = $props();
 	const realm = $derived(data.realm || []);
@@ -763,11 +766,17 @@
 							<div class="tenant-chip" data-slug={property.tenant_slug}>{badge.label}</div>
 							<h2 class="card-title text-sm">{property.name}</h2>
 						</div>
-						<div class="flex flex-1 items-center justify-center px-3 py-3">
-							<div class="hero-frame hero-frame-sm">
-								<Icon class="h-5 w-5" />
+						{#if hasCoords(property)}
+							<div class="map-banner">
+								<PropertyMap lat={Number(property.latitude)} lng={Number(property.longitude)} height={84} boundary={property.boundary_geojson} />
 							</div>
-						</div>
+						{:else}
+							<div class="flex flex-1 items-center justify-center px-3 py-3">
+								<div class="hero-frame hero-frame-sm">
+									<Icon class="h-5 w-5" />
+								</div>
+							</div>
+						{/if}
 						<div class="card-footer">
 							<div class="rent-badge rent-badge-sm">
 								<span class="rent-stamp">VACANT</span>
@@ -791,12 +800,18 @@
 							<div class="banner-sub">Single unit</div>
 						</div>
 
-						<!-- Hero icon -->
-						<div class="hero-zone">
-							<div class="hero-frame">
-								<Icon class="h-7 w-7" />
+						<!-- Hero — flush top-down map; tilts to 3D and rotates on hover (or icon fallback) -->
+						{#if hasCoords(property)}
+							<div class="map-banner">
+								<PropertyMap lat={Number(property.latitude)} lng={Number(property.longitude)} height={150} boundary={property.boundary_geojson} />
 							</div>
-						</div>
+						{:else}
+							<div class="hero-zone">
+								<div class="hero-frame">
+									<Icon class="h-7 w-7" />
+								</div>
+							</div>
+						{/if}
 
 						<!-- Resident — Monopoly "owner" panel -->
 						<div class="resident-panel">
@@ -857,13 +872,20 @@
 							<div class="banner-sub">{stats.total} {stats.total === 1 ? 'unit' : 'units'}</div>
 						</div>
 
-						<!-- Hero icon with chamber count badge -->
-						<div class="hero-zone">
-							<div class="hero-frame">
-								<Icon class="h-7 w-7" />
-								<span class="hero-badge mono-num">{stats.occupied}/{stats.total}</span>
+						<!-- Hero — flush top-down map; tilts to 3D and rotates on hover; with occupancy badge -->
+						{#if hasCoords(property)}
+							<div class="map-banner">
+								<PropertyMap lat={Number(property.latitude)} lng={Number(property.longitude)} height={150} boundary={property.boundary_geojson} />
+								<span class="hero-badge map-badge mono-num">{stats.occupied}/{stats.total}</span>
 							</div>
-						</div>
+						{:else}
+							<div class="hero-zone">
+								<div class="hero-frame">
+									<Icon class="h-7 w-7" />
+									<span class="hero-badge mono-num">{stats.occupied}/{stats.total}</span>
+								</div>
+							</div>
+						{/if}
 
 						<!-- 2-column house tokens -->
 						<div class="house-grid">
@@ -1804,6 +1826,21 @@
 			0 0 0 1px oklch(0.86 0.13 195 / 0.4) inset,
 			0 0 0 3px oklch(0.86 0.13 195 / 0.12),
 			0 0 16px -4px oklch(0.86 0.13 195 / 0.4);
+	}
+	/* Edge-to-edge map banner — no padding, no margin, no rounded corners.
+	   The card's own border-radius + overflow:hidden clips the top corners. */
+	.map-banner {
+		position: relative;
+		width: 100%;
+		margin: 0;
+		padding: 0;
+		line-height: 0;
+	}
+	/* Occupancy badge sits inside the map banner's bottom-right corner
+	   (instead of overflowing the way it does for the circle hero-frame). */
+	.map-badge {
+		bottom: 6px;
+		right: 6px;
 	}
 	.hero-badge {
 		position: absolute;

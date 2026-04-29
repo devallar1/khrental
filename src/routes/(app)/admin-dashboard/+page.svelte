@@ -4,6 +4,8 @@
 	let { data } = $props();
 
 	const tenant = $derived(data.tenant);
+	const user = $derived(data.user);
+	const isDevBypass = $derived(Boolean(user?.is_dev_bypass));
 </script>
 
 <svelte:head>
@@ -36,7 +38,11 @@
 				</div>
 				<div class="flex items-center justify-between py-2 border-b border-slate-100">
 					<span class="text-sm text-slate-500">Auth Mode</span>
-					<span class="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Dev Bypass</span>
+					{#if isDevBypass}
+						<span class="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Dev Bypass</span>
+					{:else}
+						<span class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Better-Auth</span>
+					{/if}
 				</div>
 			</div>
 		</div>

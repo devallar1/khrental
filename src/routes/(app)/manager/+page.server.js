@@ -11,7 +11,8 @@ export const load = async () => {
 	const properties = await runQuery(
 		`SELECT p.id, p.name, p.address, p.propertytype, p.description,
 		        p.tenant_id, t.name AS tenant_name, t.slug AS tenant_slug,
-		        p.bank_name, p.electricity_rate, p.water_rate
+		        p.bank_name, p.electricity_rate, p.water_rate,
+		        p.latitude, p.longitude, p.boundary_geojson
 		 FROM properties p
 		 JOIN tenants t ON t.id = p.tenant_id
 		 WHERE t.status = 'active'

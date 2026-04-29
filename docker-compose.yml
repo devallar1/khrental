@@ -3,6 +3,21 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Build-time env. SvelteKit's post-build analyse step imports
+        # src/lib/server/auth.ts, which initialises Better-Auth and the
+        # Postgres pool at module-load — so PG + auth vars must be present.
+        # PUBLIC_MAPTILER_KEY is inlined by $env/static/public.
+        # Values are read from .env.docker via
+        # `docker compose --env-file .env.docker build`.
+        BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
+        BETTER_AUTH_URL: ${BETTER_AUTH_URL:-}
+        PUBLIC_MAPTILER_KEY: ${PUBLIC_MAPTILER_KEY:-}
+        PG_HOST: ${PG_HOST:-postgres}
+        PG_PORT: ${PG_PORT:-5432}
+        PG_DATABASE: ${PG_DATABASE:-}
+        PG_USER: ${PG_USER:-}
+        PG_PASSWORD: ${PG_PASSWORD:-}
     container_name: khrental-web
     restart: unless-stopped
     init: true

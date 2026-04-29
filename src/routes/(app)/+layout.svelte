@@ -1,6 +1,6 @@
 <script>
 	import { page } from '$app/stores';
-	import { Menu, X, Home, Building2, Users, FileText, Receipt, Wrench, Camera, UsersRound, Settings, ShieldCheck, LayoutDashboard, ChevronDown, ChevronUp, Crown } from 'lucide-svelte';
+	import { Menu, X, Home, Building2, Users, FileText, Receipt, Wrench, Camera, UsersRound, Settings, ShieldCheck, LayoutDashboard, ChevronDown, ChevronUp, Crown, LogOut } from 'lucide-svelte';
 
 	let { children, data } = $props();
 	let sidebarOpen = $state(false);
@@ -170,6 +170,18 @@
 						</a>
 					{/each}
 				</nav>
+			</div>
+
+			<div class="border-t border-white/10 p-3">
+				<form method="POST" action="/logout">
+					<button
+						type="submit"
+						class="flex items-center w-full rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/10 hover:text-white transition"
+					>
+						<LogOut class="h-4 w-4 mr-2.5" />
+						Sign out
+					</button>
+				</form>
 			</div>
 		</div>
 	{/snippet}

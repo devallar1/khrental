@@ -1,5 +1,5 @@
 <script>
-	import { ArrowLeft, Pencil, Building2, MapPin, Calendar, Maximize2, Zap, Droplets, Layers, Hash } from 'lucide-svelte';
+	import { ArrowLeft, Pencil, Building2, MapPin, Calendar, Maximize2, Zap, Droplets, Layers, Hash, Map } from 'lucide-svelte';
 
 	let { data } = $props();
 
@@ -55,13 +55,22 @@
 				{/if}
 			</div>
 		</div>
-		<a
-			href="/properties/{property.id}/edit"
-			class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
-		>
-			<Pencil class="h-4 w-4" />
-			Edit Property
-		</a>
+		<div class="flex items-center gap-2">
+			<a
+				href="/properties/{property.id}/footprint"
+				class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+			>
+				<Map class="h-4 w-4" />
+				Edit footprints
+			</a>
+			<a
+				href="/properties/{property.id}/edit"
+				class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+			>
+				<Pencil class="h-4 w-4" />
+				Edit Property
+			</a>
+		</div>
 	</div>
 
 	<!-- Property Details -->
