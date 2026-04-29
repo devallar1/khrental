@@ -3,8 +3,10 @@
 	import {
 		Phone, Mail, ScrollText, Zap, Droplets, Wifi,
 		User, UserPlus, Home as HomeIcon,
-		ChevronLeft, Building2, TreePine, Layers, ArrowRight
+		ChevronLeft, Building2, TreePine, Layers, ArrowRight,
+		Plus, Minus, Maximize2, StickyNote, X
 	} from 'lucide-svelte';
+	import panzoom from 'panzoom';
 
 	let { data, form } = $props();
 	const realm = $derived(data.realm || []);
@@ -12,6 +14,308 @@
 	let selectedPropertyId = $state(null);
 	const selectedProperty = $derived(realm.find((p) => p.id === selectedPropertyId) || null);
 	let activeFormUnit = $state(null);
+
+	let pzInstance = null;
+	let viewportEl = $state();
+
+	// Per-card free positions { [propertyId]: {x, y} }
+	const POS_KEY = 'manager_card_positions';
+	let cardPositions = $state({});
+	let positionsInitialized = false;
+
+	const COLS = 4;
+	const COL_W = 360;
+	const ROW_H = 520;
+	const defaultPos = (i) => ({
+		x: (i % COLS) * COL_W + 20,
+		y: Math.floor(i / COLS) * ROW_H + 20
+	});
+
+	$effect(() => {
+		if (positionsInitialized) return;
+		if (realm.length === 0) return;
+		let stored = {};
+		try { stored = JSON.parse(localStorage.getItem(POS_KEY) || '{}'); } catch {}
+		const init = {};
+		realm.forEach((p, i) => { init[p.id] = stored[p.id] || defaultPos(i); });
+		cardPositions = init;
+		positionsInitialized = true;
+	});
+
+	// ---- Sticky notes ------------------------------------------------------
+	const NOTES_KEY = 'manager_sticky_notes';
+	let stickyNotes = $state([]);
+	let notesInitialized = false;
+
+	$effect(() => {
+		if (notesInitialized) return;
+		try { stickyNotes = JSON.parse(localStorage.getItem(NOTES_KEY) || '[]'); } catch { stickyNotes = []; }
+		notesInitialized = true;
+	});
+
+	function persistNotes() {
+		try { localStorage.setItem(NOTES_KEY, JSON.stringify(stickyNotes)); } catch {}
+	}
+
+	const noteRotation = (id) => {
+		// stable pseudo-random rotation per note id
+		let h = 0;
+		for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) | 0;
+		return ((h % 7) - 3); // -3..+3 deg
+	};
+
+	function addNote() {
+		// Spawn at the viewport center, in canvas coords
+		const center = screenToCanvas(
+			(viewportEl?.getBoundingClientRect().left ?? 0) + (viewportEl?.clientWidth ?? 0) / 2,
+			(viewportEl?.getBoundingClientRect().top ?? 0) + (viewportEl?.clientHeight ?? 0) / 2
+		);
+		const id = `note-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+		stickyNotes = [
+			...stickyNotes,
+			{
+				id,
+				content: '',
+				attachedTo: 'canvas',
+				x: Math.round(center.x - 90),
+				y: Math.round(center.y - 80)
+			}
+		];
+		persistNotes();
+	}
+
+	function deleteNote(noteId) {
+		stickyNotes = stickyNotes.filter((n) => n.id !== noteId);
+		persistNotes();
+	}
+
+	function updateNoteContent(noteId, content) {
+		stickyNotes = stickyNotes.map((n) => (n.id === noteId ? { ...n, content } : n));
+		persistNotes();
+	}
+
+	/** Svelte action: persist note size after CSS resize (debounced). */
+	function resizableNote(node, noteId) {
+		let id = noteId;
+		let timer;
+		const ro = new ResizeObserver(() => {
+			clearTimeout(timer);
+			timer = setTimeout(() => {
+				const w = Math.round(node.offsetWidth);
+				const h = Math.round(node.offsetHeight);
+				const note = stickyNotes.find((n) => n.id === id);
+				if (!note) return;
+				if (note.width === w && note.height === h) return;
+				stickyNotes = stickyNotes.map((n) => (n.id === id ? { ...n, width: w, height: h } : n));
+				persistNotes();
+			}, 200);
+		});
+		ro.observe(node);
+		return {
+			update(newId) { id = newId; },
+			destroy() { ro.disconnect(); clearTimeout(timer); }
+		};
+	}
+
+	function screenToCanvas(clientX, clientY) {
+		const t = pzInstance?.getTransform() ?? { x: 0, y: 0, scale: 1 };
+		const r = viewportEl?.getBoundingClientRect() ?? { left: 0, top: 0 };
+		return {
+			x: (clientX - r.left - t.x) / t.scale,
+			y: (clientY - r.top - t.y) / t.scale
+		};
+	}
+
+	// Effective absolute (canvas) position of a note, even when attached to a card
+	function noteAbsolutePos(note) {
+		if (note.attachedTo === 'canvas') return { x: note.x, y: note.y };
+		const cp = cardPositions[note.attachedTo];
+		if (!cp) return { x: note.x, y: note.y };
+		return { x: cp.x + note.x, y: cp.y + note.y };
+	}
+
+	// ---- Unified drag (cards + notes) -------------------------------------
+	let dragState = null;
+
+	function onCardMouseDown(e, propertyId) {
+		if (e.button !== 0) return;
+		if (e.target.closest('a, input, form, label, select, textarea, .sticky-note')) return;
+		e.stopPropagation();
+		const scale = pzInstance?.getTransform()?.scale ?? 1;
+		const cur = cardPositions[propertyId] || { x: 0, y: 0 };
+		dragState = {
+			type: 'card',
+			id: propertyId,
+			startMouseX: e.clientX,
+			startMouseY: e.clientY,
+			startX: cur.x,
+			startY: cur.y,
+			scale,
+			moved: false
+		};
+		window.addEventListener('mousemove', onWindowMove);
+		window.addEventListener('mouseup', onWindowUp);
+	}
+
+	function onNoteMouseDown(e, noteId) {
+		if (e.button !== 0) return;
+		if (e.target.closest('textarea, button')) return;
+		// Skip drag when the mousedown lands on the browser's CSS resize grip
+		// (bottom-right ~18px square). Lets the native resize gesture take over.
+		const rect = e.currentTarget.getBoundingClientRect();
+		if (e.clientX > rect.right - 18 && e.clientY > rect.bottom - 18) return;
+		e.stopPropagation();
+		const note = stickyNotes.find((n) => n.id === noteId);
+		if (!note) return;
+		const abs = noteAbsolutePos(note);
+		const scale = pzInstance?.getTransform()?.scale ?? 1;
+		dragState = {
+			type: 'note',
+			id: noteId,
+			startMouseX: e.clientX,
+			startMouseY: e.clientY,
+			startX: abs.x,
+			startY: abs.y,
+			scale,
+			moved: false
+		};
+		window.addEventListener('mousemove', onWindowMove);
+		window.addEventListener('mouseup', onWindowUp);
+	}
+
+	function onWindowMove(e) {
+		if (!dragState) return;
+		const dx = e.clientX - dragState.startMouseX;
+		const dy = e.clientY - dragState.startMouseY;
+		if (!dragState.moved && Math.hypot(dx, dy) < 4) return;
+		dragState.moved = true;
+		const newX = dragState.startX + dx / dragState.scale;
+		const newY = dragState.startY + dy / dragState.scale;
+		if (dragState.type === 'card') {
+			cardPositions = { ...cardPositions, [dragState.id]: { x: newX, y: newY } };
+		} else {
+			// While dragging, treat the note as canvas-positioned
+			stickyNotes = stickyNotes.map((n) =>
+				n.id === dragState.id ? { ...n, attachedTo: 'canvas', x: newX, y: newY } : n
+			);
+		}
+	}
+
+	function onWindowUp(e) {
+		if (!dragState) return;
+		const wasNote = dragState.type === 'note';
+		const noteId = dragState.id;
+		const moved = dragState.moved;
+
+		if (moved && wasNote) {
+			// Detect drop on a property card
+			const cardEl = document
+				.elementFromPoint(e.clientX, e.clientY)
+				?.closest('.property-card');
+			const droppedPropertyId = cardEl?.dataset.propertyId || null;
+			if (droppedPropertyId && cardPositions[droppedPropertyId]) {
+				const note = stickyNotes.find((n) => n.id === noteId);
+				if (note) {
+					const cp = cardPositions[droppedPropertyId];
+					stickyNotes = stickyNotes.map((n) =>
+						n.id === noteId
+							? { ...n, attachedTo: droppedPropertyId, x: note.x - cp.x, y: note.y - cp.y }
+							: n
+					);
+				}
+			}
+			persistNotes();
+		}
+		if (moved && !wasNote) {
+			try { localStorage.setItem(POS_KEY, JSON.stringify(cardPositions)); } catch {}
+		}
+		if (moved) {
+			const suppressClick = (ev) => {
+				ev.stopPropagation();
+				ev.preventDefault();
+				document.removeEventListener('click', suppressClick, true);
+			};
+			document.addEventListener('click', suppressClick, true);
+		}
+		window.removeEventListener('mousemove', onWindowMove);
+		window.removeEventListener('mouseup', onWindowUp);
+		dragState = null;
+	}
+
+	function resetLayout() {
+		const init = {};
+		realm.forEach((p, i) => { init[p.id] = defaultPos(i); });
+		cardPositions = init;
+		try { localStorage.removeItem(POS_KEY); } catch {}
+	}
+
+	// ---- Context menu (right-click on canvas) -----------------------------
+	let contextMenu = $state({ open: false, x: 0, y: 0, canvasX: 0, canvasY: 0 });
+
+	function onCanvasContextMenu(e) {
+		// Show the menu over canvas + cards. Skip only when the user is right-clicking
+		// inside an active editor (textarea/input) or on a sticky note (which has its own × button).
+		if (e.target.closest('textarea, input, .sticky-note')) return;
+		e.preventDefault();
+		const canvas = screenToCanvas(e.clientX, e.clientY);
+		contextMenu = {
+			open: true,
+			x: e.clientX,
+			y: e.clientY,
+			canvasX: canvas.x,
+			canvasY: canvas.y
+		};
+	}
+
+	function closeContextMenu() {
+		if (contextMenu.open) contextMenu = { ...contextMenu, open: false };
+	}
+
+	function spawnNoteFromMenu() {
+		const id = `note-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+		stickyNotes = [
+			...stickyNotes,
+			{
+				id,
+				content: '',
+				attachedTo: 'canvas',
+				x: Math.round(contextMenu.canvasX - 90),
+				y: Math.round(contextMenu.canvasY - 80)
+			}
+		];
+		persistNotes();
+		closeContextMenu();
+	}
+
+	/** Svelte action: attach anvaka/panzoom to the wrapped element. */
+	function panzoomAction(node) {
+		pzInstance = panzoom(node, {
+			maxZoom: 3,
+			minZoom: 0.2,
+			zoomDoubleClickSpeed: 1,
+			smoothScroll: false,
+			// Skip pan when mousedown is on an interactive child, a property card, or a sticky note.
+			beforeMouseDown: (e) =>
+				e.target.closest('button, a, input, form, label, select, textarea, .property-card, .sticky-note') !== null
+		});
+		return {
+			destroy() {
+				pzInstance?.dispose();
+				pzInstance = null;
+			}
+		};
+	}
+
+	function zoomAtCenter(factor) {
+		if (!pzInstance || !viewportEl) return;
+		const r = viewportEl.getBoundingClientRect();
+		pzInstance.smoothZoom(r.width / 2, r.height / 2, factor);
+	}
+	function zoomReset() {
+		if (!pzInstance) return;
+		pzInstance.zoomAbs(0, 0, 1);
+		pzInstance.moveTo(0, 0);
+	}
 
 	const propertyTypeIcon = (t) => {
 		switch (t) {
@@ -79,9 +383,27 @@
 	{/if}
 
 	{#if !selectedProperty}
-		<!-- Property deck — Pokemon-card-ish portrait proportions -->
-		<div class="grid grid-flow-row-dense grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-			{#each realm as property (property.id)}
+		<!-- Pan/zoom + reset controls -->
+		<div class="mb-2 flex items-center justify-between gap-2">
+			<p class="text-[11px] uppercase tracking-wide text-slate-500">drag empty space to pan · drag a card to reposition · wheel to zoom</p>
+			<div class="flex items-center gap-1.5">
+				<button type="button" onclick={resetLayout} class="zoom-btn !w-auto !px-2.5 text-[11px] font-semibold uppercase tracking-wide" title="Reset card positions">Reset layout</button>
+				<button type="button" onclick={() => zoomAtCenter(2)} class="zoom-btn" title="Zoom in"><Plus class="h-4 w-4" /></button>
+				<button type="button" onclick={() => zoomAtCenter(0.5)} class="zoom-btn" title="Zoom out"><Minus class="h-4 w-4" /></button>
+				<button type="button" onclick={zoomReset} class="zoom-btn" title="Reset zoom"><Maximize2 class="h-4 w-4" /></button>
+			</div>
+		</div>
+
+		<!-- Pannable viewport: drag empty space to pan, wheel to zoom, right-click for menu -->
+		<div
+			bind:this={viewportEl}
+			class="canvas-viewport"
+			oncontextmenu={onCanvasContextMenu}
+			role="presentation"
+		>
+		<!-- World layer — large enough to roam in -->
+		<div use:panzoomAction class="card-canvas">
+			{#each realm as property, idx (property.id)}
 				{@const stats = propertyStats(property)}
 				{@const Icon = propertyTypeIcon(property.propertytype)}
 				{@const badge = tenantBadge(property.tenant_slug)}
@@ -92,18 +414,21 @@
 						: 'multi'}
 				{@const sole = variant === 'single' ? property.units[0] : null}
 				{@const tokenRows = Math.ceil(property.units.length / 2)}
+				{@const pos = cardPositions[property.id] || defaultPos(idx)}
 
 				<button
 					type="button"
 					onclick={() => (selectedPropertyId = property.id)}
-					class="property-card group relative flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 text-left shadow-md transition hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500
+					onmousedown={(e) => onCardMouseDown(e, property.id)}
+					data-property-id={property.id}
+					class="property-card group flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 text-left shadow-md transition hover:border-slate-700 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500
 						{variant === 'empty' ? 'card-empty' : ''}
 						{variant === 'single' ? 'card-single' : ''}
 						{variant === 'multi' ? 'card-multi' : ''}"
-					style={variant === 'multi' ? `--token-rows:${tokenRows}` : ''}
+					style={`position: absolute; left: ${pos.x}px; top: ${pos.y}px; ${variant === 'multi' ? `--token-rows:${tokenRows};` : ''}`}
 				>
 					<!-- Header -->
-					<div class="flex items-start justify-between gap-3 border-b border-slate-800 {variant === 'empty' ? 'p-3' : 'p-4'}">
+					<div class="flex items-start justify-between gap-3 {variant === 'empty' ? 'border-b border-slate-800 p-3' : 'p-4'}">
 						<div class="flex min-w-0 items-start gap-3">
 							<div class="flex {variant === 'empty' ? 'h-8 w-8' : 'h-10 w-10'} flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-900">
 								<Icon class={variant === 'empty' ? 'h-4 w-4' : 'h-5 w-5'} />
@@ -118,6 +443,22 @@
 						</div>
 						<ArrowRight class="h-4 w-4 flex-shrink-0 text-slate-600 transition group-hover:text-slate-400" />
 					</div>
+
+					{#if variant !== 'empty'}
+						<!-- Estate utility bills strip -->
+						<div class="flex items-center justify-between gap-1 border-y border-slate-800 bg-slate-950/40 px-4 py-2">
+							{#each [
+								{ Icon: Zap, label: 'Electricity', tint: 'text-amber-400' },
+								{ Icon: Droplets, label: 'Water', tint: 'text-sky-400' },
+								{ Icon: Wifi, label: 'SLT', tint: 'text-emerald-400' }
+							] as bill}
+								<span class="utility-chip" title={`${bill.label} · no bill recorded`}>
+									<bill.Icon class="h-3.5 w-3.5 {bill.tint}" />
+									<span class="ml-1 text-[10px] uppercase tracking-wide text-slate-500">—</span>
+								</span>
+							{/each}
+						</div>
+					{/if}
 
 					{#if variant === 'empty'}
 						<!-- Compact: just a label -->
@@ -184,7 +525,59 @@
 					{/if}
 				</button>
 			{/each}
+
+			<!-- Sticky notes (positioned in canvas coords; if attached, follow the card) -->
+			{#each stickyNotes as note (note.id)}
+				{@const abs = noteAbsolutePos(note)}
+				<div
+					class="sticky-note"
+					style={`left: ${abs.x}px; top: ${abs.y}px;${note.width ? ` width: ${note.width}px;` : ''}${note.height ? ` height: ${note.height}px;` : ''} transform: rotate(${noteRotation(note.id)}deg);`}
+					onmousedown={(e) => onNoteMouseDown(e, note.id)}
+					use:resizableNote={note.id}
+					role="presentation"
+				>
+					<button
+						type="button"
+						class="sticky-close"
+						title="Delete note"
+						onclick={(e) => { e.stopPropagation(); deleteNote(note.id); }}
+					>
+						<X class="h-3 w-3" />
+					</button>
+					<textarea
+						class="sticky-textarea"
+						placeholder="Note…"
+						value={note.content}
+						oninput={(e) => updateNoteContent(note.id, e.currentTarget.value)}
+					></textarea>
+					{#if note.attachedTo !== 'canvas'}
+						<span class="sticky-pin" title="Pinned to property">📌</span>
+					{/if}
+				</div>
+			{/each}
 		</div>
+		</div><!-- /canvas-viewport -->
+
+		{#if contextMenu.open}
+			<button
+				type="button"
+				class="fixed inset-0 z-40 cursor-default"
+				aria-label="Close menu"
+				onclick={closeContextMenu}
+				oncontextmenu={(e) => { e.preventDefault(); closeContextMenu(); }}
+			></button>
+			<div
+				class="ctx-menu"
+				style={`left: ${contextMenu.x}px; top: ${contextMenu.y}px;`}
+				role="menu"
+			>
+				<button type="button" class="ctx-item" onclick={spawnNoteFromMenu}>
+					<StickyNote class="h-4 w-4 text-amber-300" />
+					<span>Add sticky note</span>
+				</button>
+				<div class="ctx-hint">more soon…</div>
+			</div>
+		{/if}
 
 		{#if realm.length === 0}
 			<div class="mx-auto max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
@@ -413,20 +806,169 @@
 		height: 36px;
 	}
 
-	/* Pokemon-card-style proportions ~ 5:7 portrait */
+	.canvas-viewport {
+		position: relative;
+		height: calc(100vh - 160px);
+		min-height: 500px;
+		border: 1px solid #1e293b;
+		border-radius: 16px;
+		overflow: hidden;
+		background:
+			radial-gradient(circle at 25% 25%, rgba(56, 189, 248, 0.04) 0%, transparent 40%),
+			radial-gradient(circle at 75% 75%, rgba(16, 185, 129, 0.04) 0%, transparent 40%),
+			#020617;
+		cursor: grab;
+	}
+	.canvas-viewport:active { cursor: grabbing; }
+
+	:global(.zoom-btn) {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		border-radius: 8px;
+		border: 1px solid #334155;
+		background: #0f172a;
+		color: #e2e8f0;
+		cursor: pointer;
+		transition: background 100ms ease, border-color 100ms ease;
+	}
+	:global(.zoom-btn:hover) { background: #1e293b; border-color: #475569; }
+
+	/* Sticky notes */
+	.sticky-note {
+		position: absolute;
+		display: flex;
+		flex-direction: column;
+		width: 180px;
+		height: 160px;
+		min-width: 140px;
+		min-height: 110px;
+		max-width: 600px;
+		max-height: 600px;
+		padding: 22px 12px 10px;
+		background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%);
+		color: #422006;
+		border-radius: 4px;
+		box-shadow:
+			0 1px 2px rgba(0, 0, 0, 0.25),
+			0 6px 16px rgba(0, 0, 0, 0.35),
+			inset 0 1px 0 rgba(255, 255, 255, 0.4);
+		cursor: grab;
+		font-family: 'Caveat', 'Comic Sans MS', cursive;
+		z-index: 5;
+		resize: both;
+		overflow: hidden;
+	}
+	.sticky-note:active { cursor: grabbing; }
+	.sticky-textarea {
+		flex: 1;
+		width: 100%;
+		border: none;
+		background: transparent;
+		resize: none;
+		outline: none;
+		font: inherit;
+		font-size: 18px;
+		color: #422006;
+		cursor: text;
+	}
+	.sticky-textarea::placeholder { color: rgba(66, 32, 6, 0.45); }
+	.sticky-close {
+		position: absolute;
+		top: 4px;
+		right: 4px;
+		width: 18px;
+		height: 18px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		background: transparent;
+		color: rgba(66, 32, 6, 0.5);
+		border-radius: 4px;
+		cursor: pointer;
+		transition: background 80ms ease, color 80ms ease;
+	}
+	.sticky-close:hover { background: rgba(66, 32, 6, 0.15); color: #422006; }
+	.sticky-pin {
+		position: absolute;
+		top: -8px;
+		left: 8px;
+		font-size: 14px;
+	}
+
+	/* Right-click context menu */
+	.ctx-menu {
+		position: fixed;
+		z-index: 50;
+		min-width: 180px;
+		padding: 4px;
+		background: #0f172a;
+		border: 1px solid #334155;
+		border-radius: 8px;
+		box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+		font-family: system-ui, sans-serif;
+	}
+	.ctx-item {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+		padding: 8px 10px;
+		border: none;
+		border-radius: 6px;
+		background: transparent;
+		color: #e2e8f0;
+		font-size: 13px;
+		font-weight: 500;
+		text-align: left;
+		cursor: pointer;
+	}
+	.ctx-item:hover { background: #1e293b; }
+	.ctx-hint {
+		padding: 6px 10px;
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: #64748b;
+	}
+
+	/* Free-positioned cards on the canvas */
+	.card-canvas {
+		position: relative;
+		width: 4000px;
+		height: 3000px;
+	}
+
 	.property-card {
+		width: 320px;
 		aspect-ratio: 5 / 7;
+		cursor: grab;
 	}
-	.card-empty {
-		aspect-ratio: 5 / 7;
-	}
-	.card-single {
-		aspect-ratio: 5 / 7;
-	}
+	.property-card:active { cursor: grabbing; }
+
+	.card-empty { width: 280px; aspect-ratio: 5 / 7; }
+	.card-single { width: 360px; aspect-ratio: 5 / 7; }
 	.card-multi {
+		width: 320px;
 		aspect-ratio: auto;
 		min-height: calc(220px + var(--token-rows, 1) * 52px);
 	}
+
+	.utility-chip {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex: 1;
+		padding: 4px 6px;
+		border-radius: 6px;
+		background: rgba(15, 23, 42, 0.6);
+		border: 1px solid rgba(51, 65, 85, 0.6);
+		transition: background 100ms ease;
+	}
+	.property-card:hover .utility-chip { background: rgba(15, 23, 42, 0.8); }
 
 	:global(.dark) .unit-token.occupied {
 		background: linear-gradient(180deg, #059669 0%, #064e3b 100%);
