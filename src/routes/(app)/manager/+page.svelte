@@ -21,6 +21,33 @@
 	let { data, form } = $props();
 	const realm = $derived(data.realm || []);
 
+	// Properties ordered for the mobile stack: real properties first (server's
+	// tenant/name order preserved), placeholders like "Unassigned (Manual
+	// review)" at the bottom.
+	const sortedRealm = $derived.by(() => {
+		const isUnassigned = (p) => /unassigned/i.test(p?.name || '');
+		const out = [...realm];
+		out.sort((a, b) => {
+			const ua = isUnassigned(a);
+			const ub = isUnassigned(b);
+			if (ua !== ub) return ua ? 1 : -1;
+			return 0;
+		});
+		return out;
+	});
+
+	// Tracked viewport. Desktop canvas (panzoom + free positioning) doesn't
+	// work on phones — at <= 768px we render a vertical card stack instead.
+	let isMobile = $state(false);
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const mq = window.matchMedia('(max-width: 768px)');
+		isMobile = mq.matches;
+		const onChange = (e) => { isMobile = e.matches; };
+		mq.addEventListener('change', onChange);
+		return () => mq.removeEventListener('change', onChange);
+	});
+
 	// Shared canvas-state sync. Server is authoritative; localStorage is a
 	// warm cache + offline fallback. See migration 20260430_02 + the API at
 	// /api/manager/canvas.
@@ -819,7 +846,7 @@
 
 <div class="dark aqua-theme">
 <div
-	class={`-m-3 min-h-screen p-3 sm:-m-4 sm:p-4 md:-m-6 md:p-6 lg:-m-8 lg:p-8 ${selectedProperty ? '' : 'pr-16 sm:pr-16 md:pr-16 lg:pr-16'}`}
+	class={`-m-3 min-h-screen p-3 sm:-m-4 sm:p-4 md:-m-6 md:p-6 lg:-m-8 lg:p-8 ${selectedProperty ? '' : 'md:pr-16 lg:pr-16'}`}
 	style="background: var(--bg); color: var(--ink); font-family: 'Inter Tight', system-ui, sans-serif;"
 >
 	{#if !selectedProperty}
@@ -854,6 +881,62 @@
 	{/if}
 
 	{#if !selectedProperty}
+		{#if isMobile}
+			<!-- Mobile: vertical card stack. Tap a card to open its detail page.
+			     Unassigned/placeholder properties are pushed to the bottom. -->
+			<div class="mobile-stack">
+				{#each sortedRealm as property (property.id)}
+					{@const stats = propertyStats(property)}
+					{@const Icon = propertyTypeIcon(property.propertytype)}
+					{@const badge = tenantBadge(property.tenant_slug)}
+					<button
+						type="button"
+						class="mobile-card"
+						onclick={() => (selectedPropertyId = property.id)}
+					>
+						<div class="mobile-card-banner">
+							{#if hasCoords(property)}
+								<PropertyMap
+									lat={Number(property.latitude)}
+									lng={Number(property.longitude)}
+									height={120}
+									boundary={property.boundary_geojson}
+									hoverParent=".mobile-card"
+								/>
+							{:else}
+								<div class="mobile-card-icon">
+									<Icon class="h-8 w-8" />
+								</div>
+							{/if}
+						</div>
+						<div class="mobile-card-body">
+							<div class="mobile-card-header">
+								<span class="tenant-chip" data-slug={property.tenant_slug}>{badge.label}</span>
+								<h2 class="mobile-card-title">{property.name}</h2>
+							</div>
+							<div class="mobile-card-footer">
+								<div class="mobile-card-stats">
+									<span class="mono-num">{stats.occupied}/{stats.total}</span>
+									<span>{stats.total === 1 ? 'unit' : 'units'}</span>
+									{#if stats.totalRent > 0}
+										<span class="dot">·</span>
+										<span class="mono-num">{fmtMoney(stats.totalRent)}</span>
+									{/if}
+								</div>
+								<div class="mobile-card-chevron">
+									<ArrowRight class="h-4 w-4" />
+								</div>
+							</div>
+						</div>
+					</button>
+				{/each}
+				{#if realm.length === 0}
+					<div class="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+						No properties found. Run the data import or seed properties first.
+					</div>
+				{/if}
+			</div>
+		{:else}
 		<!-- Pan/zoom + reset controls -->
 		<div class="mb-2 flex items-center justify-between gap-2">
 			<p class="text-[11px] uppercase tracking-wide" style="color: var(--ink-4); letter-spacing: 0.12em;">drag empty space to pan · drag a card to reposition · wheel to zoom</p>
@@ -1314,6 +1397,7 @@
 				rentees={data.rentees || []}
 				onClose={() => (activePanel = null)}
 			/>
+		{/if}
 		{/if}
 	{:else}
 		<!-- Property detail -->
@@ -2522,6 +2606,103 @@
 	:global(.dark .action-btn:hover) {
 		background: #1e293b;
 		border-color: #475569;
+	}
+
+	/* ── Mobile property stack ──────────────────────────────────────────── */
+	.mobile-stack {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		padding: 4px 0 24px;
+	}
+	.mobile-card {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		background: var(--panel);
+		border: 1px solid var(--line);
+		border-radius: 14px;
+		overflow: hidden;
+		text-align: left;
+		cursor: pointer;
+		transition: border-color 100ms ease, transform 80ms ease;
+		color: var(--ink);
+		font-family: inherit;
+		padding: 0;
+		width: 100%;
+	}
+	.mobile-card:active {
+		transform: scale(0.99);
+		border-color: oklch(0.86 0.13 195 / 0.5);
+	}
+	.mobile-card-banner {
+		width: 100%;
+		background: oklch(0.18 0.025 220);
+		min-height: 110px;
+	}
+	.mobile-card-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 110px;
+		color: var(--aqua);
+	}
+	.mobile-card-body {
+		padding: 12px 14px 14px;
+	}
+	.mobile-card-header {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 6px;
+		margin-bottom: 6px;
+	}
+	.mobile-card-title {
+		font-size: 16px;
+		font-weight: 600;
+		color: var(--ink);
+		margin: 0;
+		line-height: 1.2;
+		font-family: 'Fredoka', system-ui, sans-serif;
+		letter-spacing: -0.005em;
+	}
+	.mobile-card-stats {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 12px;
+		color: var(--ink-3);
+	}
+	.mobile-card-stats .dot {
+		color: var(--ink-4);
+	}
+	.mobile-card-footer {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		margin-top: 8px;
+	}
+	.mobile-card-chevron {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		padding: 6px;
+		color: var(--ink-3);
+		opacity: 0.7;
+	}
+	/* Tenant chip — give it explicit padding on the mobile stack so the label
+	   has breathing room from its colored background edges. */
+	.mobile-stack .tenant-chip {
+		display: inline-block;
+		padding: 3px 9px;
+		font-size: 10px;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		border-radius: 5px;
+		line-height: 1.4;
 	}
 
 	/* Live presence cursors — positioned in canvas (world) coords inside the
