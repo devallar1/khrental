@@ -641,19 +641,12 @@
 				return true; // cancel the default instant zoom
 			}
 		});
-		// Push camera transform into CSS vars so the ambient haze parallaxes
-		const onTransform = () => {
-			if (!viewportEl) return;
-			const t = pzInstance.getTransform();
-			viewportEl.style.setProperty('--cam-x', `${t.x}px`);
-			viewportEl.style.setProperty('--cam-y', `${t.y}px`);
-			viewportEl.style.setProperty('--cam-scale', String(t.scale));
-		};
-		pzInstance.on('transform', onTransform);
-		onTransform();
+		// Camera-parallax CSS vars used to be pushed here for ambient gradients
+		// in the viewport background. Those gradients were removed — they were
+		// causing CPU rasterization on every pan frame — so no transform
+		// listener is needed any more.
 		return {
 			destroy() {
-				pzInstance?.off('transform', onTransform);
 				pzInstance?.dispose();
 				pzInstance = null;
 			}
@@ -1725,26 +1718,18 @@
 		   gradient appears anchored to the world (parallaxes with pan/zoom). */
 		--mouse-x: 50%;
 		--mouse-y: 50%;
-		--cam-x: 0px;
-		--cam-y: 0px;
-		--cam-scale: 1;
 		--spot-size: 160px;
+		/* The camera-parallax radial gradients used to live here too, but they
+		   forced CPU rasterization of two large radial gradients on every pan
+		   frame — measurable jank on lower-spec laptops. Now just one
+		   spotlight gradient (mouse-bound, only repaints on mousemove) plus a
+		   plain base colour, both compositor-friendly. */
 		background:
 			radial-gradient(
 				circle var(--spot-size) at var(--mouse-x) var(--mouse-y),
 				oklch(0.86 0.13 195 / 0.22) 0%,
 				oklch(0.86 0.13 195 / 0.07) 30%,
 				oklch(0.86 0.13 195 / 0) 70%
-			),
-			radial-gradient(
-				circle 900px at calc(20% + var(--cam-x) * 0.15) calc(30% + var(--cam-y) * 0.15),
-				oklch(0.55 0.11 210 / 0.12) 0%,
-				oklch(0.55 0.11 210 / 0) 60%
-			),
-			radial-gradient(
-				circle 700px at calc(80% + var(--cam-x) * 0.2) calc(75% + var(--cam-y) * 0.2),
-				oklch(0.86 0.13 195 / 0.08) 0%,
-				oklch(0.86 0.13 195 / 0) 60%
 			),
 			oklch(0.12 0.025 220);
 		cursor: grab;
