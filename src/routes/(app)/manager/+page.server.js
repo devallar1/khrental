@@ -391,6 +391,32 @@ export const actions = {
 		return { ok: true, action: 'restoreRentee', id };
 	},
 
+	// End the active tenancy on a given unit. Sets the agreement status to
+	// 'terminated' and stamps end-date = today. The rentee row in app_users
+	// stays intact; only this particular tenancy is closed.
+	endTenancy: async ({ request, locals }) => {
+		if (!locals.user?.id) return fail(401, { action: 'endTenancy', error: 'Not authenticated' });
+		const fd = await request.formData();
+		const unitId = String(fd.get('unitId') || '').trim();
+		if (!unitId) return fail(400, { action: 'endTenancy', error: 'Missing unit id' });
+
+		try {
+			await runQuery(
+				`UPDATE agreements
+				    SET status = 'terminated',
+				        enddate = CURRENT_DATE,
+				        updatedat = NOW()
+				  WHERE unitid = @unitId
+				    AND status IN ('signed', 'active', 'draft')`,
+				{ unitId }
+			);
+		} catch (err) {
+			console.error('[endTenancy]', err);
+			return fail(500, { action: 'endTenancy', error: 'Failed to end tenancy' });
+		}
+		return { ok: true, action: 'endTenancy' };
+	},
+
 	// ── New-tenant wizard: rentee + agreement + initial billing event ──
 	// Single multi-row insert. No transaction wrapper for now — failures
 	// leave orphan rows that the caller can clean up; acceptable while

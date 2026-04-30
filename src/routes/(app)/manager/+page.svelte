@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import {
 		Phone, Mail, ScrollText, Zap, Droplets, Wifi,
-		User, UserPlus, Home as HomeIcon,
+		User, UserPlus, UserMinus, Home as HomeIcon,
 		ChevronLeft, Building2, TreePine, Layers, ArrowRight,
 		Plus, Minus, Maximize2, StickyNote, X,
 		RotateCw, Copy, MapPin, Landmark, Wrench, Bell, Edit3, Archive, History,
@@ -29,6 +29,44 @@
 			contactBookContext = { type: 'wizard', propertyId, unitId };
 		}
 		activePanel = 'contacts';
+	}
+
+	// Right-click-style popover anchored to a unit token. Three actions:
+	//   occupied → Edit / Remove
+	//   vacant   → Add
+	let tokenMenu = $state({
+		open: false,
+		x: 0,
+		y: 0,
+		propertyId: '',
+		unitId: '',
+		rentee: null // { id, name } | null
+	});
+
+	function openTokenMenu(e, propertyId, unitId, rentee) {
+		// Clamp so the popover doesn't overflow the right/bottom of the
+		// viewport; small margin lets the dismissal backdrop stay clickable.
+		const PAD = 8;
+		const W = 220;
+		const H = 140;
+		const x = Math.min(e.clientX, window.innerWidth - W - PAD);
+		const y = Math.min(e.clientY, window.innerHeight - H - PAD);
+		tokenMenu = { open: true, x, y, propertyId, unitId, rentee: rentee || null };
+	}
+
+	function closeTokenMenu() {
+		if (tokenMenu.open) tokenMenu = { ...tokenMenu, open: false };
+	}
+
+	function tokenMenuAdd() {
+		const { propertyId, unitId } = tokenMenu;
+		closeTokenMenu();
+		openContactsForUnit(propertyId, unitId, null);
+	}
+	function tokenMenuEdit() {
+		const { propertyId, unitId, rentee } = tokenMenu;
+		closeTokenMenu();
+		openContactsForUnit(propertyId, unitId, rentee);
 	}
 
 	let { data, form } = $props();
@@ -1130,8 +1168,8 @@
 								<button
 									type="button"
 									class="unit-token unit-token-btn unit-token-xl {sole.rentee_id ? 'occupied' : 'vacant'}"
-									title={sole.rentee_id ? `Edit ${sole.rentee_name || 'tenant'}` : 'Add tenant'}
-									onclick={(e) => { e.stopPropagation(); openContactsForUnit(property.id, sole.id, sole.rentee_id ? { id: sole.rentee_id } : null); }}
+									title={sole.rentee_id ? sole.rentee_name || 'Tenant actions' : 'Add tenant'}
+									onclick={(e) => { e.stopPropagation(); openTokenMenu(e, property.id, sole.id, sole.rentee_id ? { id: sole.rentee_id, name: sole.rentee_name } : null); }}
 									onmousedown={(e) => e.stopPropagation()}
 								>
 									<User class="h-9 w-9" />
@@ -1212,8 +1250,8 @@
 									<button
 										type="button"
 										class="unit-token unit-token-btn {unit.rentee_id ? 'occupied' : 'vacant'}"
-										title={`${unit.unitnumber}${unit.rentee_name ? ` · ${unit.rentee_name} (click to edit)` : ' · vacant (click to add tenant)'}`}
-										onclick={(e) => { e.stopPropagation(); openContactsForUnit(property.id, unit.id, unit.rentee_id ? { id: unit.rentee_id } : null); }}
+										title={`${unit.unitnumber}${unit.rentee_name ? ` · ${unit.rentee_name}` : ' · vacant'}`}
+										onclick={(e) => { e.stopPropagation(); openTokenMenu(e, property.id, unit.id, unit.rentee_id ? { id: unit.rentee_id, name: unit.rentee_name } : null); }}
 										onmousedown={(e) => e.stopPropagation()}
 									>
 										<User class="h-5 w-5" />
@@ -1509,8 +1547,8 @@
 								<button
 									type="button"
 									class="unit-token unit-token-btn {unit.rentee_id ? 'occupied' : 'vacant'} !h-9 !w-9"
-									title={unit.rentee_id ? `Edit ${unit.rentee_name || 'tenant'}` : 'Add tenant'}
-									onclick={(e) => { e.stopPropagation(); openContactsForUnit(property.id, unit.id, unit.rentee_id ? { id: unit.rentee_id } : null); }}
+									title={unit.rentee_id ? unit.rentee_name || 'Tenant actions' : 'Add tenant'}
+									onclick={(e) => { e.stopPropagation(); openTokenMenu(e, property.id, unit.id, unit.rentee_id ? { id: unit.rentee_id, name: unit.rentee_name } : null); }}
 								>
 									<User class="h-4 w-4" />
 								</button>
@@ -1628,6 +1666,50 @@
 		{/if}
 	{/if}
 </div>
+
+<!-- Unit-token popover. Lives outside the canvas branches so it works
+     in both the manager view and the property-detail view; uses
+     viewport-fixed positioning so it isn't clipped by the canvas. -->
+{#if tokenMenu.open}
+	<button
+		type="button"
+		class="fixed inset-0 z-40 cursor-default"
+		aria-label="Close menu"
+		onclick={closeTokenMenu}
+		oncontextmenu={(e) => { e.preventDefault(); closeTokenMenu(); }}
+	></button>
+	<div
+		class="ctx-menu token-menu"
+		style={`left: ${tokenMenu.x}px; top: ${tokenMenu.y}px;`}
+		role="menu"
+	>
+		{#if tokenMenu.rentee?.name}
+			<div class="ctx-hint token-menu-title">{tokenMenu.rentee.name}</div>
+		{/if}
+		{#if tokenMenu.rentee?.id}
+			<button type="button" class="ctx-item" onclick={tokenMenuEdit}>
+				<Edit3 class="h-4 w-4" style="color: var(--aqua);" />
+				<span>Edit tenant</span>
+			</button>
+			<form method="POST" action="?/endTenancy" use:enhance={() => () => closeTokenMenu()}>
+				<input type="hidden" name="unitId" value={tokenMenu.unitId} />
+				<button
+					type="submit"
+					class="ctx-item ctx-item-warn"
+					onclick={(e) => { if (!confirm(`Remove ${tokenMenu.rentee?.name || 'tenant'} from this unit? The agreement will be marked terminated.`)) e.preventDefault(); }}
+				>
+					<UserMinus class="h-4 w-4" />
+					<span>Remove tenant</span>
+				</button>
+			</form>
+		{:else}
+			<button type="button" class="ctx-item" onclick={tokenMenuAdd}>
+				<UserPlus class="h-4 w-4" style="color: var(--aqua);" />
+				<span>Add tenant</span>
+			</button>
+		{/if}
+	</div>
+{/if}
 </div>
 
 <style>
@@ -1989,12 +2071,29 @@
 		cursor: pointer;
 	}
 	.ctx-item:hover { background: #1e293b; }
+	.ctx-item-warn { color: oklch(0.85 0.10 25); }
+	.ctx-item-warn:hover {
+		background: oklch(0.66 0.18 25 / 0.18);
+		color: oklch(0.92 0.10 25);
+	}
 	.ctx-hint {
 		padding: 6px 10px;
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
 		color: #64748b;
+	}
+	.token-menu-title {
+		text-transform: none;
+		letter-spacing: 0;
+		font-size: 12px;
+		font-weight: 600;
+		color: oklch(0.86 0.13 195);
+		margin-bottom: 2px;
+	}
+	.token-menu form {
+		margin: 0;
+		padding: 0;
 	}
 
 	/* Free-positioned cards on the canvas */
