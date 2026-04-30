@@ -194,6 +194,7 @@
 					maxPolarAngle={Math.PI / 2 - 0.02}
 					minDistance={5}
 					maxDistance={1000}
+					zoomSpeed={1.8}
 				/>
 			</T.PerspectiveCamera>
 

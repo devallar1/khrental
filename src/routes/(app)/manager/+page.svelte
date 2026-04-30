@@ -629,8 +629,14 @@
 				if (!r) return true;
 				const x = e.clientX - r.left;
 				const y = e.clientY - r.top;
-				const delta = e.deltaY * (e.deltaMode > 0 ? 100 : 1);
-				const scaleMultiplier = Math.exp(-delta * 0.0015);
+				// MacBook trackpads send pixel-mode deltas (small numbers per
+				// gesture frame). Mouse wheels send line-mode (multiply ×100 to
+				// match the pixel scale). Sensitivity factor was 0.0015 — too
+				// low especially on trackpad — bumped to ~0.004 so each tick
+				// produces a clearly visible zoom step.
+				const linePx = e.deltaMode > 0 ? 100 : 1;
+				const delta = e.deltaY * linePx;
+				const scaleMultiplier = Math.exp(-delta * 0.004);
 				pzInstance.smoothZoom(x, y, scaleMultiplier);
 				return true; // cancel the default instant zoom
 			}
