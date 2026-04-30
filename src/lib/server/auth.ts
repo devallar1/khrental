@@ -38,10 +38,19 @@ if (!googleEnabled) {
     console.warn('[auth] GOOGLE_CLIENT_ID/SECRET not set — staff Google sign-in is disabled.');
 }
 
+// Trusted origins for CSRF / "invalid origin" checks. baseURL is implicitly
+// trusted; this lets us also accept localhost during dev and additional public
+// domains (e.g. when fronted by Cloudflare + Caddy at rental.kubeira.com).
+const trustedOriginsEnv = optional('BETTER_AUTH_TRUSTED_ORIGINS');
+const trustedOrigins = trustedOriginsEnv
+    ? trustedOriginsEnv.split(',').map((s) => s.trim()).filter(Boolean)
+    : undefined;
+
 export const auth = betterAuth({
     secret: required('BETTER_AUTH_SECRET'),
     baseURL: required('BETTER_AUTH_URL'),
     basePath: '/auth',
+    trustedOrigins,
 
     database: getPool(),
 
