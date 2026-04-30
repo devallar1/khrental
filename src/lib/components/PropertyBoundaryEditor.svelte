@@ -1,7 +1,7 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
 	import { PUBLIC_MAPTILER_KEY } from '$env/static/public';
-	import { Square, Hexagon, MousePointer2, Trash2, Save, X } from 'lucide-svelte';
+	import { Square, Hexagon, MousePointer2, Trash2, Save, X, Layers, Check } from 'lucide-svelte';
 
 	let { lat, lng, initial = null, units = [], onSave, onCancel } = $props();
 
@@ -12,6 +12,15 @@
 	let selectedId = $state(null);
 	let selectedProps = $state({ name: '', kind: 'building', unit_id: '' });
 	let initError = $state(null);
+	let mapLoaded = false;
+
+	// Toggleable base layers. Editor opens with both on (the "hybrid" look:
+	// satellite imagery + street labels overlaid). Each can be flipped from
+	// the Layers popover in the toolbar.
+	let layerVisibility = $state({ satellite: true, streets: true });
+	let landLayerIds = [];      // vector fills (land/landuse/water) — hidden when sat is on so imagery shows through
+	let streetLayerIds = [];    // road lines, place labels, POI icons
+	let layersPanelOpen = $state(false);
 
 	const SATELLITE_TILE_URL =
 		'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
@@ -48,7 +57,7 @@
 
 			await new Promise((resolve) => map.on('load', resolve));
 
-			// Esri satellite as the visual base for tracing
+			// Esri satellite as a toggleable raster layer.
 			map.addSource('sat', {
 				type: 'raster',
 				tiles: [SATELLITE_TILE_URL],
@@ -56,28 +65,31 @@
 				maxzoom: 19,
 				attribution: 'Esri / Maxar'
 			});
-			// Insert sat under the streets-v2-dark vector layers but above any
-			// background layer, so the satellite is what the user traces on.
 			map.addLayer({ id: 'sat', type: 'raster', source: 'sat' });
 
-			// Bring satellite to the bottom so vector road outlines / labels
-			// stay visible above it for orientation. Then mute the vector
-			// background so the satellite shows through instead of dark fill.
+			// Bring satellite under the vector style's labels/lines so road
+			// names and place markers can ride on top of the imagery.
 			const layers = map.getStyle().layers || [];
 			const firstSymbolId = layers.find((l) => l.type !== 'background')?.id;
 			if (firstSymbolId && firstSymbolId !== 'sat') {
 				map.moveLayer('sat', firstSymbolId);
 			}
-			// Hide the dark background so satellite shows
-			if (map.getLayer('background')) {
-				map.setPaintProperty('background', 'background-opacity', 0);
-			}
-			// Soften land/landuse fills so they don't tint the satellite too much
+
+			// Bucket vector layers so we can toggle them as a group later.
+			// `land` = base fills (land/landuse/water) that compete visually
+			// with satellite. `street` = road lines, labels, POI icons.
 			for (const l of layers) {
-				if (l.type === 'fill' && /^(land|landuse|landcover|water)/i.test(l['source-layer'] || l.id)) {
-					try { map.setPaintProperty(l.id, 'fill-opacity', 0.0); } catch {}
+				if (l.id === 'sat' || l.type === 'background') continue;
+				const sl = l['source-layer'] || '';
+				if (l.type === 'fill' && /^(land|landuse|landcover|water)/i.test(sl || l.id)) {
+					landLayerIds.push(l.id);
+				} else {
+					streetLayerIds.push(l.id);
 				}
 			}
+
+			mapLoaded = true;
+			applyLayerVisibility();
 
 			const Adapter = adapterMod.TerraDrawMapLibreGLAdapter;
 			draw = new tdMod.TerraDraw({
@@ -156,6 +168,39 @@
 	function setMode(m) {
 		mode = m;
 		if (draw) draw.setMode(m);
+	}
+
+	// Layer toggling. Visibility rules:
+	// - satellite on  → hide land fills (let imagery show), keep streets if their toggle is on
+	// - satellite off → show land fills only when streets is on, otherwise blank
+	// - background    → opaque only when satellite is off (otherwise it covers imagery)
+	function applyLayerVisibility() {
+		if (!map || !mapLoaded) return;
+		const showSat = !!layerVisibility.satellite;
+		const showStreets = !!layerVisibility.streets;
+
+		if (map.getLayer('sat')) {
+			map.setLayoutProperty('sat', 'visibility', showSat ? 'visible' : 'none');
+		}
+		if (map.getLayer('background')) {
+			map.setPaintProperty('background', 'background-opacity', showSat ? 0 : 1);
+		}
+		// Land fills only render when streets is on AND sat is off, otherwise
+		// they tint the imagery.
+		const landVisibility = showStreets && !showSat ? 'visible' : 'none';
+		for (const id of landLayerIds) {
+			try { map.setLayoutProperty(id, 'visibility', landVisibility); } catch {}
+		}
+		// Roads + labels + POI follow the streets toggle directly.
+		const streetVisibility = showStreets ? 'visible' : 'none';
+		for (const id of streetLayerIds) {
+			try { map.setLayoutProperty(id, 'visibility', streetVisibility); } catch {}
+		}
+	}
+
+	function toggleLayer(name) {
+		layerVisibility = { ...layerVisibility, [name]: !layerVisibility[name] };
+		applyLayerVisibility();
 	}
 
 	function updateSelected(field, value) {
@@ -248,6 +293,19 @@
 		<div class="tool-spacer"></div>
 		<button
 			type="button"
+			class="tool"
+			class:active={layersPanelOpen}
+			onclick={() => (layersPanelOpen = !layersPanelOpen)}
+			title="Toggle base map layers"
+			aria-haspopup="menu"
+			aria-expanded={layersPanelOpen}
+		>
+			<Layers class="h-4 w-4" />
+			<span>Layers</span>
+		</button>
+		<div class="tool-spacer"></div>
+		<button
+			type="button"
 			class="tool danger"
 			disabled={!selectedId}
 			onclick={deleteSelected}
@@ -257,6 +315,39 @@
 			<span>Delete</span>
 		</button>
 	</div>
+
+	{#if layersPanelOpen}
+		<div class="layers-panel" role="menu" aria-label="Base map layers">
+			<div class="layers-title">Base map</div>
+			<button
+				type="button"
+				class="layer-row"
+				class:on={layerVisibility.satellite}
+				onclick={() => toggleLayer('satellite')}
+				role="menuitemcheckbox"
+				aria-checked={layerVisibility.satellite}
+			>
+				<span class="layer-check">{#if layerVisibility.satellite}<Check class="h-3 w-3" />{/if}</span>
+				<span class="layer-name">Satellite imagery</span>
+				<span class="layer-source">Esri</span>
+			</button>
+			<button
+				type="button"
+				class="layer-row"
+				class:on={layerVisibility.streets}
+				onclick={() => toggleLayer('streets')}
+				role="menuitemcheckbox"
+				aria-checked={layerVisibility.streets}
+			>
+				<span class="layer-check">{#if layerVisibility.streets}<Check class="h-3 w-3" />{/if}</span>
+				<span class="layer-name">Streets &amp; labels</span>
+				<span class="layer-source">MapTiler</span>
+			</button>
+			<div class="layers-hint">
+				Toggle either off to draw on a clean background.
+			</div>
+		</div>
+	{/if}
 
 	{#if selectedId}
 		<div class="editor-props" role="group" aria-label="Polygon properties">
@@ -380,6 +471,87 @@
 		width: 1px;
 		background: rgba(255, 255, 255, 0.1);
 		margin: 4px 4px;
+	}
+
+	/* Layers popover — anchored under the toolbar's Layers button. */
+	.layers-panel {
+		position: absolute;
+		top: 70px;
+		left: 16px;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		padding: 10px;
+		background: rgba(15, 20, 30, 0.96);
+		backdrop-filter: blur(8px);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 12px;
+		z-index: 22;
+		min-width: 240px;
+		box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+	}
+	.layers-title {
+		font-size: 10px;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: #94a3b8;
+		padding: 2px 6px 6px;
+	}
+	.layer-row {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 8px 10px;
+		background: transparent;
+		color: #cbd5e1;
+		border: 1px solid transparent;
+		border-radius: 8px;
+		cursor: pointer;
+		text-align: left;
+		font-size: 13px;
+	}
+	.layer-row:hover {
+		background: rgba(255, 255, 255, 0.06);
+		color: white;
+	}
+	.layer-row.on {
+		background: rgba(77, 216, 230, 0.10);
+		color: #4DD8E6;
+		border-color: rgba(77, 216, 230, 0.3);
+	}
+	.layer-check {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 16px;
+		height: 16px;
+		border-radius: 4px;
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		background: rgba(0, 0, 0, 0.25);
+		color: #4DD8E6;
+		flex-shrink: 0;
+	}
+	.layer-row.on .layer-check {
+		background: #4DD8E6;
+		color: #0b1220;
+		border-color: #4DD8E6;
+	}
+	.layer-name {
+		flex: 1;
+		font-weight: 500;
+	}
+	.layer-source {
+		font-size: 10px;
+		color: #64748b;
+		font-family: 'JetBrains Mono', ui-monospace, monospace;
+	}
+	.layers-hint {
+		margin-top: 6px;
+		padding: 6px 8px 0;
+		font-size: 10.5px;
+		color: #64748b;
+		border-top: 1px dashed rgba(255, 255, 255, 0.08);
 	}
 
 	/* Property editor — top-right floating */

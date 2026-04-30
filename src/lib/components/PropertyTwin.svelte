@@ -2,6 +2,8 @@
 	import { Canvas, T } from '@threlte/core';
 	import { OrbitControls, Grid } from '@threlte/extras';
 	import * as THREE from 'three';
+	import MapBackdrop from './MapBackdrop.svelte';
+	import { TILE_URLS } from '$lib/twin/tileStitch.js';
 	import {
 		pickCenter,
 		findPropertyBounds,
@@ -11,7 +13,12 @@
 		ringExtents
 	} from '$lib/twin/geo.js';
 
-	let { property } = $props();
+	// `layers` lets the page toggle visual underlays. Default both off so the
+	// scene starts clean — page wires the panel UI and flips these on demand.
+	let {
+		property,
+		layers = { satellite: false, streets: false, terrain: true, grid: true }
+	} = $props();
 
 	const center = $derived(pickCenter(property));
 	const geojson = $derived(property?.boundary_geojson || { type: 'FeatureCollection', features: [] });
@@ -19,17 +26,25 @@
 
 	// Property terrain — a flat plane shaped to the property_bounds polygon.
 	// Topology (real elevation) goes here later; for now: flat at y=0.
+	// Build a Three.js Shape from a polygon ring of [x, z] tuples in
+	// scene-local meters where z is measured *south* of the center. The plane
+	// the shape is extruded onto rotates -π/2 around X so its local Y maps to
+	// scene -Z (north) — which means we have to negate Y when authoring the
+	// shape, otherwise south points end up rendered as north points.
+	function buildShape(ring) {
+		const shape = new THREE.Shape();
+		shape.moveTo(ring[0][0], -ring[0][1]);
+		for (let i = 1; i < ring.length; i++) shape.lineTo(ring[i][0], -ring[i][1]);
+		shape.closePath();
+		return shape;
+	}
+
 	const terrainShape = $derived.by(() => {
 		const bounds = findPropertyBounds(geojson);
 		if (!bounds || !center) return null;
 		const ring = polygonOuterRing(bounds.geometry, center);
 		if (ring.length < 3) return null;
-		const shape = new THREE.Shape();
-		shape.moveTo(ring[0][0], ring[0][1]);
-		for (let i = 1; i < ring.length; i++) shape.lineTo(ring[i][0], ring[i][1]);
-		shape.closePath();
-		const ext = ringExtents(ring);
-		return { shape, extents: ext };
+		return { shape: buildShape(ring), extents: ringExtents(ring) };
 	});
 
 	// Each non-bounds polygon becomes a Three.js Shape projected onto the
@@ -39,11 +54,7 @@
 		if (!center) return null;
 		const ring = polygonOuterRing(feature.geometry, center);
 		if (ring.length < 3) return null;
-		const shape = new THREE.Shape();
-		shape.moveTo(ring[0][0], ring[0][1]);
-		for (let i = 1; i < ring.length; i++) shape.lineTo(ring[i][0], ring[i][1]);
-		shape.closePath();
-		return shape;
+		return buildShape(ring);
 	}
 
 	const buildings = $derived.by(() => {
@@ -183,22 +194,45 @@
 			/>
 
 			<!-- Reference grid; 1 cell = 1 m, helpful while iterating -->
-			<Grid
-				sectionSize={10}
-				cellSize={1}
-				sectionColor="#3a4a55"
-				cellColor="#202830"
-				infiniteGrid={false}
-				gridSize={[Math.max(terrainShape.extents.width, 50) * 1.5, Math.max(terrainShape.extents.depth, 50) * 1.5]}
-				fadeDistance={500}
-			/>
+			{#if layers.grid}
+				<Grid
+					sectionSize={10}
+					cellSize={1}
+					sectionColor="#3a4a55"
+					cellColor="#202830"
+					infiniteGrid={false}
+					gridSize={[Math.max(terrainShape.extents.width, 50) * 1.5, Math.max(terrainShape.extents.depth, 50) * 1.5]}
+					fadeDistance={500}
+				/>
+			{/if}
 
-			<!-- Terrain — extruded property bounds, very thin slab so it has
-			     shadow-receiving surface area. Real heightmaps go here later. -->
-			<T.Mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-				<T.ExtrudeGeometry args={[terrainShape.shape, { depth: 0.2, bevelEnabled: false }]} />
-				<T.MeshStandardMaterial color="#2a3540" roughness={0.95} metalness={0.0} />
-			</T.Mesh>
+			<!-- Toggleable map backdrops. Both fetch raster tiles from Esri
+			     (free, no key) and stitch them client-side, so we sidestep
+			     MapTiler's Static Maps service permissions entirely. -->
+			{#if layers.satellite}
+				<MapBackdrop
+					extents={terrainShape.extents}
+					{center}
+					urlTemplate={TILE_URLS['esri-imagery']}
+					yOffset={-0.05}
+				/>
+			{/if}
+			{#if layers.streets}
+				<MapBackdrop
+					extents={terrainShape.extents}
+					{center}
+					urlTemplate={TILE_URLS['esri-streets']}
+					yOffset={-0.04}
+				/>
+			{/if}
+
+			<!-- Terrain — extruded property bounds. Real heightmaps go here later. -->
+			{#if layers.terrain}
+				<T.Mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+					<T.ExtrudeGeometry args={[terrainShape.shape, { depth: 0.2, bevelEnabled: false }]} />
+					<T.MeshStandardMaterial color="#2a3540" roughness={0.95} metalness={0.0} transparent={layers.satellite || layers.streets} opacity={(layers.satellite || layers.streets) ? 0.45 : 1} />
+				</T.Mesh>
+			{/if}
 
 			<!-- Buildings + secondary kinds -->
 			{#each buildings as b (b.feature.id || b.feature.properties?.name)}
