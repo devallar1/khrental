@@ -1,5 +1,5 @@
 <script>
-	import { ArrowLeft, Pencil, Building2, MapPin, Calendar, Maximize2, Zap, Droplets, Layers, Hash, Map } from 'lucide-svelte';
+	import { ArrowLeft, Pencil, Building2, MapPin, Calendar, Maximize2, Zap, Droplets, Layers, Hash, Map, Box } from 'lucide-svelte';
 
 	let { data } = $props();
 
@@ -56,6 +56,13 @@
 			</div>
 		</div>
 		<div class="flex items-center gap-2">
+			<a
+				href="/properties/{property.id}/twin"
+				class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+			>
+				<Box class="h-4 w-4" />
+				3D twin
+			</a>
 			<a
 				href="/properties/{property.id}/footprint"
 				class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
