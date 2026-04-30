@@ -3,7 +3,14 @@
 	import { ArrowLeft, ArrowRight, Save, X, Wallet, Plus } from 'lucide-svelte';
 	import { defaultBillingConfig } from '$lib/billing/config.js';
 
-	let { realm = [], bankProfiles = [], onCancel, onSaved } = $props();
+	let {
+		realm = [],
+		bankProfiles = [],
+		initialPropertyId = '',
+		initialUnitId = '',
+		onCancel,
+		onSaved
+	} = $props();
 
 	// All form state lives here; each step reads/writes slices of it.
 	let identity = $state({
@@ -15,8 +22,8 @@
 		notes: ''
 	});
 	let tenancy = $state({
-		property_id: '',
-		unit_id: '',
+		property_id: initialPropertyId || '',
+		unit_id: initialUnitId || '',
 		start_date: new Date().toISOString().slice(0, 10),
 		end_date: '',
 		rent_amount: '',
@@ -41,8 +48,10 @@
 			: []
 	);
 
-	// Reset unit + bank profile when property changes
-	let lastPropertyId = $state('');
+	// Reset unit + bank profile when property changes. Initialize the tracker
+	// from props so an initialPropertyId pre-selection doesn't immediately
+	// wipe its companion initialUnitId on first effect run.
+	let lastPropertyId = $state(initialPropertyId || '');
 	$effect(() => {
 		if (tenancy.property_id !== lastPropertyId) {
 			lastPropertyId = tenancy.property_id;

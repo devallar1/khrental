@@ -17,6 +17,19 @@
 
 	// Which manager-side panel is open. null = none.
 	let activePanel = $state(null);
+	// One-shot route hint passed into ContactBook on open (e.g. "open the
+	// wizard pre-filled to this unit" or "edit this rentee"). Cleared when
+	// the panel closes so the next open starts at the list.
+	let contactBookContext = $state(null);
+
+	function openContactsForUnit(propertyId, unitId, rentee) {
+		if (rentee?.id) {
+			contactBookContext = { type: 'editIdentity', renteeId: rentee.id };
+		} else {
+			contactBookContext = { type: 'wizard', propertyId, unitId };
+		}
+		activePanel = 'contacts';
+	}
 
 	let { data, form } = $props();
 	const realm = $derived(data.realm || []);
@@ -233,7 +246,7 @@
 
 	function onCardMouseDown(e, propertyId) {
 		if (e.button !== 0) return;
-		if (e.target.closest('a, input, form, label, select, textarea, .sticky-note')) return;
+		if (e.target.closest('button, a, input, form, label, select, textarea, .sticky-note')) return;
 		e.stopPropagation();
 		const scale = pzInstance?.getTransform()?.scale ?? 1;
 		const cur = cardPositions[propertyId] || { x: 0, y: 0 };
@@ -1110,12 +1123,19 @@
 							</div>
 						{/if}
 
-						<!-- Resident — Monopoly "owner" panel -->
+						<!-- Resident — Monopoly "owner" panel. Click the token to edit
+						     the rentee or assign a new one to the vacant unit. -->
 						<div class="resident-panel">
 							<div class="resident-token">
-								<div class="unit-token unit-token-xl {sole.rentee_id ? 'occupied' : 'vacant'}">
+								<button
+									type="button"
+									class="unit-token unit-token-btn unit-token-xl {sole.rentee_id ? 'occupied' : 'vacant'}"
+									title={sole.rentee_id ? `Edit ${sole.rentee_name || 'tenant'}` : 'Add tenant'}
+									onclick={(e) => { e.stopPropagation(); openContactsForUnit(property.id, sole.id, sole.rentee_id ? { id: sole.rentee_id } : null); }}
+									onmousedown={(e) => e.stopPropagation()}
+								>
 									<User class="h-9 w-9" />
-								</div>
+								</button>
 							</div>
 							<div class="resident-meta">
 								{#if sole.rentee_name}
@@ -1184,16 +1204,20 @@
 							</div>
 						{/if}
 
-						<!-- 2-column house tokens -->
+						<!-- 2-column house tokens. Click a token to edit the rentee
+						     occupying that unit, or assign a new one if vacant. -->
 						<div class="house-grid">
 							{#each property.units as unit (unit.id)}
 								<div class="house-cell">
-									<div
-										class="unit-token {unit.rentee_id ? 'occupied' : 'vacant'}"
-										title={`${unit.unitnumber}${unit.rentee_name ? ` · ${unit.rentee_name}` : ' · vacant'}`}
+									<button
+										type="button"
+										class="unit-token unit-token-btn {unit.rentee_id ? 'occupied' : 'vacant'}"
+										title={`${unit.unitnumber}${unit.rentee_name ? ` · ${unit.rentee_name} (click to edit)` : ' · vacant (click to add tenant)'}`}
+										onclick={(e) => { e.stopPropagation(); openContactsForUnit(property.id, unit.id, unit.rentee_id ? { id: unit.rentee_id } : null); }}
+										onmousedown={(e) => e.stopPropagation()}
 									>
 										<User class="h-5 w-5" />
-									</div>
+									</button>
 								</div>
 							{/each}
 						</div>
@@ -1413,7 +1437,8 @@
 				rentees={data.rentees || []}
 				realm={data.realm || []}
 				bankProfiles={data.bankProfiles || []}
-				onClose={() => (activePanel = null)}
+				initialContext={contactBookContext}
+				onClose={() => { activePanel = null; contactBookContext = null; }}
 			/>
 		{/if}
 		{/if}
@@ -1481,9 +1506,14 @@
 					<article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:shadow-slate-950">
 						<header class="mb-3 flex items-start justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
 							<div class="flex items-center gap-2">
-								<div class="unit-token {unit.rentee_id ? 'occupied' : 'vacant'} !h-9 !w-9">
+								<button
+									type="button"
+									class="unit-token unit-token-btn {unit.rentee_id ? 'occupied' : 'vacant'} !h-9 !w-9"
+									title={unit.rentee_id ? `Edit ${unit.rentee_name || 'tenant'}` : 'Add tenant'}
+									onclick={(e) => { e.stopPropagation(); openContactsForUnit(property.id, unit.id, unit.rentee_id ? { id: unit.rentee_id } : null); }}
+								>
 									<User class="h-4 w-4" />
-								</div>
+								</button>
 								<h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{unit.unitnumber}</h3>
 							</div>
 							<span class="text-[11px] font-medium uppercase tracking-wide {unit.rentee_id ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}">
@@ -1705,6 +1735,24 @@
 	.unit-token-xl :global(svg) {
 		width: 36px;
 		height: 36px;
+	}
+
+	/* Button variant of the unit token — strips the default <button>
+	   chrome (background, border, padding, font) so it looks identical
+	   to the original div, but adds keyboard focus + pointer cursor. */
+	.unit-token-btn {
+		appearance: none;
+		padding: 0;
+		font: inherit;
+		border: none;
+		cursor: pointer;
+	}
+	.unit-token-btn.vacant {
+		border: 1px solid var(--line);
+	}
+	.unit-token-btn:focus-visible {
+		outline: 2px solid oklch(0.86 0.13 195);
+		outline-offset: 2px;
 	}
 
 	.canvas-viewport {

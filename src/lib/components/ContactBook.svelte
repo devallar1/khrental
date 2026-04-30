@@ -3,12 +3,35 @@
 	import { X, Plus, Search, Pencil, Archive, RotateCcw, Save, ArrowLeft, BookUser } from 'lucide-svelte';
 	import TenantWizard from './TenantWizard.svelte';
 
-	let { rentees = [], realm = [], bankProfiles = [], onClose } = $props();
+	let {
+		rentees = [],
+		realm = [],
+		bankProfiles = [],
+		// One-shot route hint applied on mount: open the wizard pre-filled
+		// with a unit, or jump straight into editing a rentee. Shape:
+		//   { type: 'wizard', propertyId, unitId }
+		//   { type: 'editIdentity', renteeId }
+		initialContext = null,
+		onClose
+	} = $props();
 
 	let query = $state('');
 	let showArchived = $state(false);
-	// One of: 'list' | 'wizard' | { id } (editing identity)
-	let mode = $state('list');
+
+	// Resolve the initial mode from the route hint. Done at module init so the
+	// wizard / edit form mounts directly on the first frame.
+	const resolveInitialMode = () => {
+		if (initialContext?.type === 'wizard') {
+			return { kind: 'wizard', propertyId: initialContext.propertyId || '', unitId: initialContext.unitId || '' };
+		}
+		if (initialContext?.type === 'editIdentity' && initialContext.renteeId) {
+			return { kind: 'edit', id: initialContext.renteeId };
+		}
+		return 'list';
+	};
+
+	// One of: 'list' | { kind: 'wizard', propertyId, unitId } | { kind: 'edit', id }
+	let mode = $state(resolveInitialMode());
 	let actionError = $state(null);
 	let submitting = $state(false);
 
@@ -28,19 +51,24 @@
 	});
 
 	const editing = $derived(
-		typeof mode === 'object' && mode?.id
+		typeof mode === 'object' && mode?.kind === 'edit'
 			? rentees.find((r) => r.id === mode.id)
+			: null
+	);
+	const wizardCtx = $derived(
+		typeof mode === 'object' && mode?.kind === 'wizard'
+			? { propertyId: mode.propertyId || '', unitId: mode.unitId || '' }
 			: null
 	);
 
 	function openNew() {
 		actionError = null;
-		mode = 'wizard';
+		mode = { kind: 'wizard', propertyId: '', unitId: '' };
 	}
 
 	function openEdit(id) {
 		actionError = null;
-		mode = { id };
+		mode = { kind: 'edit', id };
 	}
 
 	function backToList() {
@@ -188,10 +216,12 @@
 				<li class="empty">No rentees match.</li>
 			{/if}
 		</ul>
-	{:else if mode === 'wizard'}
+	{:else if wizardCtx}
 		<TenantWizard
 			{realm}
 			{bankProfiles}
+			initialPropertyId={wizardCtx.propertyId}
+			initialUnitId={wizardCtx.unitId}
 			onCancel={() => (mode = 'list')}
 			onSaved={() => (mode = 'list')}
 		/>
