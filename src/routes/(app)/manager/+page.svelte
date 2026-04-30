@@ -720,23 +720,40 @@
 	 *  --cam-x / --cam-y      = panzoom transform (camera offset)
 	 *  --cam-scale            = panzoom zoom factor
 	 */
-	function onViewportMouseMove(e) {
-		if (!viewportEl) return;
+	// onViewportMouseMove is rAF-throttled: native mousemove can fire at
+	// 60–120Hz on hi-rate trackpads, and this handler triggers a repaint of
+	// the canvas-viewport's multi-radial-gradient backdrop on every CSS-var
+	// change. Coalescing to 60fps removes the extra paint pressure without
+	// any visible smoothness change.
+	let pendingMouseEvent = null;
+	let mouseRaf = 0;
+
+	function flushMouseMove() {
+		mouseRaf = 0;
+		const e = pendingMouseEvent;
+		pendingMouseEvent = null;
+		if (!e || !viewportEl) return;
+
 		const r = viewportEl.getBoundingClientRect();
-		viewportEl.style.setProperty('--mouse-x', `${e.clientX - r.left}px`);
-		viewportEl.style.setProperty('--mouse-y', `${e.clientY - r.top}px`);
-		// Spotlight grows when the cursor is over a property card, shrinks over canvas
-		const overCard = e.target.closest && e.target.closest('.property-card');
+		const localX = e.clientX - r.left;
+		const localY = e.clientY - r.top;
+		viewportEl.style.setProperty('--mouse-x', `${localX}px`);
+		viewportEl.style.setProperty('--mouse-y', `${localY}px`);
+		const overCard = e.target?.closest?.('.property-card');
 		viewportEl.style.setProperty('--spot-size', overCard ? '520px' : '160px');
-		const t = pzInstance?.getTransform();
-		if (t) {
-			viewportEl.style.setProperty('--cam-x', `${t.x}px`);
-			viewportEl.style.setProperty('--cam-y', `${t.y}px`);
-			viewportEl.style.setProperty('--cam-scale', String(t.scale));
-		}
-		// Throttled presence ping in canvas (world) coordinates
+		// --cam-* are already kept in sync by panzoom's `transform` listener
+		// (see panzoomAction). Re-writing them on every mousemove forced the
+		// camera-parallax radial gradients to repaint for no reason.
+
+		// Presence — already throttled to 20Hz internally.
 		const world = screenToCanvas(e.clientX, e.clientY);
 		sendPresenceCursor(world.x, world.y);
+	}
+
+	function onViewportMouseMove(e) {
+		pendingMouseEvent = e;
+		if (mouseRaf) return;
+		mouseRaf = requestAnimationFrame(flushMouseMove);
 	}
 
 	// ---- Live cursor presence ---------------------------------------------
