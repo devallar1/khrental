@@ -532,21 +532,28 @@
 
 	.step-strip {
 		display: flex;
-		gap: 8px;
-		padding: 12px 14px 8px;
+		gap: 5px;
+		padding: 10px 12px 6px;
 		list-style: none;
 		margin: 0;
 	}
 	.step {
-		flex: 1;
+		flex: 1 1 0;
+		min-width: 0;          /* let flex items shrink below their content width */
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		padding: 6px 8px;
+		padding: 5px 6px;
 		border: 1px solid oklch(0.32 0.030 220);
 		border-radius: 8px;
 		background: oklch(0.215 0.028 220 / 0.5);
-		font-size: 11px;
+		font-size: 10.5px;
+		overflow: hidden;
+	}
+	.step-label {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.step.active {
 		border-color: oklch(0.86 0.13 195 / 0.6);

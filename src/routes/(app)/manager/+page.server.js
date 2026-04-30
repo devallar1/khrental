@@ -536,6 +536,10 @@ export const actions = {
 				}
 			);
 
+			// `created_by` FK references auth_user(id), not app_users(id) — the
+			// session's user id is the auth_user one. Fall back to NULL (column
+			// is nullable) when there's no session, e.g. server-to-server.
+			const createdByAuthId = locals.session?.user?.id || locals.user?.auth_id || null;
 			await runQuery(
 				`INSERT INTO agreement_billing_events (
 				    id, agreement_id, effective_from, config, meter_readings,
@@ -550,7 +554,7 @@ export const actions = {
 					effectiveFrom: start_date,
 					config: JSON.stringify(billingConfig),
 					meterReadings: JSON.stringify(meterReadings),
-					createdBy: locals.user.id
+					createdBy: createdByAuthId
 				}
 			);
 
