@@ -1,6 +1,8 @@
 import { runQuery, runSingleQuery } from '$api/db/query.js';
 import { fail } from '@sveltejs/kit';
 import crypto from 'node:crypto';
+import { getActiveBillingConfig, agreementHasBillingConfig } from '$lib/billing/activeConfig.js';
+import { buildInvoiceComponents } from '$lib/billing/calc.js';
 
 /**
  * Manager dashboard: cross-tenant view for the people running the show
@@ -194,6 +196,11 @@ export const actions = {
 		const propertyId = String(fd.get('propertyId') || '');
 		const renteeId = String(fd.get('renteeId') || '');
 		const agreementId = String(fd.get('agreementId') || '');
+		// Optional manager-entered SLT pass-through amount for the period
+		const sltPassthroughRaw = fd.get('sltPassthroughLkr');
+		const sltPassthroughLkr = sltPassthroughRaw != null && sltPassthroughRaw !== ''
+			? Number(sltPassthroughRaw)
+			: null;
 		if (!unitId || !propertyId || !renteeId) return fail(400, { error: 'Missing invoice data' });
 
 		const agreement = await runSingleQuery(
@@ -202,27 +209,72 @@ export const actions = {
 		);
 		const rent = Number(agreement?.rentamount) || 0;
 
-		const reading = await runSingleQuery(
-			`SELECT calculatedbill FROM utility_readings
-			 WHERE renteeid = @renteeId AND utilitytype = 'electricity'
-			 ORDER BY readingdate DESC, createdat DESC LIMIT 1`,
-			{ renteeId }
-		);
-		const electricity = Number(reading?.calculatedbill) || 0;
-
-		const components = { RENT: rent };
-		if (electricity > 0) components.ELECTRICITY = electricity;
-		const totalamount = rent + electricity;
-
-		const billingPeriod = new Date().toISOString().slice(0, 7); // YYYY-MM
-
-		const id = crypto.randomUUID();
 		const propertyTenant = await runSingleQuery(
 			`SELECT tenant_id FROM properties WHERE id = @propertyId LIMIT 1`,
 			{ propertyId }
 		);
 		const invoiceTenantId = propertyTenant?.tenant_id || tenantId;
 
+		const billingPeriod = new Date().toISOString().slice(0, 7); // YYYY-MM
+		const periodStart = `${billingPeriod}-01`;
+
+		const useNewPath = agreementId && (await agreementHasBillingConfig(agreementId));
+
+		let components;
+		let totalamount;
+
+		if (useNewPath) {
+			const config = await getActiveBillingConfig(agreementId, periodStart);
+
+			// Pull the latest two electricity / water readings so unit-based modes
+			// can compute consumed units. Solar-offset only needs the latest one.
+			const elecReadings = await runQuery(
+				`SELECT currentreading FROM utility_readings
+				   WHERE renteeid = @renteeId AND utilitytype = 'electricity'
+				   ORDER BY readingdate DESC, createdat DESC
+				   LIMIT 2`,
+				{ renteeId }
+			);
+			const waterReadings = await runQuery(
+				`SELECT currentreading FROM utility_readings
+				   WHERE renteeid = @renteeId AND utilitytype = 'water'
+				   ORDER BY readingdate DESC, createdat DESC
+				   LIMIT 2`,
+				{ renteeId }
+			);
+
+			const built = buildInvoiceComponents(config, {
+				rentAmount: rent,
+				electricity: {
+					currentReading: Number(elecReadings[0]?.currentreading) || 0,
+					prevReading: Number(elecReadings[1]?.currentreading) || 0
+				},
+				water: {
+					currentReading: Number(waterReadings[0]?.currentreading) || 0,
+					prevReading: Number(waterReadings[1]?.currentreading) || 0
+				},
+				slt: { passthroughLkr: sltPassthroughLkr }
+			});
+
+			components = built.components;
+			totalamount = built.total;
+		} else {
+			// Legacy path — kept so agreements with no billing events keep
+			// generating invoices identically until they're migrated.
+			const reading = await runSingleQuery(
+				`SELECT calculatedbill FROM utility_readings
+				   WHERE renteeid = @renteeId AND utilitytype = 'electricity'
+				   ORDER BY readingdate DESC, createdat DESC LIMIT 1`,
+				{ renteeId }
+			);
+			const electricity = Number(reading?.calculatedbill) || 0;
+			const flat = { RENT: rent };
+			if (electricity > 0) flat.ELECTRICITY = electricity;
+			components = flat;
+			totalamount = rent + electricity;
+		}
+
+		const id = crypto.randomUUID();
 		await runQuery(
 			`INSERT INTO invoices (
 			   id, tenant_id, renteeid, propertyid, billingperiod, components,
@@ -232,7 +284,11 @@ export const actions = {
 			   @totalamount, 'pending', NOW(), NOW()
 			 )`,
 			{
-				id, tenantId: invoiceTenantId, renteeId, propertyId, billingPeriod,
+				id,
+				tenantId: invoiceTenantId,
+				renteeId,
+				propertyId,
+				billingPeriod,
 				components: JSON.stringify(components),
 				totalamount
 			}

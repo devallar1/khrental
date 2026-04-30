@@ -1,5 +1,5 @@
 <script>
-	import { Search, Plus, Building2, MapPin, Layers, Maximize2 } from 'lucide-svelte';
+	import { Search, Plus, Building2, MapPin, Layers, Maximize2, Wallet } from 'lucide-svelte';
 
 	let { data } = $props();
 
@@ -46,13 +46,22 @@
 			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Properties</h1>
 			<p class="mt-1 text-sm text-slate-500">{data.properties.length} total properties</p>
 		</div>
-		<a
-			href="/properties/new"
-			class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
-		>
-			<Plus class="h-4 w-4" />
-			Add Property
-		</a>
+		<div class="flex items-center gap-2">
+			<a
+				href="/properties/bank-profiles"
+				class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+			>
+				<Wallet class="h-4 w-4" />
+				Bank profiles
+			</a>
+			<a
+				href="/properties/new"
+				class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+			>
+				<Plus class="h-4 w-4" />
+				Add Property
+			</a>
+		</div>
 	</div>
 
 	<!-- Filters -->
