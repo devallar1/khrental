@@ -44,7 +44,27 @@
 		if (!bounds || !center) return null;
 		const ring = polygonOuterRing(bounds.geometry, center);
 		if (ring.length < 3) return null;
-		return { shape: buildShape(ring), extents: ringExtents(ring) };
+		return { shape: buildShape(ring), extents: ringExtents(ring), ring };
+	});
+
+	// LineLoop tracing the property perimeter — sits just above the terrain
+	// slab so the boundary stays legible even with the slab transparent.
+	// Points stay in the shape's native XY plane and the same -π/2 X rotation
+	// the terrain mesh uses lays them flat on the ground.
+	const terrainOutline = $derived.by(() => {
+		if (!terrainShape) return null;
+		const pts = terrainShape.shape.getPoints();
+		const points = pts.map((p) => new THREE.Vector3(p.x, p.y, 0));
+		const geom = new THREE.BufferGeometry().setFromPoints(points);
+		const mat = new THREE.LineBasicMaterial({
+			color: 0xffd24a,
+			transparent: true,
+			opacity: 0.95
+		});
+		const line = new THREE.LineLoop(geom, mat);
+		line.rotation.x = -Math.PI / 2;
+		line.position.y = 0.22;
+		return line;
 	});
 
 	// Each non-bounds polygon becomes a Three.js Shape projected onto the
@@ -230,8 +250,14 @@
 			{#if layers.terrain}
 				<T.Mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
 					<T.ExtrudeGeometry args={[terrainShape.shape, { depth: 0.2, bevelEnabled: false }]} />
-					<T.MeshStandardMaterial color="#2a3540" roughness={0.95} metalness={0.0} transparent={layers.satellite || layers.streets} opacity={(layers.satellite || layers.streets) ? 0.45 : 1} />
+					<T.MeshStandardMaterial color="#2a3540" roughness={0.95} metalness={0.0} transparent opacity={0.3} depthWrite={false} />
 				</T.Mesh>
+			{/if}
+
+			<!-- Property perimeter outline — always rendered when bounds exist
+			     even if the terrain slab is hidden, so the plot stays readable. -->
+			{#if terrainOutline}
+				<T is={terrainOutline} />
 			{/if}
 
 			<!-- Buildings + secondary kinds -->
