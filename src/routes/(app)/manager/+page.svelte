@@ -1691,7 +1691,20 @@
 				<Edit3 class="h-4 w-4" style="color: var(--aqua);" />
 				<span>Edit tenant</span>
 			</button>
-			<form method="POST" action="?/endTenancy" use:enhance={() => () => closeTokenMenu()}>
+			<form
+				method="POST"
+				action="?/endTenancy"
+				use:enhance={() => {
+					return async ({ update }) => {
+						closeTokenMenu();
+						// Wait for the manager load to re-run so the property card
+						// flips the unit to vacant before this turn ends. Without
+						// `await update()` the form's success callback was returning
+						// before SvelteKit invalidated, so the UI looked stuck.
+						await update({ reset: false });
+					};
+				}}
+			>
 				<input type="hidden" name="unitId" value={tokenMenu.unitId} />
 				<button
 					type="submit"
