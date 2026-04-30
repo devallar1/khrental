@@ -115,8 +115,24 @@
 			draw.start();
 			draw.setMode('select');
 
+			// Re-hydrate previously-saved features. terra-draw needs each feature
+			// to carry `properties.mode` so it knows which mode they belong to;
+			// older saves stripped that, so backfill 'polygon' as a safe default
+			// (rectangles serialize to polygon geometry anyway).
 			if (initial?.features?.length) {
-				draw.addFeatures(initial.features);
+				const seeded = initial.features.map((f) => {
+					const props = f?.properties || {};
+					return {
+						...f,
+						properties: { ...props, mode: props.mode || 'polygon' }
+					};
+				});
+				try {
+					draw.addFeatures(seeded);
+				} catch (e) {
+					console.error('[PropertyBoundaryEditor] addFeatures failed', e, seeded);
+					initError = `Could not load ${seeded.length} saved polygon(s) — see console.`;
+				}
 			}
 
 			draw.on('select', (id) => {
@@ -170,6 +186,8 @@
 		const features = (draw.getSnapshot() || []).map((f) => {
 			const p = f.properties || {};
 			const out = {
+				// Keep terra-draw's mode tag so we can rehydrate cleanly next time.
+				mode: p.mode || 'polygon',
 				name: p.name ?? '',
 				kind: p.kind || 'building'
 			};
