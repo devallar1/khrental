@@ -218,6 +218,7 @@
 		</ul>
 	{:else if wizardCtx}
 		<TenantWizard
+			{rentees}
 			{realm}
 			{bankProfiles}
 			initialPropertyId={wizardCtx.propertyId}

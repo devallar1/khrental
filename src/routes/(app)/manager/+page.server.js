@@ -426,9 +426,16 @@ export const actions = {
 
 		const fd = await request.formData();
 
-		// Identity
+		// Reuse path: when the wizard's existing-tenant search picked someone,
+		// the form carries the existing app_users.id. We skip the identity
+		// INSERT and just stitch the new agreement onto that row.
+		const existingRenteeId = String(fd.get('existing_rentee_id') || '').trim() || null;
+
+		// Identity (only consumed in the "create-new" branch)
 		const name = String(fd.get('name') || '').trim();
-		if (!name) return fail(400, { action: 'createTenant', error: 'Name is required' });
+		if (!existingRenteeId && !name) {
+			return fail(400, { action: 'createTenant', error: 'Name is required' });
+		}
 		const email = String(fd.get('email') || '').trim() || null;
 		const phone = String(fd.get('phone') || '').trim() || null;
 		const national_id = String(fd.get('national_id') || '').trim() || null;
@@ -480,22 +487,34 @@ export const actions = {
 			meterReadings.water = billingConfig.water.initial_reading;
 		}
 
-		const renteeId = crypto.randomUUID();
+		const renteeId = existingRenteeId || crypto.randomUUID();
 		const agreementId = crypto.randomUUID();
 		const eventId = crypto.randomUUID();
-		const contactDetails = phone ? JSON.stringify({ phone }) : null;
 
 		try {
-			await runQuery(
-				`INSERT INTO app_users (
-				    id, name, email, contact_details, national_id, permanent_address,
-				    notes, user_type, tenant_id, active, status, createdat, updatedat
-				 ) VALUES (
-				    @id, @name, @email, @contactDetails::jsonb, @national_id, @permanent_address,
-				    @notes, 'rentee', @tenantId, TRUE, 'active', NOW(), NOW()
-				 )`,
-				{ id: renteeId, name, email, contactDetails, national_id, permanent_address, notes, tenantId }
-			);
+			if (existingRenteeId) {
+				// Verify the existing rentee row really exists and is active
+				// before stitching an agreement to it; otherwise fail loudly.
+				const existing = await runSingleQuery(
+					`SELECT id FROM app_users WHERE id = @id AND active = TRUE LIMIT 1`,
+					{ id: existingRenteeId }
+				);
+				if (!existing) {
+					return fail(400, { action: 'createTenant', error: 'Selected tenant no longer exists' });
+				}
+			} else {
+				const contactDetails = phone ? JSON.stringify({ phone }) : null;
+				await runQuery(
+					`INSERT INTO app_users (
+					    id, name, email, contact_details, national_id, permanent_address,
+					    notes, user_type, tenant_id, active, status, createdat, updatedat
+					 ) VALUES (
+					    @id, @name, @email, @contactDetails::jsonb, @national_id, @permanent_address,
+					    @notes, 'rentee', @tenantId, TRUE, 'active', NOW(), NOW()
+					 )`,
+					{ id: renteeId, name, email, contactDetails, national_id, permanent_address, notes, tenantId }
+				);
+			}
 
 			await runQuery(
 				`INSERT INTO agreements (

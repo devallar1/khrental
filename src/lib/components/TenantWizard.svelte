@@ -5,6 +5,7 @@
 
 	let {
 		realm = [],
+		rentees = [],          // existing rentee list for the search-and-reuse flow
 		bankProfiles = [],
 		initialPropertyId = '',
 		initialUnitId = '',
@@ -35,6 +36,45 @@
 	let step = $state(1);
 	let submitting = $state(false);
 	let actionError = $state(null);
+
+	// Optional reuse of an existing rentee. When set, identity fields go
+	// read-only and the server is told via existing_rentee_id to skip the
+	// app_users INSERT and use this row for the agreement instead.
+	let existingRentee = $state(null);
+	let renteeSearch = $state('');
+	const matchingRentees = $derived.by(() => {
+		const q = renteeSearch.trim().toLowerCase();
+		if (!q || existingRentee) return [];
+		return rentees
+			.filter((r) => r.active !== false)
+			.filter((r) => {
+				return (
+					(r.name || '').toLowerCase().includes(q) ||
+					(r.email || '').toLowerCase().includes(q) ||
+					(r.phone || '').toLowerCase().includes(q) ||
+					(r.national_id || '').toLowerCase().includes(q)
+				);
+			})
+			.slice(0, 6);
+	});
+
+	function pickExistingRentee(r) {
+		existingRentee = r;
+		identity = {
+			name: r.name || '',
+			phone: r.phone || '',
+			email: r.email || '',
+			national_id: r.national_id || '',
+			permanent_address: r.permanent_address || '',
+			notes: r.notes || ''
+		};
+		renteeSearch = '';
+	}
+
+	function clearExistingRentee() {
+		existingRentee = null;
+		identity = { name: '', phone: '', email: '', national_id: '', permanent_address: '', notes: '' };
+	}
 
 	const STEP_LABELS = ['Identity', 'Tenancy', 'Billing', 'Banking'];
 
@@ -164,36 +204,91 @@
 		<input type="hidden" name="deposit_amount" value={tenancy.deposit_amount} />
 		<input type="hidden" name="bank_profile_id" value={banking.bank_profile_id} />
 		<input type="hidden" name="billing_config" value={billingJson} />
+		<input type="hidden" name="existing_rentee_id" value={existingRentee?.id || ''} />
 
 		{#if step === 1}
 			<section class="step-pane">
 				<h2 class="step-heading">Identity</h2>
-				<div class="grid">
-					<label class="field">
-						<span>Full name *</span>
-						<input type="text" bind:value={identity.name} placeholder="Aruna Wickramasinghe" required />
+
+				{#if existingRentee}
+					<!-- Reusing an existing rentee — identity is locked to the
+					     selected record. Edits to name/phone/etc. happen via the
+					     contact-book pencil button, not in this wizard. -->
+					<div class="reuse-chip">
+						<div class="reuse-chip-info">
+							<div class="reuse-chip-name">Reusing: {existingRentee.name}</div>
+							<div class="reuse-chip-meta">
+								{#if existingRentee.phone}<span>{existingRentee.phone}</span>{/if}
+								{#if existingRentee.email}<span>{existingRentee.email}</span>{/if}
+								{#if existingRentee.national_id}<span>NIC {existingRentee.national_id}</span>{/if}
+							</div>
+						</div>
+						<button type="button" class="reuse-chip-clear" onclick={clearExistingRentee} title="Pick a different tenant or create new">
+							Change
+						</button>
+					</div>
+					<p class="step-hint" style="margin-top: 12px;">
+						Continue to assign this tenant to a unit. Their stored details won't be modified by this wizard.
+					</p>
+				{:else}
+					<p class="step-hint">
+						Search for an existing tenant by name, phone, or NIC — useful when someone returns to rent another unit. Or fill in the form below to create a new record.
+					</p>
+					<label class="field" style="margin-bottom: 14px;">
+						<span>Find existing tenant</span>
+						<input
+							type="search"
+							bind:value={renteeSearch}
+							placeholder="Aruna · 071… · 922…"
+							autocomplete="off"
+						/>
 					</label>
-					<label class="field">
-						<span>Phone</span>
-						<input type="tel" bind:value={identity.phone} placeholder="+94 7…" />
-					</label>
-					<label class="field">
-						<span>Email</span>
-						<input type="email" bind:value={identity.email} placeholder="name@example.com" />
-					</label>
-					<label class="field">
-						<span>NIC / Passport</span>
-						<input type="text" bind:value={identity.national_id} />
-					</label>
-					<label class="field span2">
-						<span>Permanent address</span>
-						<textarea rows="2" bind:value={identity.permanent_address}></textarea>
-					</label>
-					<label class="field span2">
-						<span>Notes</span>
-						<textarea rows="2" bind:value={identity.notes}></textarea>
-					</label>
-				</div>
+					{#if matchingRentees.length > 0}
+						<ul class="rentee-results">
+							{#each matchingRentees as r (r.id)}
+								<li>
+									<button type="button" class="rentee-result" onclick={() => pickExistingRentee(r)}>
+										<span class="rentee-result-name">{r.name}</span>
+										<span class="rentee-result-meta">
+											{#if r.phone}{r.phone}{/if}
+											{#if r.email}{#if r.phone} · {/if}{r.email}{/if}
+											{#if r.national_id}{#if r.phone || r.email} · {/if}NIC {r.national_id}{/if}
+										</span>
+									</button>
+								</li>
+							{/each}
+						</ul>
+					{:else if renteeSearch.trim()}
+						<div class="rentee-empty">No existing tenants match. Fill in below to create a new record.</div>
+					{/if}
+
+					<div class="grid" style="margin-top: 14px;">
+						<label class="field">
+							<span>Full name *</span>
+							<input type="text" bind:value={identity.name} placeholder="Aruna Wickramasinghe" required />
+						</label>
+						<label class="field">
+							<span>Phone</span>
+							<input type="tel" bind:value={identity.phone} placeholder="+94 7…" />
+						</label>
+						<label class="field">
+							<span>Email</span>
+							<input type="email" bind:value={identity.email} placeholder="name@example.com" />
+						</label>
+						<label class="field">
+							<span>NIC / Passport</span>
+							<input type="text" bind:value={identity.national_id} />
+						</label>
+						<label class="field span2">
+							<span>Permanent address</span>
+							<textarea rows="2" bind:value={identity.permanent_address}></textarea>
+						</label>
+						<label class="field span2">
+							<span>Notes</span>
+							<textarea rows="2" bind:value={identity.notes}></textarea>
+						</label>
+					</div>
+				{/if}
 			</section>
 		{/if}
 
@@ -547,6 +642,89 @@
 	.field input:disabled,
 	.field select:disabled {
 		opacity: 0.5;
+	}
+
+	/* Reuse-existing-tenant chip + search results */
+	.reuse-chip {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 10px 14px;
+		background: oklch(0.86 0.13 195 / 0.10);
+		border: 1px solid oklch(0.86 0.13 195 / 0.4);
+		border-radius: 10px;
+	}
+	.reuse-chip-info { flex: 1; min-width: 0; }
+	.reuse-chip-name {
+		font-size: 13px;
+		font-weight: 600;
+		color: oklch(0.86 0.13 195);
+	}
+	.reuse-chip-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 2px;
+		font-size: 11px;
+		color: oklch(0.78 0.018 200);
+	}
+	.reuse-chip-clear {
+		padding: 4px 10px;
+		background: transparent;
+		color: oklch(0.86 0.13 195);
+		border: 1px solid oklch(0.86 0.13 195 / 0.5);
+		border-radius: 6px;
+		font-size: 11px;
+		font-weight: 600;
+		cursor: pointer;
+		font-family: inherit;
+	}
+	.reuse-chip-clear:hover {
+		background: oklch(0.86 0.13 195 / 0.15);
+	}
+
+	.rentee-results {
+		list-style: none;
+		margin: 8px 0 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+	.rentee-result {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		width: 100%;
+		padding: 8px 10px;
+		background: oklch(0.215 0.028 220 / 0.5);
+		border: 1px solid oklch(0.32 0.030 220);
+		border-radius: 8px;
+		text-align: left;
+		cursor: pointer;
+		font-family: inherit;
+	}
+	.rentee-result:hover {
+		background: oklch(0.255 0.030 220 / 0.8);
+		border-color: oklch(0.86 0.13 195 / 0.4);
+	}
+	.rentee-result-name {
+		font-size: 13px;
+		font-weight: 600;
+		color: oklch(0.97 0.012 200);
+	}
+	.rentee-result-meta {
+		font-size: 11px;
+		color: oklch(0.58 0.020 200);
+	}
+	.rentee-empty {
+		margin-top: 8px;
+		padding: 8px 10px;
+		background: oklch(0.215 0.028 220 / 0.5);
+		border: 1px dashed oklch(0.32 0.030 220);
+		border-radius: 8px;
+		font-size: 12px;
+		color: oklch(0.58 0.020 200);
 	}
 
 	.util-block {
