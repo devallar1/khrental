@@ -1411,6 +1411,8 @@
 		{#if activePanel === 'contacts'}
 			<ContactBook
 				rentees={data.rentees || []}
+				realm={data.realm || []}
+				bankProfiles={data.bankProfiles || []}
 				onClose={() => (activePanel = null)}
 			/>
 		{/if}

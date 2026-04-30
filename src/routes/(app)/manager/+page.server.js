@@ -3,6 +3,7 @@ import { fail } from '@sveltejs/kit';
 import crypto from 'node:crypto';
 import { getActiveBillingConfig, agreementHasBillingConfig } from '$lib/billing/activeConfig.js';
 import { buildInvoiceComponents } from '$lib/billing/calc.js';
+import { parseBillingConfig } from '$lib/billing/config.js';
 
 /**
  * Manager dashboard: cross-tenant view for the people running the show
@@ -136,7 +137,17 @@ export const load = async ({ locals }) => {
 		}
 	}
 
-	return { realm, rentees, canvasState, canvasUpdatedAt };
+	// Bank profiles for the new-tenant wizard's bank-routing step.
+	const bankProfiles = await runQuery(
+		`SELECT bp.id, bp.tenant_id, bp.label, bp.account_holder_name, bp.account_number,
+		        bp.bank_name, bp.branch
+		   FROM bank_profiles bp
+		   JOIN tenants t ON t.id = bp.tenant_id
+		  WHERE bp.active = TRUE AND t.status = 'active'
+		  ORDER BY bp.label`
+	);
+
+	return { realm, rentees, canvasState, canvasUpdatedAt, bankProfiles };
 };
 
 const numericForm = (formData, key) => {
@@ -378,5 +389,139 @@ export const actions = {
 		);
 
 		return { ok: true, action: 'restoreRentee', id };
+	},
+
+	// ── New-tenant wizard: rentee + agreement + initial billing event ──
+	// Single multi-row insert. No transaction wrapper for now — failures
+	// leave orphan rows that the caller can clean up; acceptable while
+	// we're at small scale.
+	createTenantWithAgreement: async ({ request, locals }) => {
+		if (!locals.user?.id) return fail(401, { action: 'createTenant', error: 'Not authenticated' });
+
+		const fd = await request.formData();
+
+		// Identity
+		const name = String(fd.get('name') || '').trim();
+		if (!name) return fail(400, { action: 'createTenant', error: 'Name is required' });
+		const email = String(fd.get('email') || '').trim() || null;
+		const phone = String(fd.get('phone') || '').trim() || null;
+		const national_id = String(fd.get('national_id') || '').trim() || null;
+		const permanent_address = String(fd.get('permanent_address') || '').trim() || null;
+		const notes = String(fd.get('notes') || '').trim() || null;
+
+		// Tenancy
+		const property_id = String(fd.get('property_id') || '').trim();
+		const unit_id = String(fd.get('unit_id') || '').trim();
+		const start_date = String(fd.get('start_date') || '').trim();
+		const end_date = String(fd.get('end_date') || '').trim() || null;
+		const rentAmount = numericForm(fd, 'rent_amount') ?? 0;
+		const depositAmount = numericForm(fd, 'deposit_amount') ?? 0;
+		const bank_profile_id = String(fd.get('bank_profile_id') || '').trim() || null;
+
+		if (!property_id || !unit_id || !start_date) {
+			return fail(400, { action: 'createTenant', error: 'Property, unit, and start date are required' });
+		}
+
+		// Resolve the property's tenant_id — both the rentee and the agreement
+		// inherit org membership from the property.
+		const property = await runSingleQuery(
+			`SELECT tenant_id FROM properties WHERE id = @property_id LIMIT 1`,
+			{ property_id }
+		);
+		if (!property?.tenant_id) {
+			return fail(400, { action: 'createTenant', error: 'Property not found' });
+		}
+		const tenantId = property.tenant_id;
+
+		// Billing config — Zod-validated before any DB work.
+		const billingConfigRaw = String(fd.get('billing_config') || '');
+		let billingConfig;
+		try {
+			billingConfig = parseBillingConfig(JSON.parse(billingConfigRaw));
+		} catch (err) {
+			return fail(400, { action: 'createTenant', error: `Invalid billing config: ${err.message || err}` });
+		}
+
+		// Pull initial readings out of the config into a separate JSONB so the
+		// events row carries them explicitly (config holds them too, but having
+		// a flat shape on the event row makes "what was the meter at on day N"
+		// queries trivial).
+		const meterReadings = {};
+		if (billingConfig.electricity?.mode === 'unit_based' || billingConfig.electricity?.mode === 'solar_offset') {
+			meterReadings.electricity = billingConfig.electricity.initial_reading;
+		}
+		if (billingConfig.water?.mode === 'unit_based') {
+			meterReadings.water = billingConfig.water.initial_reading;
+		}
+
+		const renteeId = crypto.randomUUID();
+		const agreementId = crypto.randomUUID();
+		const eventId = crypto.randomUUID();
+		const contactDetails = phone ? JSON.stringify({ phone }) : null;
+
+		try {
+			await runQuery(
+				`INSERT INTO app_users (
+				    id, name, email, contact_details, national_id, permanent_address,
+				    notes, user_type, tenant_id, active, status, createdat, updatedat
+				 ) VALUES (
+				    @id, @name, @email, @contactDetails::jsonb, @national_id, @permanent_address,
+				    @notes, 'rentee', @tenantId, TRUE, 'active', NOW(), NOW()
+				 )`,
+				{ id: renteeId, name, email, contactDetails, national_id, permanent_address, notes, tenantId }
+			);
+
+			await runQuery(
+				`INSERT INTO agreements (
+				    id, renteeid, propertyid, unitid, startdate, enddate,
+				    rentamount, depositamount, status, createdat
+				 ) VALUES (
+				    @id, @renteeId, @propertyId, @unitId, @startDate, @endDate,
+				    @rentAmount, @depositAmount, 'active', NOW()
+				 )`,
+				{
+					id: agreementId,
+					renteeId,
+					propertyId: property_id,
+					unitId: unit_id,
+					startDate: start_date,
+					endDate: end_date,
+					rentAmount,
+					depositAmount
+				}
+			);
+
+			await runQuery(
+				`INSERT INTO agreement_billing_events (
+				    id, agreement_id, effective_from, config, meter_readings,
+				    reason, created_by
+				 ) VALUES (
+				    @id, @agreementId, @effectiveFrom, @config::jsonb, @meterReadings::jsonb,
+				    'Initial agreement', @createdBy
+				 )`,
+				{
+					id: eventId,
+					agreementId,
+					effectiveFrom: start_date,
+					config: JSON.stringify(billingConfig),
+					meterReadings: JSON.stringify(meterReadings),
+					createdBy: locals.user.id
+				}
+			);
+
+			if (bank_profile_id) {
+				await runQuery(
+					`UPDATE property_units
+					    SET bank_profile_id = @bank_profile_id, updatedat = NOW()
+					  WHERE id = @unit_id`,
+					{ unit_id, bank_profile_id }
+				);
+			}
+		} catch (err) {
+			console.error('[createTenantWithAgreement]', err);
+			return fail(500, { action: 'createTenant', error: 'Failed to create tenant' });
+		}
+
+		return { ok: true, action: 'createTenant', renteeId, agreementId };
 	}
 };

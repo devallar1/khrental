@@ -1,12 +1,13 @@
 <script>
 	import { enhance } from '$app/forms';
 	import { X, Plus, Search, Pencil, Archive, RotateCcw, Save, ArrowLeft, BookUser } from 'lucide-svelte';
+	import TenantWizard from './TenantWizard.svelte';
 
-	let { rentees = [], onClose } = $props();
+	let { rentees = [], realm = [], bankProfiles = [], onClose } = $props();
 
 	let query = $state('');
 	let showArchived = $state(false);
-	// One of: 'list' | 'new' | { id } (editing)
+	// One of: 'list' | 'wizard' | { id } (editing identity)
 	let mode = $state('list');
 	let actionError = $state(null);
 	let submitting = $state(false);
@@ -34,7 +35,7 @@
 
 	function openNew() {
 		actionError = null;
-		mode = 'new';
+		mode = 'wizard';
 	}
 
 	function openEdit(id) {
@@ -187,17 +188,22 @@
 				<li class="empty">No rentees match.</li>
 			{/if}
 		</ul>
-	{:else if mode === 'new' || editing}
+	{:else if mode === 'wizard'}
+		<TenantWizard
+			{realm}
+			{bankProfiles}
+			onCancel={() => (mode = 'list')}
+			onSaved={() => (mode = 'list')}
+		/>
+	{:else if editing}
 		{@const r = editing}
 		<form
 			method="POST"
-			action={r ? '?/updateRentee' : '?/createRentee'}
+			action={'?/updateRentee'}
 			use:enhance={onSubmit}
 			class="rentee-form"
 		>
-			{#if r}
-				<input type="hidden" name="id" value={r.id} />
-			{/if}
+			<input type="hidden" name="id" value={r.id} />
 
 			<label class="field">
 				<span>Name *</span>
