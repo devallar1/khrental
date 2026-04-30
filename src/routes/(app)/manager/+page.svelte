@@ -10,11 +10,34 @@
 	} from 'lucide-svelte';
 	import panzoom from 'panzoom';
 	import PropertyMap from '$lib/components/PropertyMap.svelte';
+	import ManagerRightRail from '$lib/components/ManagerRightRail.svelte';
+	import ContactBook from '$lib/components/ContactBook.svelte';
 
 	const hasCoords = (p) => p && p.latitude != null && p.longitude != null;
 
+	// Which manager-side panel is open. null = none.
+	let activePanel = $state(null);
+
 	let { data, form } = $props();
 	const realm = $derived(data.realm || []);
+
+	// Shared canvas-state sync. Server is authoritative; localStorage is a
+	// warm cache + offline fallback. See migration 20260430_02 + the API at
+	// /api/manager/canvas.
+	let lastServerUpdatedAt = $state(data.canvasUpdatedAt || null);
+	let canvasSaveTimer = null;
+	let suppressSavesUntil = 0;
+	let canvasChannel = null;
+
+	// Live cursor presence — see /api/manager/presence and lib/server/presence.js.
+	let presenceCursors = $state({});  // { [userId]: { name, color, x, y } }
+	let presenceSelfId = null;
+	let presenceES = null;
+	let presenceLastSentAt = 0;
+	let presenceLastPos = null;
+	let presenceIdleTimer = null;
+	const PRESENCE_THROTTLE_MS = 50;          // 20 Hz max while moving
+	const PRESENCE_IDLE_HEARTBEAT_MS = 1800;  // ping while idle so we don't expire
 
 	let selectedPropertyId = $state(null);
 	const selectedProperty = $derived(realm.find((p) => p.id === selectedPropertyId) || null);
@@ -66,8 +89,14 @@
 	$effect(() => {
 		if (positionsInitialized) return;
 		if (realm.length === 0) return;
+		// Server first — falls back to localStorage if server is empty.
+		const fromServer = data.canvasState?.cardPositions;
 		let stored = {};
-		try { stored = JSON.parse(localStorage.getItem(POS_KEY) || '{}'); } catch {}
+		if (fromServer && typeof fromServer === 'object') {
+			stored = fromServer;
+		} else {
+			try { stored = JSON.parse(localStorage.getItem(POS_KEY) || '{}'); } catch {}
+		}
 		const init = {};
 		realm.forEach((p, i) => { init[p.id] = stored[p.id] || defaultPos(i); });
 		cardPositions = init;
@@ -81,12 +110,18 @@
 
 	$effect(() => {
 		if (notesInitialized) return;
-		try { stickyNotes = JSON.parse(localStorage.getItem(NOTES_KEY) || '[]'); } catch { stickyNotes = []; }
+		const fromServer = data.canvasState?.stickyNotes;
+		if (Array.isArray(fromServer)) {
+			stickyNotes = fromServer;
+		} else {
+			try { stickyNotes = JSON.parse(localStorage.getItem(NOTES_KEY) || '[]'); } catch { stickyNotes = []; }
+		}
 		notesInitialized = true;
 	});
 
 	function persistNotes() {
 		try { localStorage.setItem(NOTES_KEY, JSON.stringify(stickyNotes)); } catch {}
+		debouncedSaveCanvas();
 	}
 
 	const noteRotation = (id) => {
@@ -272,13 +307,13 @@
 			persistNotes();
 		}
 		if (moved && type === 'card') {
-			try { localStorage.setItem(POS_KEY, JSON.stringify(cardPositions)); } catch {}
+			persistCardPositions();
 		}
 		if (moved && (type === 'district' || type === 'district-resize')) {
 			persistDistricts();
 			// District move also displaces cards — persist their new positions.
 			if (type === 'district' && dragState.insideIds?.length) {
-				try { localStorage.setItem(POS_KEY, JSON.stringify(cardPositions)); } catch {}
+				persistCardPositions();
 			}
 		}
 		if (moved) {
@@ -299,6 +334,8 @@
 		realm.forEach((p, i) => { init[p.id] = defaultPos(i); });
 		cardPositions = init;
 		try { localStorage.removeItem(POS_KEY); } catch {}
+		// Push the reset layout to the server too so other open instances pick it up.
+		debouncedSaveCanvas();
 	}
 
 	// ---- Context menu (right-click on canvas) -----------------------------
@@ -331,13 +368,96 @@
 
 	$effect(() => {
 		if (districtsInitialized) return;
-		try { districts = JSON.parse(localStorage.getItem(DISTRICTS_KEY) || '[]'); } catch { districts = []; }
+		const fromServer = data.canvasState?.districts;
+		if (Array.isArray(fromServer)) {
+			districts = fromServer;
+		} else {
+			try { districts = JSON.parse(localStorage.getItem(DISTRICTS_KEY) || '[]'); } catch { districts = []; }
+		}
 		districtsInitialized = true;
 	});
 
 	function persistDistricts() {
 		try { localStorage.setItem(DISTRICTS_KEY, JSON.stringify(districts)); } catch {}
+		debouncedSaveCanvas();
 	}
+
+	// Card position writer — mirrors persistNotes/persistDistricts so all
+	// three pieces of canvas state push through the same sync path.
+	function persistCardPositions() {
+		try { localStorage.setItem(POS_KEY, JSON.stringify(cardPositions)); } catch {}
+		debouncedSaveCanvas();
+	}
+
+	function debouncedSaveCanvas() {
+		if (typeof window === 'undefined') return;
+		if (Date.now() < suppressSavesUntil) return;
+		if (canvasSaveTimer) clearTimeout(canvasSaveTimer);
+		canvasSaveTimer = setTimeout(saveCanvasNow, 600);
+	}
+
+	async function saveCanvasNow() {
+		canvasSaveTimer = null;
+		const state = {
+			cardPositions: $state.snapshot(cardPositions),
+			stickyNotes: $state.snapshot(stickyNotes),
+			districts: $state.snapshot(districts)
+		};
+		try {
+			const res = await fetch('/api/manager/canvas', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ state })
+			});
+			if (!res.ok) return;
+			const body = await res.json();
+			lastServerUpdatedAt = body.updatedAt;
+			try { canvasChannel?.postMessage({ type: 'updated', updatedAt: body.updatedAt }); } catch {}
+		} catch {}
+	}
+
+	async function refetchCanvas() {
+		try {
+			const res = await fetch('/api/manager/canvas');
+			if (!res.ok) return;
+			const body = await res.json();
+			if (!body.updatedAt || body.updatedAt === lastServerUpdatedAt) return;
+			// Server has newer state — replace local. Briefly suppress saves so
+			// the resulting reactivity doesn't echo straight back.
+			suppressSavesUntil = Date.now() + 300;
+			const s = body.state || {};
+			if (s.cardPositions && typeof s.cardPositions === 'object') {
+				cardPositions = s.cardPositions;
+			}
+			if (Array.isArray(s.stickyNotes)) stickyNotes = s.stickyNotes;
+			if (Array.isArray(s.districts)) districts = s.districts;
+			lastServerUpdatedAt = body.updatedAt;
+		} catch {}
+	}
+
+	// Cross-tab + window-focus sync. BroadcastChannel covers same-origin tabs
+	// instantly; window 'focus' covers tabs that come back from background or
+	// from another device.
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		canvasChannel = ('BroadcastChannel' in window)
+			? new BroadcastChannel('khrental-manager-canvas')
+			: null;
+		if (canvasChannel) {
+			canvasChannel.onmessage = (msg) => {
+				if (msg.data?.type === 'updated' && msg.data.updatedAt !== lastServerUpdatedAt) {
+					refetchCanvas();
+				}
+			};
+		}
+		const onFocus = () => refetchCanvas();
+		window.addEventListener('focus', onFocus);
+		return () => {
+			window.removeEventListener('focus', onFocus);
+			try { canvasChannel?.close(); } catch {}
+			canvasChannel = null;
+		};
+	});
 
 	function spawnDistrictFromMenu() {
 		const id = `dist-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -581,7 +701,82 @@
 			viewportEl.style.setProperty('--cam-y', `${t.y}px`);
 			viewportEl.style.setProperty('--cam-scale', String(t.scale));
 		}
+		// Throttled presence ping in canvas (world) coordinates
+		const world = screenToCanvas(e.clientX, e.clientY);
+		sendPresenceCursor(world.x, world.y);
 	}
+
+	// ---- Live cursor presence ---------------------------------------------
+	function sendPresenceCursor(x, y, force = false) {
+		if (typeof window === 'undefined') return;
+		const now = Date.now();
+		if (!force && now - presenceLastSentAt < PRESENCE_THROTTLE_MS) return;
+		presenceLastSentAt = now;
+		presenceLastPos = { x, y };
+		try {
+			fetch('/api/manager/presence', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ x, y }),
+				keepalive: true
+			}).catch(() => {});
+		} catch {}
+	}
+
+	function schedulePresenceHeartbeat() {
+		if (presenceIdleTimer) clearTimeout(presenceIdleTimer);
+		presenceIdleTimer = setTimeout(() => {
+			if (presenceLastPos) sendPresenceCursor(presenceLastPos.x, presenceLastPos.y, true);
+			schedulePresenceHeartbeat();
+		}, PRESENCE_IDLE_HEARTBEAT_MS);
+	}
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+
+		presenceES = new EventSource('/api/manager/presence');
+		presenceES.addEventListener('hello', (ev) => {
+			try { presenceSelfId = JSON.parse(ev.data)?.userId || null; } catch {}
+		});
+		presenceES.onmessage = (ev) => {
+			try {
+				const msg = JSON.parse(ev.data);
+				if (msg.type === 'cursor') {
+					if (msg.userId === presenceSelfId) return;
+					presenceCursors = {
+						...presenceCursors,
+						[msg.userId]: { name: msg.name, color: msg.color, x: msg.x, y: msg.y }
+					};
+				} else if (msg.type === 'bye') {
+					const { [msg.userId]: _gone, ...rest } = presenceCursors;
+					presenceCursors = rest;
+				}
+			} catch {}
+		};
+		presenceES.onerror = () => {
+			// EventSource auto-reconnects; nothing to do here.
+		};
+
+		schedulePresenceHeartbeat();
+
+		const sayBye = () => {
+			try {
+				const blob = new Blob([JSON.stringify({ bye: true })], { type: 'application/json' });
+				navigator.sendBeacon?.('/api/manager/presence', blob);
+			} catch {}
+		};
+		window.addEventListener('beforeunload', sayBye);
+		window.addEventListener('pagehide', sayBye);
+
+		return () => {
+			window.removeEventListener('beforeunload', sayBye);
+			window.removeEventListener('pagehide', sayBye);
+			if (presenceIdleTimer) clearTimeout(presenceIdleTimer);
+			try { presenceES?.close(); } catch {}
+			presenceES = null;
+			sayBye();
+		};
+	});
 
 	const propertyTypeIcon = (t) => {
 		switch (t) {
@@ -623,7 +818,10 @@
 </svelte:head>
 
 <div class="dark aqua-theme">
-<div class="-m-3 min-h-screen p-3 sm:-m-4 sm:p-4 md:-m-6 md:p-6 lg:-m-8 lg:p-8" style="background: var(--bg); color: var(--ink); font-family: 'Inter Tight', system-ui, sans-serif;">
+<div
+	class={`-m-3 min-h-screen p-3 sm:-m-4 sm:p-4 md:-m-6 md:p-6 lg:-m-8 lg:p-8 ${selectedProperty ? '' : 'pr-16 sm:pr-16 md:pr-16 lg:pr-16'}`}
+	style="background: var(--bg); color: var(--ink); font-family: 'Inter Tight', system-ui, sans-serif;"
+>
 	{#if !selectedProperty}
 		<div class="mb-6 flex items-center justify-between">
 			<div>
@@ -1056,6 +1254,25 @@
 					{/if}
 				</div>
 			{/each}
+
+			<!-- Live presence cursors (other users) -->
+			{#each Object.entries(presenceCursors) as [uid, c] (uid)}
+				<div
+					class="presence-cursor"
+					style={`left: ${c.x}px; top: ${c.y}px; --cursor-color: ${c.color};`}
+				>
+					<svg class="cursor-arrow" viewBox="0 0 16 18" width="14" height="16" aria-hidden="true">
+						<path
+							d="M0.5 0.5 L0.5 13.5 L4.2 10.6 L7 17 L9 16 L6.2 9.7 L11 9.7 Z"
+							fill="var(--cursor-color)"
+							stroke="rgba(0,0,0,0.5)"
+							stroke-width="0.7"
+							stroke-linejoin="round"
+						/>
+					</svg>
+					<div class="cursor-tag">{c.name}</div>
+				</div>
+			{/each}
 		</div>
 		</div><!-- /canvas-viewport -->
 
@@ -1088,6 +1305,15 @@
 			<div class="mx-auto max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
 				No properties found. Run the data import or seed properties first.
 			</div>
+		{/if}
+
+		<!-- Right-side control rail + slide-in panels -->
+		<ManagerRightRail bind:active={activePanel} />
+		{#if activePanel === 'contacts'}
+			<ContactBook
+				rentees={data.rentees || []}
+				onClose={() => (activePanel = null)}
+			/>
 		{/if}
 	{:else}
 		<!-- Property detail -->
@@ -2296,5 +2522,38 @@
 	:global(.dark .action-btn:hover) {
 		background: #1e293b;
 		border-color: #475569;
+	}
+
+	/* Live presence cursors — positioned in canvas (world) coords inside the
+	   card-canvas, so they pan/zoom alongside everything else. */
+	.presence-cursor {
+		position: absolute;
+		left: 0;
+		top: 0;
+		pointer-events: none;
+		z-index: 60;
+		transition: left 80ms linear, top 80ms linear;
+		will-change: left, top;
+	}
+	.presence-cursor .cursor-arrow {
+		display: block;
+		filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+	}
+	.presence-cursor .cursor-tag {
+		position: absolute;
+		left: 12px;
+		top: 16px;
+		padding: 2px 7px;
+		border-radius: 5px;
+		background: var(--cursor-color);
+		color: #fff;
+		font-size: 10.5px;
+		font-weight: 600;
+		letter-spacing: 0.01em;
+		white-space: nowrap;
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+		max-width: 160px;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 </style>

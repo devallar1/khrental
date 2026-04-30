@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
  * (Liswith / Devalla / Ravi). Lists every property under every active
  * tenant, with each unit's current resident + quick stats.
  */
-export const load = async () => {
+export const load = async ({ locals }) => {
 	const properties = await runQuery(
 		`SELECT p.id, p.name, p.address, p.propertytype, p.description,
 		        p.tenant_id, t.name AS tenant_name, t.slug AS tenant_slug,
@@ -83,7 +83,58 @@ export const load = async () => {
 		units: unitsByPropertyId.get(p.id) || []
 	}));
 
-	return { realm };
+	// Rentees for the contact-book panel. Cross-tenant like the rest of the
+	// manager view. We keep archived (active=false) ones in the result so the
+	// drawer can offer "show archived"; the default UI hides them.
+	const renteeRows = await runQuery(
+		`SELECT id, name, email, contact_details, national_id,
+		        permanent_address, notes, active, tenant_id, createdat
+		 FROM app_users
+		 WHERE COALESCE(user_type, 'rentee') = 'rentee'
+		 ORDER BY active DESC, name`
+	);
+	const rentees = renteeRows.map((r) => {
+		let phone = null;
+		try {
+			const cd = typeof r.contact_details === 'string'
+				? JSON.parse(r.contact_details)
+				: r.contact_details;
+			phone = cd?.phone || null;
+		} catch {}
+		return {
+			id: r.id,
+			name: r.name,
+			email: r.email,
+			phone,
+			national_id: r.national_id,
+			permanent_address: r.permanent_address,
+			notes: r.notes,
+			active: r.active,
+			tenant_id: r.tenant_id
+		};
+	});
+
+	// Shared canvas state (card positions, sticky notes, districts) for the
+	// whole manager team. Last-write-wins; the API endpoint at
+	// /api/manager/canvas handles saves and cross-tab sync. See migrations
+	// 20260430_01 / 20260430_02.
+	let canvasState = {};
+	let canvasUpdatedAt = null;
+	if (locals?.user?.id) {
+		const canvasRow = await runSingleQuery(
+			`SELECT state, updated_at FROM manager_canvas_states WHERE scope = @scope`,
+			{ scope: 'shared' }
+		);
+		if (canvasRow) {
+			canvasState = canvasRow.state || {};
+			canvasUpdatedAt =
+				canvasRow.updated_at instanceof Date
+					? canvasRow.updated_at.toISOString()
+					: canvasRow.updated_at || null;
+		}
+	}
+
+	return { realm, rentees, canvasState, canvasUpdatedAt };
 };
 
 const numericForm = (formData, key) => {
@@ -188,5 +239,88 @@ export const actions = {
 		);
 
 		return { ok: true, action: 'sendInvoice', invoiceId: id, totalamount };
+	},
+
+	// ── Rentee CRUD (powers the contact-book drawer) ────────────────────
+	createRentee: async ({ request, locals }) => {
+		const fd = await request.formData();
+		const name = String(fd.get('name') || '').trim();
+		if (!name) return fail(400, { action: 'createRentee', error: 'Name is required' });
+
+		const email = String(fd.get('email') || '').trim() || null;
+		const phone = String(fd.get('phone') || '').trim() || null;
+		const national_id = String(fd.get('national_id') || '').trim() || null;
+		const permanent_address = String(fd.get('permanent_address') || '').trim() || null;
+		const notes = String(fd.get('notes') || '').trim() || null;
+		const tenantId = locals.tenantId || null;
+
+		const id = crypto.randomUUID();
+		const contactDetails = phone ? JSON.stringify({ phone }) : null;
+
+		await runQuery(
+			`INSERT INTO app_users (
+				id, name, email, contact_details, national_id, permanent_address,
+				notes, user_type, tenant_id, active, createdat, updatedat
+			) VALUES (
+				@id, @name, @email, @contactDetails, @national_id, @permanent_address,
+				@notes, 'rentee', @tenantId, TRUE, NOW(), NOW()
+			)`,
+			{ id, name, email, contactDetails, national_id, permanent_address, notes, tenantId }
+		);
+
+		return { ok: true, action: 'createRentee', id };
+	},
+
+	updateRentee: async ({ request }) => {
+		const fd = await request.formData();
+		const id = String(fd.get('id') || '').trim();
+		const name = String(fd.get('name') || '').trim();
+		if (!id || !name) return fail(400, { action: 'updateRentee', error: 'Missing id or name' });
+
+		const email = String(fd.get('email') || '').trim() || null;
+		const phone = String(fd.get('phone') || '').trim() || null;
+		const national_id = String(fd.get('national_id') || '').trim() || null;
+		const permanent_address = String(fd.get('permanent_address') || '').trim() || null;
+		const notes = String(fd.get('notes') || '').trim() || null;
+		const contactDetails = phone ? JSON.stringify({ phone }) : null;
+
+		await runQuery(
+			`UPDATE app_users
+			 SET name = @name, email = @email, contact_details = @contactDetails,
+			     national_id = @national_id, permanent_address = @permanent_address,
+			     notes = @notes, updatedat = NOW()
+			 WHERE id = @id`,
+			{ id, name, email, contactDetails, national_id, permanent_address, notes }
+		);
+
+		return { ok: true, action: 'updateRentee', id };
+	},
+
+	// Soft delete — flips `active` to false. Keeps history intact (FKs from
+	// agreements / invoices / action_records stay valid).
+	archiveRentee: async ({ request }) => {
+		const fd = await request.formData();
+		const id = String(fd.get('id') || '').trim();
+		if (!id) return fail(400, { action: 'archiveRentee', error: 'Missing id' });
+
+		await runQuery(
+			`UPDATE app_users SET active = FALSE, updatedat = NOW() WHERE id = @id`,
+			{ id }
+		);
+
+		return { ok: true, action: 'archiveRentee', id };
+	},
+
+	restoreRentee: async ({ request }) => {
+		const fd = await request.formData();
+		const id = String(fd.get('id') || '').trim();
+		if (!id) return fail(400, { action: 'restoreRentee', error: 'Missing id' });
+
+		await runQuery(
+			`UPDATE app_users SET active = TRUE, updatedat = NOW() WHERE id = @id`,
+			{ id }
+		);
+
+		return { ok: true, action: 'restoreRentee', id };
 	}
 };
