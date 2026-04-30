@@ -20,9 +20,14 @@
 		return map[status] || 'bg-slate-50 text-slate-700 ring-slate-600/20';
 	};
 
+	// Sri Lanka local date format: DD/MM/YYYY.
 	const formatDate = (d) => {
 		if (!d) return '-';
-		return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+		const date = new Date(d);
+		if (Number.isNaN(date.getTime())) return String(d);
+		const dd = String(date.getDate()).padStart(2, '0');
+		const mm = String(date.getMonth() + 1).padStart(2, '0');
+		return `${dd}/${mm}/${date.getFullYear()}`;
 	};
 
 	const formatCurrency = (v) => {

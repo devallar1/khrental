@@ -1,4 +1,4 @@
-import { runQuery, runSingleQuery } from '$api/db/query.js';
+import { runQuery, runSingleQuery, withTransaction } from '$api/db/query.js';
 import { fail } from '@sveltejs/kit';
 import crypto from 'node:crypto';
 import { getActiveBillingConfig, agreementHasBillingConfig } from '$lib/billing/activeConfig.js';
@@ -29,7 +29,10 @@ export const load = async ({ locals }) => {
 		        a.rentamount, a.depositamount, a.startdate, a.enddate,
 		        au.id AS rentee_id, au.name AS rentee_name, au.email AS rentee_email,
 		        au.national_id AS rentee_nic,
-		        au.contact_details AS rentee_contact_details
+		        au.contact_details AS rentee_contact_details,
+		        be.config AS billing_config,
+		        be.meter_readings AS billing_meter_readings,
+		        be.effective_from AS billing_effective_from
 		 FROM property_units u
 		 LEFT JOIN LATERAL (
 		   SELECT * FROM agreements ag
@@ -39,6 +42,13 @@ export const load = async ({ locals }) => {
 		     ag.createdat DESC
 		   LIMIT 1
 		 ) a ON TRUE
+		 LEFT JOIN LATERAL (
+		   SELECT config, meter_readings, effective_from
+		     FROM agreement_billing_events
+		    WHERE agreement_id = a.id
+		    ORDER BY effective_from DESC, createdat DESC
+		    LIMIT 1
+		 ) be ON TRUE
 		 LEFT JOIN app_users au ON au.id = a.renteeid
 		 ORDER BY u.unitnumber`
 	);
@@ -418,9 +428,9 @@ export const actions = {
 	},
 
 	// ── New-tenant wizard: rentee + agreement + initial billing event ──
-	// Single multi-row insert. No transaction wrapper for now — failures
-	// leave orphan rows that the caller can clean up; acceptable while
-	// we're at small scale.
+	// Wrapped in a single Postgres transaction so partial failures roll back
+	// cleanly — if the billing-event INSERT fails (e.g. FK violation), the
+	// rentee + agreement INSERTs preceding it are undone in the same step.
 	createTenantWithAgreement: async ({ request, locals }) => {
 		if (!locals.user?.id) return fail(401, { action: 'createTenant', error: 'Not authenticated' });
 
@@ -491,86 +501,153 @@ export const actions = {
 		const agreementId = crypto.randomUUID();
 		const eventId = crypto.randomUUID();
 
+		// `created_by` FK references auth_user(id), not app_users(id) — pull
+		// the auth-side id from the session.
+		const createdByAuthId = locals.session?.user?.id || locals.user?.auth_id || null;
+
 		try {
-			if (existingRenteeId) {
-				// Verify the existing rentee row really exists and is active
-				// before stitching an agreement to it; otherwise fail loudly.
-				const existing = await runSingleQuery(
-					`SELECT id FROM app_users WHERE id = @id AND active = TRUE LIMIT 1`,
-					{ id: existingRenteeId }
-				);
-				if (!existing) {
-					return fail(400, { action: 'createTenant', error: 'Selected tenant no longer exists' });
+			await withTransaction(async ({ runQuery, runSingleQuery }) => {
+				if (existingRenteeId) {
+					const existing = await runSingleQuery(
+						`SELECT id FROM app_users WHERE id = @id AND active = TRUE LIMIT 1`,
+						{ id: existingRenteeId }
+					);
+					if (!existing) throw new Error('Selected tenant no longer exists');
+				} else {
+					const contactDetails = phone ? JSON.stringify({ phone }) : null;
+					await runQuery(
+						`INSERT INTO app_users (
+						    id, name, email, contact_details, national_id, permanent_address,
+						    notes, user_type, tenant_id, active, status, createdat, updatedat
+						 ) VALUES (
+						    @id, @name, @email, @contactDetails::jsonb, @national_id, @permanent_address,
+						    @notes, 'rentee', @tenantId, TRUE, 'active', NOW(), NOW()
+						 )`,
+						{ id: renteeId, name, email, contactDetails, national_id, permanent_address, notes, tenantId }
+					);
 				}
-			} else {
-				const contactDetails = phone ? JSON.stringify({ phone }) : null;
+
 				await runQuery(
-					`INSERT INTO app_users (
-					    id, name, email, contact_details, national_id, permanent_address,
-					    notes, user_type, tenant_id, active, status, createdat, updatedat
+					`INSERT INTO agreements (
+					    id, renteeid, propertyid, unitid, startdate, enddate,
+					    rentamount, depositamount, status, createdat
 					 ) VALUES (
-					    @id, @name, @email, @contactDetails::jsonb, @national_id, @permanent_address,
-					    @notes, 'rentee', @tenantId, TRUE, 'active', NOW(), NOW()
+					    @id, @renteeId, @propertyId, @unitId, @startDate, @endDate,
+					    @rentAmount, @depositAmount, 'active', NOW()
 					 )`,
-					{ id: renteeId, name, email, contactDetails, national_id, permanent_address, notes, tenantId }
+					{
+						id: agreementId,
+						renteeId,
+						propertyId: property_id,
+						unitId: unit_id,
+						startDate: start_date,
+						endDate: end_date,
+						rentAmount,
+						depositAmount
+					}
 				);
-			}
 
-			await runQuery(
-				`INSERT INTO agreements (
-				    id, renteeid, propertyid, unitid, startdate, enddate,
-				    rentamount, depositamount, status, createdat
-				 ) VALUES (
-				    @id, @renteeId, @propertyId, @unitId, @startDate, @endDate,
-				    @rentAmount, @depositAmount, 'active', NOW()
-				 )`,
-				{
-					id: agreementId,
-					renteeId,
-					propertyId: property_id,
-					unitId: unit_id,
-					startDate: start_date,
-					endDate: end_date,
-					rentAmount,
-					depositAmount
+				await runQuery(
+					`INSERT INTO agreement_billing_events (
+					    id, agreement_id, effective_from, config, meter_readings,
+					    reason, created_by
+					 ) VALUES (
+					    @id, @agreementId, @effectiveFrom, @config::jsonb, @meterReadings::jsonb,
+					    'Initial agreement', @createdBy
+					 )`,
+					{
+						id: eventId,
+						agreementId,
+						effectiveFrom: start_date,
+						config: JSON.stringify(billingConfig),
+						meterReadings: JSON.stringify(meterReadings),
+						createdBy: createdByAuthId
+					}
+				);
+
+				if (bank_profile_id) {
+					await runQuery(
+						`UPDATE property_units
+						    SET bank_profile_id = @bank_profile_id, updatedat = NOW()
+						  WHERE id = @unit_id`,
+						{ unit_id, bank_profile_id }
+					);
 				}
-			);
+			});
+		} catch (err) {
+			console.error('[createTenantWithAgreement]', err);
+			const msg = err?.message === 'Selected tenant no longer exists'
+				? err.message
+				: 'Failed to create tenant';
+			return fail(500, { action: 'createTenant', error: msg });
+		}
 
-			// `created_by` FK references auth_user(id), not app_users(id) — the
-			// session's user id is the auth_user one. Fall back to NULL (column
-			// is nullable) when there's no session, e.g. server-to-server.
-			const createdByAuthId = locals.session?.user?.id || locals.user?.auth_id || null;
+		return { ok: true, action: 'createTenant', renteeId, agreementId };
+	},
+
+	// Append a new billing-config event for an existing agreement. Used by
+	// the "Edit billing" panel — historical events stay intact so we can
+	// always reconstruct what config was active at any past invoice period.
+	updateAgreementBilling: async ({ request, locals }) => {
+		if (!locals.user?.id) return fail(401, { action: 'updateAgreementBilling', error: 'Not authenticated' });
+		const fd = await request.formData();
+		const agreementId = String(fd.get('agreement_id') || '').trim();
+		const effectiveFrom = String(fd.get('effective_from') || '').trim();
+		const reason = String(fd.get('reason') || '').trim() || 'Billing config update';
+		if (!agreementId || !effectiveFrom) {
+			return fail(400, { action: 'updateAgreementBilling', error: 'Agreement and effective date are required' });
+		}
+
+		let billingConfig;
+		try {
+			billingConfig = parseBillingConfig(JSON.parse(String(fd.get('billing_config') || '{}')));
+		} catch (err) {
+			return fail(400, { action: 'updateAgreementBilling', error: `Invalid billing config: ${err.message || err}` });
+		}
+
+		let meterReadings = {};
+		try {
+			const raw = String(fd.get('meter_readings') || '{}');
+			const parsed = JSON.parse(raw);
+			if (parsed && typeof parsed === 'object') meterReadings = parsed;
+		} catch {}
+
+		const eventId = crypto.randomUUID();
+		const createdByAuthId = locals.session?.user?.id || locals.user?.auth_id || null;
+
+		try {
+			await runSingleQuery(
+				`SELECT 1 FROM agreements WHERE id = @id LIMIT 1`,
+				{ id: agreementId }
+			);
 			await runQuery(
 				`INSERT INTO agreement_billing_events (
 				    id, agreement_id, effective_from, config, meter_readings,
 				    reason, created_by
 				 ) VALUES (
 				    @id, @agreementId, @effectiveFrom, @config::jsonb, @meterReadings::jsonb,
-				    'Initial agreement', @createdBy
-				 )`,
+				    @reason, @createdBy
+				 )
+				 ON CONFLICT (agreement_id, effective_from) DO UPDATE
+				   SET config = EXCLUDED.config,
+				       meter_readings = EXCLUDED.meter_readings,
+				       reason = EXCLUDED.reason,
+				       created_by = EXCLUDED.created_by`,
 				{
 					id: eventId,
 					agreementId,
-					effectiveFrom: start_date,
+					effectiveFrom,
 					config: JSON.stringify(billingConfig),
 					meterReadings: JSON.stringify(meterReadings),
+					reason,
 					createdBy: createdByAuthId
 				}
 			);
-
-			if (bank_profile_id) {
-				await runQuery(
-					`UPDATE property_units
-					    SET bank_profile_id = @bank_profile_id, updatedat = NOW()
-					  WHERE id = @unit_id`,
-					{ unit_id, bank_profile_id }
-				);
-			}
 		} catch (err) {
-			console.error('[createTenantWithAgreement]', err);
-			return fail(500, { action: 'createTenant', error: 'Failed to create tenant' });
+			console.error('[updateAgreementBilling]', err);
+			return fail(500, { action: 'updateAgreementBilling', error: 'Failed to save billing config' });
 		}
 
-		return { ok: true, action: 'createTenant', renteeId, agreementId };
+		return { ok: true, action: 'updateAgreementBilling', agreementId };
 	}
 };

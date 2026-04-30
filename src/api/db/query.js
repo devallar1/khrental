@@ -32,6 +32,47 @@ export const runSingleQuery = async (queryText, params = {}) => {
   return rows[0] || null;
 };
 
+/**
+ * Run a function inside a single Postgres transaction. The callback receives
+ * a `{ runQuery, runSingleQuery }` pair bound to the transaction's client, so
+ * every statement inside the callback shares the same connection and is
+ * committed (or rolled back) atomically.
+ *
+ *   await withTransaction(async ({ runQuery }) => {
+ *     await runQuery(`INSERT INTO foo (...) VALUES (...)`, { ... });
+ *     await runQuery(`UPDATE bar SET ... WHERE id = @id`, { id });
+ *   });
+ *
+ * Any thrown error rolls back the transaction. The client is always released.
+ */
+export const withTransaction = async (fn) => {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const tx = {
+      runQuery: async (queryText, params = {}) => {
+        const { text, values } = translateNamedParams(queryText, params);
+        const result = await client.query(text, values);
+        return result.rows || [];
+      },
+      runSingleQuery: async (queryText, params = {}) => {
+        const { text, values } = translateNamedParams(queryText, params);
+        const result = await client.query(text, values);
+        return (result.rows || [])[0] || null;
+      }
+    };
+    const out = await fn(tx);
+    await client.query('COMMIT');
+    return out;
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch {}
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
 export const paginateQuery = async ({
   baseQuery,
   orderBy,

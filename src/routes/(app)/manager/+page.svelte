@@ -6,12 +6,13 @@
 		ChevronLeft, Building2, TreePine, Layers, ArrowRight,
 		Plus, Minus, Maximize2, StickyNote, X,
 		RotateCw, Copy, MapPin, Landmark, Wrench, Bell, Edit3, Archive, History,
-		Group, Palette
+		Group, Palette, Wallet, AlertTriangle
 	} from 'lucide-svelte';
 	import panzoom from 'panzoom';
 	import PropertyMap from '$lib/components/PropertyMap.svelte';
 	import ManagerRightRail from '$lib/components/ManagerRightRail.svelte';
 	import ContactBook from '$lib/components/ContactBook.svelte';
+	import BillingConfigEditor from '$lib/components/BillingConfigEditor.svelte';
 
 	const hasCoords = (p) => p && p.latitude != null && p.longitude != null;
 
@@ -67,6 +68,47 @@
 		const { propertyId, unitId, rentee } = tokenMenu;
 		closeTokenMenu();
 		openContactsForUnit(propertyId, unitId, rentee);
+	}
+
+	// "Edit billing" panel — slides in alongside the contact book.
+	let billingEditContext = $state(null);
+	function tokenMenuEditBilling() {
+		const { propertyId, unitId, rentee } = tokenMenu;
+		closeTokenMenu();
+		const property = (data.realm || []).find((p) => p.id === propertyId);
+		const unit = property?.units?.find((u) => u.id === unitId);
+		if (!unit?.agreement_id) return;
+		billingEditContext = {
+			agreementId: unit.agreement_id,
+			currentConfig: unit.billing_config || null,
+			currentMeterReadings: unit.billing_meter_readings || null,
+			context: {
+				renteeName: rentee?.name || unit.rentee_name || null,
+				unitNumber: unit.unitnumber || null,
+				propertyName: property?.name || null
+			}
+		};
+		activePanel = 'billing';
+	}
+
+	// Custom confirm modal — replaces native confirm() for destructive
+	// actions like Remove tenant. State holds everything needed to render
+	// the modal and the form that fires on Confirm.
+	let confirmDialog = $state(null);
+
+	function openRemoveConfirm() {
+		const { unitId, rentee } = tokenMenu;
+		closeTokenMenu();
+		confirmDialog = {
+			kind: 'endTenancy',
+			title: 'Remove tenant',
+			message: `Remove ${rentee?.name || 'this tenant'} from the unit? The agreement will be marked terminated.`,
+			confirmLabel: 'Remove tenant',
+			unitId
+		};
+	}
+	function closeConfirmDialog() {
+		confirmDialog = null;
 	}
 
 	let { data, form } = $props();
@@ -891,9 +933,16 @@
 	const fmtMoney = (n) => n == null
 		? '—'
 		: new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 0 }).format(n);
+	// Sri Lanka local date format: DD/MM/YYYY.
 	const fmtDate = (d) => {
 		if (!d) return '—';
-		try { return new Date(d).toISOString().slice(0, 10); } catch { return String(d); }
+		try {
+			const date = new Date(d);
+			if (Number.isNaN(date.getTime())) return String(d);
+			const dd = String(date.getDate()).padStart(2, '0');
+			const mm = String(date.getMonth() + 1).padStart(2, '0');
+			return `${dd}/${mm}/${date.getFullYear()}`;
+		} catch { return String(d); }
 	};
 
 	const tenantBadge = (slug) => ({
@@ -1691,36 +1740,68 @@
 				<Edit3 class="h-4 w-4" style="color: var(--aqua);" />
 				<span>Edit tenant</span>
 			</button>
-			<form
-				method="POST"
-				action="?/endTenancy"
-				use:enhance={() => {
-					return async ({ update }) => {
-						closeTokenMenu();
-						// Wait for the manager load to re-run so the property card
-						// flips the unit to vacant before this turn ends. Without
-						// `await update()` the form's success callback was returning
-						// before SvelteKit invalidated, so the UI looked stuck.
-						await update({ reset: false });
-					};
-				}}
-			>
-				<input type="hidden" name="unitId" value={tokenMenu.unitId} />
-				<button
-					type="submit"
-					class="ctx-item ctx-item-warn"
-					onclick={(e) => { if (!confirm(`Remove ${tokenMenu.rentee?.name || 'tenant'} from this unit? The agreement will be marked terminated.`)) e.preventDefault(); }}
-				>
-					<UserMinus class="h-4 w-4" />
-					<span>Remove tenant</span>
-				</button>
-			</form>
+			<button type="button" class="ctx-item" onclick={tokenMenuEditBilling}>
+				<Wallet class="h-4 w-4" style="color: var(--aqua);" />
+				<span>Edit billing</span>
+			</button>
+			<button type="button" class="ctx-item ctx-item-warn" onclick={openRemoveConfirm}>
+				<UserMinus class="h-4 w-4" />
+				<span>Remove tenant</span>
+			</button>
 		{:else}
 			<button type="button" class="ctx-item" onclick={tokenMenuAdd}>
 				<UserPlus class="h-4 w-4" style="color: var(--aqua);" />
 				<span>Add tenant</span>
 			</button>
 		{/if}
+	</div>
+{/if}
+
+<!-- Billing-config editor panel — slides in alongside the contact book. -->
+{#if activePanel === 'billing' && billingEditContext}
+	<BillingConfigEditor
+		agreementId={billingEditContext.agreementId}
+		context={billingEditContext.context}
+		initialConfig={billingEditContext.currentConfig}
+		initialMeterReadings={billingEditContext.currentMeterReadings}
+		onCancel={() => { activePanel = null; billingEditContext = null; }}
+		onSaved={() => { activePanel = null; billingEditContext = null; }}
+	/>
+{/if}
+
+<!-- Custom confirm modal — replaces the OS confirm() dialog so destructive
+     actions get a red Confirm + a Cancel, on-brand. -->
+{#if confirmDialog}
+	<button
+		type="button"
+		class="confirm-backdrop"
+		aria-label="Cancel"
+		onclick={closeConfirmDialog}
+	></button>
+	<div class="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+		<div class="confirm-icon">
+			<AlertTriangle class="h-5 w-5" />
+		</div>
+		<h2 id="confirm-title" class="confirm-title">{confirmDialog.title}</h2>
+		<p class="confirm-message">{confirmDialog.message}</p>
+		<div class="confirm-actions">
+			<button type="button" class="confirm-cancel" onclick={closeConfirmDialog}>Cancel</button>
+			{#if confirmDialog.kind === 'endTenancy'}
+				<form
+					method="POST"
+					action="?/endTenancy"
+					use:enhance={() => {
+						return async ({ update }) => {
+							closeConfirmDialog();
+							await update({ reset: false });
+						};
+					}}
+				>
+					<input type="hidden" name="unitId" value={confirmDialog.unitId} />
+					<button type="submit" class="confirm-destructive">{confirmDialog.confirmLabel}</button>
+				</form>
+			{/if}
+		</div>
 	</div>
 {/if}
 </div>
@@ -2906,5 +2987,86 @@
 		max-width: 160px;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	/* ── Custom confirm modal ─────────────────────────────────────────── */
+	.confirm-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 60;
+		background: rgba(0, 0, 0, 0.55);
+		backdrop-filter: blur(4px);
+		border: none;
+		cursor: default;
+	}
+	.confirm-modal {
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 61;
+		width: min(420px, calc(100vw - 32px));
+		padding: 22px 24px 18px;
+		background: #0f172a;
+		border: 1px solid #334155;
+		border-radius: 14px;
+		box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+		font-family: 'Inter Tight', system-ui, sans-serif;
+		color: #e2e8f0;
+	}
+	.confirm-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		margin-bottom: 12px;
+		border-radius: 10px;
+		background: oklch(0.66 0.18 25 / 0.18);
+		color: oklch(0.85 0.10 25);
+	}
+	.confirm-title {
+		margin: 0;
+		font-size: 16px;
+		font-weight: 600;
+		color: #f8fafc;
+	}
+	.confirm-message {
+		margin: 8px 0 18px;
+		font-size: 13px;
+		line-height: 1.5;
+		color: #cbd5e1;
+	}
+	.confirm-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 8px;
+	}
+	.confirm-actions form { margin: 0; padding: 0; }
+	.confirm-cancel,
+	.confirm-destructive {
+		padding: 8px 16px;
+		font-size: 13px;
+		font-weight: 600;
+		border-radius: 8px;
+		cursor: pointer;
+		font-family: inherit;
+	}
+	.confirm-cancel {
+		background: transparent;
+		color: #cbd5e1;
+		border: 1px solid #334155;
+	}
+	.confirm-cancel:hover {
+		background: #1e293b;
+		color: #f8fafc;
+	}
+	.confirm-destructive {
+		background: oklch(0.66 0.18 25);
+		color: white;
+		border: 1px solid oklch(0.66 0.18 25);
+	}
+	.confirm-destructive:hover {
+		filter: brightness(1.06);
 	}
 </style>
