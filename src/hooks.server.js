@@ -39,12 +39,11 @@ const resolveAllTenants = async () => {
 	}
 };
 
-const resolveAppUser = async (authUserId, tenantId) => {
+const resolveAppUser = async (authUserId, authEmail, tenantId) => {
 	if (!authUserId) return null;
+
+	// 1. Direct match on auth_id — the steady state for any returning user.
 	try {
-		// Match by auth_id; if a tenant is selected, restrict to that tenant.
-		// If no tenant_id is bound on the row yet (first-login race), fall back
-		// to any active row for this auth_id.
 		if (tenantId) {
 			const row = await runSingleQuery(
 				`SELECT *
@@ -57,7 +56,7 @@ const resolveAppUser = async (authUserId, tenantId) => {
 			);
 			if (row) return row;
 		}
-		return await runSingleQuery(
+		const anyTenant = await runSingleQuery(
 			`SELECT *
 			   FROM app_users
 			  WHERE auth_id = @authId
@@ -66,8 +65,47 @@ const resolveAppUser = async (authUserId, tenantId) => {
 			  LIMIT 1`,
 			{ authId: authUserId }
 		);
+		if (anyTenant) return anyTenant;
 	} catch (error) {
-		console.error('[hooks.server] resolveAppUser failed:', error);
+		console.error('[hooks.server] resolveAppUser direct lookup failed:', error);
+	}
+
+	// 2. First-sign-in for a pre-seeded user: a row exists with their email
+	//    but auth_id is still NULL. Stamp auth_id atomically (only if still
+	//    unclaimed) and return. Google-verified emails only — Better-Auth's
+	//    google plugin requires email verification before issuing a token,
+	//    so this can't be spoofed by a different signed-in account.
+	if (!authEmail) return null;
+	try {
+		const candidate = await runSingleQuery(
+			`SELECT *
+			   FROM app_users
+			  WHERE LOWER(email) = LOWER(@email)
+			    AND auth_id IS NULL
+			    AND active = true
+			  ORDER BY createdat ASC
+			  LIMIT 1`,
+			{ email: authEmail }
+		);
+		if (!candidate) return null;
+
+		const linked = await runSingleQuery(
+			`UPDATE app_users
+			    SET auth_id = @authId,
+			        updatedat = NOW()
+			  WHERE id = @id
+			    AND auth_id IS NULL
+			  RETURNING *`,
+			{ authId: authUserId, id: candidate.id }
+		);
+		if (linked) {
+			console.log(
+				`[auth] Linked auth_user ${authUserId} → app_users ${linked.id} (${authEmail}) via email match`
+			);
+		}
+		return linked || null;
+	} catch (error) {
+		console.error('[hooks.server] resolveAppUser email-fallback failed:', error);
 		return null;
 	}
 };
@@ -158,8 +196,9 @@ export const handle = async ({ event, resolve }) => {
 		});
 	}
 
-	// 3. Look up the app_users row for the authenticated identity.
-	let user = await resolveAppUser(session?.user?.id, tenantId);
+	// 3. Look up the app_users row for the authenticated identity. Email is
+	//    used for the pre-seeded-row email-fallback path inside resolveAppUser.
+	let user = await resolveAppUser(session?.user?.id, session?.user?.email, tenantId);
 
 	// 3b. Dev convenience: auto-provision an app_users admin row on first
 	//     sign-in so you can land on /dashboard without an invite flow.
