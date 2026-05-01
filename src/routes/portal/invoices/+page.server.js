@@ -3,7 +3,6 @@ import { runQuery } from '$api/db/query.js';
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ locals }) => {
 	const userId = locals.user.id;
-	const tenantId = locals.tenantId;
 
 	const invoices = await runQuery(
 		`SELECT i.id,
@@ -21,7 +20,7 @@ export const load = async ({ locals }) => {
 		   LEFT JOIN properties p ON p.id = i.propertyid
 		  WHERE i.renteeid = @userId
 		  ORDER BY COALESCE(i.duedate, i.createdat) DESC`,
-		{ userId, tenantId }
+		{ userId }
 	);
 
 	return { invoices };

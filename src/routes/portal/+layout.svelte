@@ -6,7 +6,7 @@
 	let sidebarOpen = $state(false);
 
 	const user = $derived(data.user);
-	const tenant = $derived(data.tenant);
+	const org = $derived(data.org);
 
 	$effect(() => {
 		$page.url.pathname;
@@ -72,8 +72,8 @@
 						</p>
 					</div>
 				</div>
-				{#if tenant}
-					<div class="mt-2 text-xs text-sky-300/80 truncate">{tenant.name}</div>
+				{#if org}
+					<div class="mt-2 text-xs text-sky-300/80 truncate">{org.name}</div>
 				{/if}
 			</div>
 

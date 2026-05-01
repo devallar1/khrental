@@ -4,7 +4,7 @@ import { redirect, fail } from '@sveltejs/kit';
 /** @type {import('./$types').Actions} */
 export const actions = {
 	default: async ({ request, locals }) => {
-		const orgId = locals.tenantId;
+		const orgId = locals.orgId;
 		if (!orgId) {
 			return fail(403, { error: 'No org context' });
 		}

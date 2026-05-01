@@ -23,7 +23,7 @@ export const load = async ({ locals }) => {
 			runQuery(
 				`SELECT id, name, address
 				 FROM properties
-				 WHERE tenant_id = ANY(@orgs::uuid[])
+				 WHERE owner_org_id = ANY(@orgs::uuid[])
 				 ORDER BY name ASC`,
 				{ orgs }
 			)

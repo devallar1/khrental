@@ -3,7 +3,7 @@
 
 	let { data } = $props();
 
-	const tenant = $derived(data.tenant);
+	const org = $derived(data.org);
 	const user = $derived(data.user);
 	const isDevBypass = $derived(Boolean(user?.is_dev_bypass));
 </script>
@@ -55,27 +55,27 @@
 				</div>
 				<h2 class="text-lg font-semibold text-slate-900">Active Tenant</h2>
 			</div>
-			{#if tenant}
+			{#if org}
 				<div class="space-y-3">
 					<div class="flex items-center justify-between py-2 border-b border-slate-100">
 						<span class="text-sm text-slate-500">Name</span>
-						<span class="text-sm font-medium text-slate-900">{tenant.name}</span>
+						<span class="text-sm font-medium text-slate-900">{org.name}</span>
 					</div>
 					<div class="flex items-center justify-between py-2 border-b border-slate-100">
 						<span class="text-sm text-slate-500">Slug</span>
-						<span class="text-sm font-mono text-slate-600">{tenant.slug}</span>
+						<span class="text-sm font-mono text-slate-600">{org.slug}</span>
 					</div>
 					<div class="flex items-center justify-between py-2 border-b border-slate-100">
 						<span class="text-sm text-slate-500">Plan</span>
-						<span class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium capitalize text-emerald-700">{tenant.plan || 'free'}</span>
+						<span class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium capitalize text-emerald-700">{org.plan || 'free'}</span>
 					</div>
 					<div class="flex items-center justify-between py-2">
 						<span class="text-sm text-slate-500">Status</span>
-						<span class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium capitalize text-emerald-700">{tenant.status}</span>
+						<span class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium capitalize text-emerald-700">{org.status}</span>
 					</div>
 				</div>
 			{:else}
-				<p class="text-sm text-slate-500">No tenant selected</p>
+				<p class="text-sm text-slate-500">No organization</p>
 			{/if}
 		</div>
 

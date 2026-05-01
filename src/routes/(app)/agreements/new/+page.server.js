@@ -21,12 +21,12 @@ export const load = async ({ locals }) => {
 			),
 			runQuery(
 				`SELECT id, name, address FROM properties
-				 WHERE tenant_id = ANY(@orgs::uuid[]) ORDER BY name ASC`,
+				 WHERE owner_org_id = ANY(@orgs::uuid[]) ORDER BY name ASC`,
 				{ orgs }
 			),
 			runQuery(
 				`SELECT id, name, language, version FROM agreement_templates
-				 WHERE tenant_id = ANY(@orgs::uuid[]) ORDER BY name ASC`,
+				 WHERE org_id = ANY(@orgs::uuid[]) ORDER BY name ASC`,
 				{ orgs }
 			)
 		]);

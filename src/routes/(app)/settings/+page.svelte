@@ -4,7 +4,7 @@
 	let { data } = $props();
 
 	const user = $derived(data.user);
-	const tenant = $derived(data.tenant);
+	const org = $derived(data.org);
 </script>
 
 <svelte:head>
@@ -48,39 +48,39 @@
 			</div>
 		</div>
 
-		<!-- Current Tenant -->
+		<!-- Current Org -->
 		<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 			<div class="flex items-center gap-3 mb-4">
 				<div class="rounded-xl bg-violet-500 p-2.5 text-white">
 					<Building2 class="h-5 w-5" />
 				</div>
-				<h2 class="text-lg font-semibold text-slate-900">Current Workspace</h2>
+				<h2 class="text-lg font-semibold text-slate-900">Current Organization</h2>
 			</div>
-			{#if tenant}
+			{#if org}
 				<div class="space-y-3">
 					<div>
 						<p class="text-xs font-medium uppercase tracking-wide text-slate-400">Name</p>
-						<p class="text-sm font-medium text-slate-900">{tenant.name}</p>
+						<p class="text-sm font-medium text-slate-900">{org.name}</p>
 					</div>
 					<div>
 						<p class="text-xs font-medium uppercase tracking-wide text-slate-400">Slug</p>
-						<p class="text-sm font-mono text-slate-600">{tenant.slug}</p>
+						<p class="text-sm font-mono text-slate-600">{org.slug}</p>
 					</div>
 					<div>
 						<p class="text-xs font-medium uppercase tracking-wide text-slate-400">Plan</p>
 						<span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium capitalize text-emerald-700">
-							{tenant.plan || 'free'}
+							{org.plan || 'free'}
 						</span>
 					</div>
 					<div>
 						<p class="text-xs font-medium uppercase tracking-wide text-slate-400">Status</p>
 						<span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium capitalize text-emerald-700">
-							{tenant.status}
+							{org.status}
 						</span>
 					</div>
 				</div>
 			{:else}
-				<p class="text-sm text-slate-500">No workspace selected</p>
+				<p class="text-sm text-slate-500">No organization</p>
 			{/if}
 		</div>
 	</div>

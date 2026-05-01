@@ -108,7 +108,7 @@
 			currentConfig: unit.billing_config || null,
 			currentMeterReadings: unit.billing_meter_readings || null,
 			context: {
-				renteeName: rentee?.name || unit.rentee_name || null,
+				renteeName: rentee?.name || unit.tenant_name || null,
 				unitNumber: unit.unitnumber || null,
 				propertyName: property?.name || null
 			}
@@ -219,7 +219,7 @@
 
 	const totalRentees = $derived.by(() => {
 		const ids = new Set();
-		for (const p of realm) for (const u of p.units) if (u.rentee_id) ids.add(u.rentee_id);
+		for (const p of realm) for (const u of p.units) if (u.tenant_id) ids.add(u.tenant_id);
 		return ids.size;
 	});
 
@@ -979,7 +979,7 @@
 
 	const propertyStats = (p) => {
 		const total = p.units.length;
-		const occupied = p.units.filter((u) => u.rentee_id).length;
+		const occupied = p.units.filter((u) => u.tenant_id).length;
 		const totalRent = p.units.reduce((s, u) => s + (Number(u.rentamount) || 0), 0);
 		return { total, occupied, vacant: total - occupied, totalRent };
 	};
@@ -1040,7 +1040,7 @@
 				{#each sortedRealm as property (property.id)}
 					{@const stats = propertyStats(property)}
 					{@const Icon = propertyTypeIcon(property.propertytype)}
-					{@const badge = tenantBadge(property.tenant_slug)}
+					{@const badge = tenantBadge(property.org_slug)}
 					<button
 						type="button"
 						class="mobile-card"
@@ -1063,7 +1063,7 @@
 						</div>
 						<div class="mobile-card-body">
 							<div class="mobile-card-header">
-								<span class="tenant-chip" data-slug={property.tenant_slug}>{badge.label}</span>
+								<span class="tenant-chip" data-slug={property.org_slug}>{badge.label}</span>
 								<h2 class="mobile-card-title">{property.name}</h2>
 							</div>
 							<div class="mobile-card-footer">
@@ -1156,7 +1156,7 @@
 			{#each realm as property, idx (property.id)}
 				{@const stats = propertyStats(property)}
 				{@const Icon = propertyTypeIcon(property.propertytype)}
-				{@const badge = tenantBadge(property.tenant_slug)}
+				{@const badge = tenantBadge(property.org_slug)}
 				{@const variant = property.units.length === 0
 					? 'empty'
 					: property.units.length === 1
@@ -1196,7 +1196,7 @@
 					{#if variant === 'empty'}
 						<!-- Compact card: small banner + icon, "vacant" label -->
 						<div class="card-banner banner-compact">
-							<div class="tenant-chip" data-slug={property.tenant_slug}>{badge.label}</div>
+							<div class="tenant-chip" data-slug={property.org_slug}>{badge.label}</div>
 							<h2 class="card-title text-sm">{property.name}</h2>
 						</div>
 						{#if hasCoords(property)}
@@ -1227,7 +1227,7 @@
 					{:else if variant === 'single'}
 						<!-- Title-deed banner -->
 						<div class="card-banner">
-							<div class="tenant-chip" data-slug={property.tenant_slug}>{badge.label}</div>
+							<div class="tenant-chip" data-slug={property.org_slug}>{badge.label}</div>
 							<h2 class="card-title">{property.name}</h2>
 							<div class="banner-rule"></div>
 							<div class="banner-sub">Single unit</div>
@@ -1252,19 +1252,19 @@
 							<div class="resident-token">
 								<button
 									type="button"
-									class="unit-token unit-token-btn unit-token-xl {sole.rentee_id ? 'occupied' : 'vacant'}"
-									title={sole.rentee_id ? sole.rentee_name || 'Tenant actions' : 'Add tenant'}
-									onclick={(e) => { e.stopPropagation(); openTokenMenu(e, property.id, sole.id, sole.rentee_id ? { id: sole.rentee_id, name: sole.rentee_name } : null); }}
+									class="unit-token unit-token-btn unit-token-xl {sole.tenant_id ? 'occupied' : 'vacant'}"
+									title={sole.tenant_id ? sole.tenant_name || 'Tenant actions' : 'Add tenant'}
+									onclick={(e) => { e.stopPropagation(); openTokenMenu(e, property.id, sole.id, sole.tenant_id ? { id: sole.tenant_id, name: sole.tenant_name } : null); }}
 									onmousedown={(e) => e.stopPropagation()}
 								>
 									<User class="h-9 w-9" />
 								</button>
 							</div>
 							<div class="resident-meta">
-								{#if sole.rentee_name}
-									<div class="resident-name">{sole.rentee_name}</div>
+								{#if sole.tenant_name}
+									<div class="resident-name">{sole.tenant_name}</div>
 									{#if sole.rentee_nic}<div class="resident-line">NIC · {sole.rentee_nic}</div>{/if}
-									{#if sole.rentee_phone}<div class="resident-line">☎ {sole.rentee_phone}</div>{/if}
+									{#if sole.tenant_phone}<div class="resident-line">☎ {sole.tenant_phone}</div>{/if}
 								{:else}
 									<div class="resident-name vacant">— vacant —</div>
 								{/if}
@@ -1306,7 +1306,7 @@
 						<!-- Multi-unit card -->
 						<!-- Title-deed banner -->
 						<div class="card-banner">
-							<div class="tenant-chip" data-slug={property.tenant_slug}>{badge.label}</div>
+							<div class="tenant-chip" data-slug={property.org_slug}>{badge.label}</div>
 							<h2 class="card-title">{property.name}</h2>
 							<div class="banner-rule"></div>
 							<div class="banner-sub">{stats.total} {stats.total === 1 ? 'unit' : 'units'}</div>
@@ -1334,9 +1334,9 @@
 								<div class="house-cell">
 									<button
 										type="button"
-										class="unit-token unit-token-btn {unit.rentee_id ? 'occupied' : 'vacant'}"
-										title={`${unit.unitnumber}${unit.rentee_name ? ` · ${unit.rentee_name}` : ' · vacant'}`}
-										onclick={(e) => { e.stopPropagation(); openTokenMenu(e, property.id, unit.id, unit.rentee_id ? { id: unit.rentee_id, name: unit.rentee_name } : null); }}
+										class="unit-token unit-token-btn {unit.tenant_id ? 'occupied' : 'vacant'}"
+										title={`${unit.unitnumber}${unit.tenant_name ? ` · ${unit.tenant_name}` : ' · vacant'}`}
+										onclick={(e) => { e.stopPropagation(); openTokenMenu(e, property.id, unit.id, unit.tenant_id ? { id: unit.tenant_id, name: unit.tenant_name } : null); }}
 										onmousedown={(e) => e.stopPropagation()}
 									>
 										<User class="h-5 w-5" />
@@ -1569,7 +1569,7 @@
 		<!-- Property detail -->
 		{@const property = selectedProperty}
 		{@const Icon = propertyTypeIcon(property.propertytype)}
-		{@const badge = tenantBadge(property.tenant_slug)}
+		{@const badge = tenantBadge(property.org_slug)}
 
 		<button
 			type="button"
@@ -1631,28 +1631,28 @@
 							<div class="flex items-center gap-2">
 								<button
 									type="button"
-									class="unit-token unit-token-btn {unit.rentee_id ? 'occupied' : 'vacant'} !h-9 !w-9"
-									title={unit.rentee_id ? unit.rentee_name || 'Tenant actions' : 'Add tenant'}
-									onclick={(e) => { e.stopPropagation(); openTokenMenu(e, property.id, unit.id, unit.rentee_id ? { id: unit.rentee_id, name: unit.rentee_name } : null); }}
+									class="unit-token unit-token-btn {unit.tenant_id ? 'occupied' : 'vacant'} !h-9 !w-9"
+									title={unit.tenant_id ? unit.tenant_name || 'Tenant actions' : 'Add tenant'}
+									onclick={(e) => { e.stopPropagation(); openTokenMenu(e, property.id, unit.id, unit.tenant_id ? { id: unit.tenant_id, name: unit.tenant_name } : null); }}
 								>
 									<User class="h-4 w-4" />
 								</button>
 								<h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{unit.unitnumber}</h3>
 							</div>
-							<span class="text-[11px] font-medium uppercase tracking-wide {unit.rentee_id ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}">
-								{unit.rentee_id ? 'occupied' : 'vacant'}
+							<span class="text-[11px] font-medium uppercase tracking-wide {unit.tenant_id ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}">
+								{unit.tenant_id ? 'occupied' : 'vacant'}
 							</span>
 						</header>
 
 						<div class="mb-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
 							<div class="mb-1 flex items-center justify-between">
 								<span class="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Resident</span>
-								{#if unit.rentee_id}
-									<a href="/tenants/{unit.rentee_id}" class="text-[11px] font-medium text-sky-600 hover:underline dark:text-sky-400">view</a>
+								{#if unit.tenant_id}
+									<a href="/tenants/{unit.tenant_id}" class="text-[11px] font-medium text-sky-600 hover:underline dark:text-sky-400">view</a>
 								{/if}
 							</div>
-							{#if unit.rentee_name}
-								<p class="text-sm font-semibold text-slate-900 dark:text-slate-100">{unit.rentee_name}</p>
+							{#if unit.tenant_name}
+								<p class="text-sm font-semibold text-slate-900 dark:text-slate-100">{unit.tenant_name}</p>
 								{#if unit.rentee_nic}<p class="text-xs text-slate-500 dark:text-slate-400">NIC · {unit.rentee_nic}</p>{/if}
 							{:else}
 								<p class="text-sm italic text-slate-400 dark:text-slate-500">vacant</p>
@@ -1685,11 +1685,11 @@
 									<Mail class="h-3.5 w-3.5" /> Mail
 								</a>
 							{/if}
-							{#if unit.rentee_id}
+							{#if unit.tenant_id}
 								<form method="POST" action="?/sendInvoice" use:enhance class="inline">
 									<input type="hidden" name="unitId" value={unit.id} />
 									<input type="hidden" name="propertyId" value={property.id} />
-									<input type="hidden" name="renteeId" value={unit.rentee_id} />
+									<input type="hidden" name="renteeId" value={unit.tenant_id} />
 									<input type="hidden" name="agreementId" value={unit.agreement_id} />
 									<button type="submit" class="action-btn">
 										<ScrollText class="h-3.5 w-3.5" /> Invoice
@@ -1702,7 +1702,7 @@
 								>
 									<Zap class="h-3.5 w-3.5" /> Reading
 								</button>
-								<a class="action-btn" href="/tenants/new?replaces={unit.rentee_id}&unit={unit.id}">
+								<a class="action-btn" href="/tenants/new?replaces={unit.tenant_id}&unit={unit.id}">
 									<UserPlus class="h-3.5 w-3.5" /> Change
 								</a>
 							{:else}
@@ -1712,7 +1712,7 @@
 							{/if}
 						</div>
 
-						{#if activeFormUnit === unit.id && unit.rentee_id}
+						{#if activeFormUnit === unit.id && unit.tenant_id}
 							<form
 								method="POST"
 								action="?/enterReading"
@@ -1723,7 +1723,7 @@
 							>
 								<input type="hidden" name="unitId" value={unit.id} />
 								<input type="hidden" name="propertyId" value={property.id} />
-								<input type="hidden" name="renteeId" value={unit.rentee_id} />
+								<input type="hidden" name="renteeId" value={unit.tenant_id} />
 								<label class="block text-xs font-medium text-slate-600 dark:text-slate-300">
 									Current meter (kWh)
 									<span class="mt-1 flex gap-2">

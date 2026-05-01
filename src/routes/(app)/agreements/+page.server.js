@@ -18,8 +18,8 @@ export const load = async ({ locals }) => {
 				a.rentamount,
 				a.depositamount,
 				a.createdat,
-				u.name AS rentee_name,
-				u.email AS rentee_email,
+				u.name AS tenant_name,
+				u.email AS tenant_email,
 				p.name AS property_name
 			FROM agreements a
 			LEFT JOIN tenants u ON u.id = a.tenant_id

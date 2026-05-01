@@ -11,7 +11,7 @@ export const load = async ({ locals }) => {
 		members = await runQuery(
 			`SELECT id, name, email, role, user_type, status, active, createdat
 			 FROM app_users
-			 WHERE tenant_id = ANY(@orgs::uuid[])
+			 WHERE org_id = ANY(@orgs::uuid[])
 			   AND user_type IN ('admin', 'staff', 'manager')
 			 ORDER BY name ASC`,
 			{ orgs }

@@ -16,13 +16,13 @@ export const load = async ({ locals }) => {
 			runQuery(
 				`SELECT id, name, address
 				 FROM properties
-				 WHERE tenant_id = ANY(@orgs::uuid[])
+				 WHERE owner_org_id = ANY(@orgs::uuid[])
 				 ORDER BY name ASC`,
 				{ orgs }
 			),
 			runQuery(
 				`SELECT a.id, a.tenant_id, a.propertyid, a.rentamount, a.status,
-				        u.name AS rentee_name, u.email AS rentee_email
+				        u.name AS tenant_name, u.email AS tenant_email
 				 FROM agreements a
 				 LEFT JOIN tenants u ON u.id = a.tenant_id
 				 LEFT JOIN properties p ON p.id = a.propertyid
@@ -68,7 +68,7 @@ export const actions = {
 		try {
 			agreements = await runQuery(
 				`SELECT a.id, a.tenant_id, a.propertyid, a.rentamount,
-				        u.name AS rentee_name, u.email AS rentee_email,
+				        u.name AS tenant_name, u.email AS tenant_email,
 				        p.name AS property_name
 				 FROM agreements a
 				 LEFT JOIN tenants u ON u.id = a.tenant_id
@@ -107,7 +107,7 @@ export const actions = {
 			if (invoiceTotal <= 0) {
 				results.push({
 					agreementId: agreement.id,
-					renteeName: agreement.rentee_name || agreement.rentee_email,
+					tenantName: agreement.tenant_name || agreement.tenant_email,
 					propertyName: agreement.property_name,
 					status: 'skipped',
 					reason: 'No billable components',
@@ -137,7 +137,7 @@ export const actions = {
 				totalAmount += invoiceTotal;
 				results.push({
 					agreementId: agreement.id,
-					renteeName: agreement.rentee_name || agreement.rentee_email,
+					tenantName: agreement.tenant_name || agreement.tenant_email,
 					propertyName: agreement.property_name,
 					status: 'success',
 					invoiceId,
@@ -148,7 +148,7 @@ export const actions = {
 				failCount++;
 				results.push({
 					agreementId: agreement.id,
-					renteeName: agreement.rentee_name || agreement.rentee_email,
+					tenantName: agreement.tenant_name || agreement.tenant_email,
 					propertyName: agreement.property_name,
 					status: 'error',
 					reason: 'Database insert failed',

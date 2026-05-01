@@ -21,7 +21,7 @@
 	}
 
 	const user = $derived(data.user);
-	const tenant = $derived(data.tenant);
+	const org = $derived(data.org);
 
 	// Close mobile sidebar on navigation
 	$effect(() => {
@@ -119,9 +119,9 @@
 						</div>
 					{/if}
 				</div>
-				{#if tenant && !compact}
+				{#if org && !compact}
 					<div class="mt-2 text-xs text-sky-300/80 truncate">
-						{tenant.name}
+						{org.name}
 					</div>
 				{/if}
 			</div>

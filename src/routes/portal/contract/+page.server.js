@@ -3,7 +3,6 @@ import { runSingleQuery } from '$api/db/query.js';
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ locals }) => {
 	const userId = locals.user.id;
-	const tenantId = locals.tenantId;
 
 	// Most recent agreement for this rentee. If they have history, this picks
 	// the latest one by start date; "active" status preferred when ties.
@@ -36,7 +35,7 @@ export const load = async ({ locals }) => {
 		  ORDER BY (a.status = 'active') DESC,
 		           COALESCE(a.startdate, a.createdat) DESC
 		  LIMIT 1`,
-		{ userId, tenantId }
+		{ userId }
 	);
 
 	return { agreement };

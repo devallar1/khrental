@@ -10,9 +10,9 @@ export const load = async () => {
 /** @type {import('./$types').Actions} */
 export const actions = {
 	default: async ({ request, locals }) => {
-		const tenantId = locals.tenantId;
+		const tenantId = locals.orgId;
 		if (!tenantId) {
-			return fail(400, { error: 'No tenant context' });
+			return fail(400, { error: 'No org context' });
 		}
 
 		const formData = await request.formData();
@@ -30,7 +30,7 @@ export const actions = {
 			const now = new Date().toISOString();
 
 			await runSingleQuery(
-				`INSERT INTO agreement_templates (id, name, language, content, version, createdat, updatedat, tenant_id)
+				`INSERT INTO agreement_templates (id, name, language, content, version, createdat, updatedat, org_id)
 				VALUES (@id, @name, @language, @content, @version, @now, @now, @tenantId)`,
 				{ id, name, language, content, version, now, tenantId }
 			);

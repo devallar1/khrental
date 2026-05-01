@@ -12,7 +12,7 @@ export const load = async ({ params, locals }) => {
 	try {
 		invoice = await runSingleQuery(
 			`SELECT i.*,
-			        u.name AS rentee_name, u.email AS rentee_email, u.contact_details->>'phone' AS rentee_phone,
+			        u.name AS tenant_name, u.email AS tenant_email, u.contact_details->>'phone' AS tenant_phone,
 			        p.name AS property_name, p.address AS property_address
 			 FROM invoices i
 			 LEFT JOIN tenants u ON u.id = i.tenant_id

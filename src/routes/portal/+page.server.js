@@ -3,7 +3,7 @@ import { runSingleQuery, runQuery } from '$api/db/query.js';
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ locals }) => {
 	const userId = locals.user.id;
-	const tenantId = locals.tenantId;
+	const orgId = locals.orgId;
 
 	// Pull the auth_user identity row alongside the app_users domain row,
 	// since email/phone live in auth_user (the app_users.email is denormalised
@@ -27,14 +27,14 @@ export const load = async ({ locals }) => {
 		: [];
 
 	let properties = [];
-	if (associatedIds.length > 0 && tenantId) {
+	if (associatedIds.length > 0 && orgId) {
 		properties = await runQuery(
 			`SELECT id, name, address, propertytype
 			   FROM properties
 			  WHERE id = ANY(@ids::uuid[])
-			    AND tenant_id = @tenantId
+			    AND owner_org_id = @orgId
 			  ORDER BY name ASC`,
-			{ ids: associatedIds, tenantId }
+			{ ids: associatedIds, orgId }
 		);
 	}
 

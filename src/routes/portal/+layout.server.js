@@ -8,12 +8,12 @@ export const load = ({ locals, url }) => {
 	}
 
 	// Staff never land in /portal — send them to the staff dashboard.
-	if (locals.user.role !== 'rentee') {
+	if (locals.user.kind !== 'tenant') {
 		throw redirect(303, '/dashboard');
 	}
 
 	return {
 		user: locals.user,
-		tenant: locals.tenant
+		org: locals.org
 	};
 };

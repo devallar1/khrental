@@ -20,7 +20,7 @@ export const load = async ({ locals }) => {
 
 	const properties = await runQuery(
 		`SELECT p.id, p.name, p.address, p.propertytype, p.description,
-		        p.owner_org_id AS tenant_id, o.name AS tenant_name, o.slug AS tenant_slug,
+		        p.owner_org_id AS org_id, o.name AS org_name, o.slug AS org_slug,
 		        p.bank_name, p.electricity_rate, p.water_rate,
 		        p.latitude, p.longitude, p.boundary_geojson
 		 FROM properties p
@@ -36,9 +36,9 @@ export const load = async ({ locals }) => {
 		        bp.label AS bank_profile_label,
 		        a.id AS agreement_id, a.status AS agreement_status,
 		        a.rentamount, a.depositamount, a.startdate, a.enddate,
-		        au.id AS rentee_id, au.name AS rentee_name, au.email AS rentee_email,
-		        au.national_id AS rentee_nic,
-		        au.contact_details AS rentee_contact_details,
+		        au.id AS tenant_id, au.name AS tenant_name, au.email AS tenant_email,
+		        au.national_id AS tenant_nic,
+		        au.contact_details AS tenant_contact_details,
 		        be.config AS billing_config,
 		        be.meter_readings AS billing_meter_readings,
 		        be.effective_from AS billing_effective_from
@@ -65,36 +65,36 @@ export const load = async ({ locals }) => {
 
 	const latestReadings = await runQuery(
 		`SELECT DISTINCT ON (tenant_id)
-		        tenant_id AS renteeid, currentreading, readingdate, calculatedbill, status
+		        tenant_id, currentreading, readingdate, calculatedbill, status
 		 FROM utility_readings
 		 WHERE utilitytype = 'electricity'
 		 ORDER BY tenant_id, readingdate DESC, createdat DESC`
 	);
-	const readingByRenteeId = new Map(latestReadings.map((r) => [r.renteeid, r]));
+	const readingByTenantId = new Map(latestReadings.map((r) => [r.tenant_id, r]));
 
 	const latestInvoices = await runQuery(
 		`SELECT DISTINCT ON (tenant_id)
-		        tenant_id AS renteeid, billingperiod, totalamount, status, duedate, createdat
+		        tenant_id, billingperiod, totalamount, status, duedate, createdat
 		 FROM invoices
 		 ORDER BY tenant_id, createdat DESC`
 	);
-	const invoiceByRenteeId = new Map(latestInvoices.map((r) => [r.renteeid, r]));
+	const invoiceByTenantId = new Map(latestInvoices.map((r) => [r.tenant_id, r]));
 
 	const unitsByPropertyId = new Map();
 	for (const u of units) {
 		const phone = (() => {
 			try {
-				const cd = typeof u.rentee_contact_details === 'string'
-					? JSON.parse(u.rentee_contact_details)
-					: u.rentee_contact_details;
+				const cd = typeof u.tenant_contact_details === 'string'
+					? JSON.parse(u.tenant_contact_details)
+					: u.tenant_contact_details;
 				return cd?.phone || null;
 			} catch { return null; }
 		})();
 		const enriched = {
 			...u,
-			rentee_phone: phone,
-			latest_reading: u.rentee_id ? readingByRenteeId.get(u.rentee_id) || null : null,
-			latest_invoice: u.rentee_id ? invoiceByRenteeId.get(u.rentee_id) || null : null
+			tenant_phone: phone,
+			latest_reading: u.tenant_id ? readingByTenantId.get(u.tenant_id) || null : null,
+			latest_invoice: u.tenant_id ? invoiceByTenantId.get(u.tenant_id) || null : null
 		};
 		const list = unitsByPropertyId.get(u.propertyid) || [];
 		list.push(enriched);
@@ -109,13 +109,13 @@ export const load = async ({ locals }) => {
 	// Rentees for the contact-book panel. Cross-tenant like the rest of the
 	// manager view. We keep archived (active=false) ones in the result so the
 	// drawer can offer "show archived"; the default UI hides them.
-	const renteeRows = await runQuery(
+	const tenantRows = await runQuery(
 		`SELECT id, name, email, contact_details, national_id,
-		        permanent_address, notes, active, org_id AS tenant_id, createdat
+		        permanent_address, notes, active, org_id, createdat
 		 FROM tenants
 		 ORDER BY active DESC, name`
 	);
-	const rentees = renteeRows.map((r) => {
+	const tenants = tenantRows.map((r) => {
 		let phone = null;
 		try {
 			const cd = typeof r.contact_details === 'string'
@@ -132,7 +132,7 @@ export const load = async ({ locals }) => {
 			permanent_address: r.permanent_address,
 			notes: r.notes,
 			active: r.active,
-			tenant_id: r.tenant_id
+			org_id: r.org_id
 		};
 	});
 
@@ -158,7 +158,7 @@ export const load = async ({ locals }) => {
 
 	// Bank profiles for the new-tenant wizard's bank-routing step.
 	const bankProfiles = await runQuery(
-		`SELECT bp.id, bp.owner_org_id AS tenant_id, bp.label, bp.account_holder_name, bp.account_number,
+		`SELECT bp.id, bp.owner_org_id AS org_id, bp.label, bp.account_holder_name, bp.account_number,
 		        bp.bank_name, bp.branch
 		   FROM bank_profiles bp
 		   LEFT JOIN organizations o ON o.id = bp.owner_org_id
@@ -167,7 +167,7 @@ export const load = async ({ locals }) => {
 		  ORDER BY bp.label`
 	);
 
-	return { realm, rentees, canvasState, canvasUpdatedAt, bankProfiles };
+	return { realm, tenants, canvasState, canvasUpdatedAt, bankProfiles };
 };
 
 const numericForm = (formData, key) => {
@@ -179,21 +179,20 @@ const numericForm = (formData, key) => {
 
 export const actions = {
 	enterReading: async ({ request, locals }) => {
-		const tenantId = locals.tenantId;
 		const fd = await request.formData();
 		const unitId = String(fd.get('unitId') || '');
 		const propertyId = String(fd.get('propertyId') || '');
-		const renteeId = String(fd.get('renteeId') || '');
+		const tenantId = String(fd.get('tenantId') || '');
 		const currentReading = numericForm(fd, 'currentReading');
-		if (!unitId || !propertyId || !renteeId || currentReading == null) {
+		if (!unitId || !propertyId || !tenantId || currentReading == null) {
 			return fail(400, { error: 'Missing reading data' });
 		}
 
 		const previous = await runSingleQuery(
 			`SELECT currentreading FROM utility_readings
-			 WHERE tenant_id = @renteeId AND utilitytype = 'electricity'
+			 WHERE tenant_id = @tenantId AND utilitytype = 'electricity'
 			 ORDER BY readingdate DESC, createdat DESC LIMIT 1`,
-			{ renteeId }
+			{ tenantId }
 		);
 
 		const property = await runSingleQuery(
@@ -211,28 +210,27 @@ export const actions = {
 			   id, tenant_id, propertyid, utilitytype, previousreading, currentreading,
 			   readingdate, calculatedbill, status, createdat, updatedat
 			 ) VALUES (
-			   @id, @renteeId, @propertyId, 'electricity', @previousReading, @currentReading,
+			   @id, @tenantId, @propertyId, 'electricity', @previousReading, @currentReading,
 			   CURRENT_DATE, @calculatedBill, 'pending', NOW(), NOW()
 			 )`,
-			{ id, renteeId, propertyId, previousReading, currentReading, calculatedBill }
+			{ id, tenantId, propertyId, previousReading, currentReading, calculatedBill }
 		);
 
 		return { ok: true, action: 'enterReading', consumed, calculatedBill };
 	},
 
 	sendInvoice: async ({ request, locals }) => {
-		const tenantId = locals.tenantId;
 		const fd = await request.formData();
 		const unitId = String(fd.get('unitId') || '');
 		const propertyId = String(fd.get('propertyId') || '');
-		const renteeId = String(fd.get('renteeId') || '');
+		const tenantId = String(fd.get('tenantId') || '');
 		const agreementId = String(fd.get('agreementId') || '');
 		// Optional manager-entered SLT pass-through amount for the period
 		const sltPassthroughRaw = fd.get('sltPassthroughLkr');
 		const sltPassthroughLkr = sltPassthroughRaw != null && sltPassthroughRaw !== ''
 			? Number(sltPassthroughRaw)
 			: null;
-		if (!unitId || !propertyId || !renteeId) return fail(400, { error: 'Missing invoice data' });
+		if (!unitId || !propertyId || !tenantId) return fail(400, { error: 'Missing invoice data' });
 
 		const agreement = await runSingleQuery(
 			`SELECT rentamount FROM agreements WHERE id = @agreementId LIMIT 1`,
@@ -255,17 +253,17 @@ export const actions = {
 			// can compute consumed units. Solar-offset only needs the latest one.
 			const elecReadings = await runQuery(
 				`SELECT currentreading FROM utility_readings
-				   WHERE tenant_id = @renteeId AND utilitytype = 'electricity'
+				   WHERE tenant_id = @tenantId AND utilitytype = 'electricity'
 				   ORDER BY readingdate DESC, createdat DESC
 				   LIMIT 2`,
-				{ renteeId }
+				{ tenantId }
 			);
 			const waterReadings = await runQuery(
 				`SELECT currentreading FROM utility_readings
-				   WHERE tenant_id = @renteeId AND utilitytype = 'water'
+				   WHERE tenant_id = @tenantId AND utilitytype = 'water'
 				   ORDER BY readingdate DESC, createdat DESC
 				   LIMIT 2`,
-				{ renteeId }
+				{ tenantId }
 			);
 
 			const built = buildInvoiceComponents(config, {
@@ -288,9 +286,9 @@ export const actions = {
 			// generating invoices identically until they're migrated.
 			const reading = await runSingleQuery(
 				`SELECT calculatedbill FROM utility_readings
-				   WHERE tenant_id = @renteeId AND utilitytype = 'electricity'
+				   WHERE tenant_id = @tenantId AND utilitytype = 'electricity'
 				   ORDER BY readingdate DESC, createdat DESC LIMIT 1`,
-				{ renteeId }
+				{ tenantId }
 			);
 			const electricity = Number(reading?.calculatedbill) || 0;
 			const flat = { RENT: rent };
@@ -305,12 +303,12 @@ export const actions = {
 			   id, tenant_id, propertyid, billingperiod, components,
 			   totalamount, status, createdat, updatedat
 			 ) VALUES (
-			   @id, @renteeId, @propertyId, @billingPeriod, @components,
+			   @id, @tenantId, @propertyId, @billingPeriod, @components,
 			   @totalamount, 'pending', NOW(), NOW()
 			 )`,
 			{
 				id,
-				renteeId,
+				tenantId,
 				propertyId,
 				billingPeriod,
 				components: JSON.stringify(components),
@@ -332,7 +330,7 @@ export const actions = {
 		const national_id = String(fd.get('national_id') || '').trim() || null;
 		const permanent_address = String(fd.get('permanent_address') || '').trim() || null;
 		const notes = String(fd.get('notes') || '').trim() || null;
-		const tenantId = locals.tenantId || null;
+		const tenantId = locals.orgId || null;
 
 		const id = crypto.randomUUID();
 		const contactDetails = phone ? JSON.stringify({ phone }) : null;
@@ -518,7 +516,7 @@ export const actions = {
 		if (!property) {
 			return fail(400, { action: 'createTenant', error: 'Property not found' });
 		}
-		const tenantId = property.owner_org_id || null;
+		const orgId = property.owner_org_id || null;
 
 		// Billing config — Zod-validated before any DB work.
 		const billingConfigRaw = String(fd.get('billing_config') || '');
@@ -541,7 +539,7 @@ export const actions = {
 			meterReadings.water = billingConfig.water.initial_reading;
 		}
 
-		const renteeId = existingRenteeId || crypto.randomUUID();
+		const tenantId = existingRenteeId || crypto.randomUUID();
 		const agreementId = crypto.randomUUID();
 		const eventId = crypto.randomUUID();
 
@@ -565,9 +563,9 @@ export const actions = {
 						    notes, org_id, active, status, createdat, updatedat
 						 ) VALUES (
 						    @id, @name, @email, @contactDetails::jsonb, @national_id, @permanent_address,
-						    @notes, @tenantId, TRUE, 'active', NOW(), NOW()
+						    @notes, @orgId, TRUE, 'active', NOW(), NOW()
 						 )`,
-						{ id: renteeId, name, email, contactDetails, national_id, permanent_address, notes, tenantId }
+						{ id: tenantId, name, email, contactDetails, national_id, permanent_address, notes, orgId }
 					);
 				}
 
@@ -576,12 +574,12 @@ export const actions = {
 					    id, tenant_id, propertyid, unitid, startdate, enddate,
 					    rentamount, depositamount, status, createdat
 					 ) VALUES (
-					    @id, @renteeId, @propertyId, @unitId, @startDate, @endDate,
+					    @id, @tenantId, @propertyId, @unitId, @startDate, @endDate,
 					    @rentAmount, @depositAmount, 'active', NOW()
 					 )`,
 					{
 						id: agreementId,
-						renteeId,
+						tenantId,
 						propertyId: property_id,
 						unitId: unit_id,
 						startDate: start_date,
@@ -626,7 +624,7 @@ export const actions = {
 			return fail(500, { action: 'createTenant', error: msg });
 		}
 
-		return { ok: true, action: 'createTenant', renteeId, agreementId };
+		return { ok: true, action: 'createTenant', tenantId, agreementId };
 	},
 
 	// Append a new billing-config event for an existing agreement. Used by

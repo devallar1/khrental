@@ -27,7 +27,7 @@ export const load = async ({ params, locals }) => {
 		),
 		runQuery(
 			`SELECT a.id, a.title, a.status, a.startdate, a.enddate, a.rentamount,
-			        a.unitid, u.name AS rentee_name, u.email AS rentee_email,
+			        a.unitid, u.name AS tenant_name, u.email AS tenant_email,
 			        pu.unitnumber
 			 FROM agreements a
 			 LEFT JOIN tenants u ON u.id = a.tenant_id

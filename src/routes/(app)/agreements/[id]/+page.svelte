@@ -129,20 +129,20 @@
 			<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 				<h2 class="flex items-center gap-2 text-lg font-semibold text-slate-900">
 					<User class="h-5 w-5 text-slate-400" />
-					Rentee
+					Tenant
 				</h2>
-				{#if a.rentee_name}
+				{#if a.tenant_name}
 					<div class="mt-4 space-y-2">
-						<p class="text-sm font-medium text-slate-900">{a.rentee_name}</p>
-						{#if a.rentee_email}
-							<p class="text-sm text-slate-500">{a.rentee_email}</p>
+						<p class="text-sm font-medium text-slate-900">{a.tenant_name}</p>
+						{#if a.tenant_email}
+							<p class="text-sm text-slate-500">{a.tenant_email}</p>
 						{/if}
-						{#if a.rentee_phone}
-							<p class="text-sm text-slate-500">{a.rentee_phone}</p>
+						{#if a.tenant_phone}
+							<p class="text-sm text-slate-500">{a.tenant_phone}</p>
 						{/if}
 					</div>
 				{:else}
-					<p class="mt-4 text-sm text-slate-400">No rentee assigned</p>
+					<p class="mt-4 text-sm text-slate-400">No tenant assigned</p>
 				{/if}
 			</div>
 

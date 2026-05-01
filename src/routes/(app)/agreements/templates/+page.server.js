@@ -11,7 +11,7 @@ export const load = async ({ locals }) => {
 		templates = await runQuery(
 			`SELECT id, name, language, version, createdat, updatedat
 			FROM agreement_templates
-			WHERE tenant_id = ANY(@orgs::uuid[])
+			WHERE org_id = ANY(@orgs::uuid[])
 			ORDER BY createdat DESC`,
 			{ orgs }
 		);

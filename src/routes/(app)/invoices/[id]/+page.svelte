@@ -146,11 +146,11 @@
 							<User class="h-5 w-5 text-blue-600" />
 						</div>
 						<div>
-							<p class="text-xs font-medium uppercase tracking-wider text-slate-400">Rentee</p>
-							<p class="mt-0.5 text-sm font-medium text-slate-900">{invoice.rentee_name || '--'}</p>
-							<p class="text-xs text-slate-500">{invoice.rentee_email || ''}</p>
-							{#if invoice.rentee_phone}
-								<p class="text-xs text-slate-500">{invoice.rentee_phone}</p>
+							<p class="text-xs font-medium uppercase tracking-wider text-slate-400">Tenant</p>
+							<p class="mt-0.5 text-sm font-medium text-slate-900">{invoice.tenant_name || '--'}</p>
+							<p class="text-xs text-slate-500">{invoice.tenant_email || ''}</p>
+							{#if invoice.tenant_phone}
+								<p class="text-xs text-slate-500">{invoice.tenant_phone}</p>
 							{/if}
 						</div>
 					</div>

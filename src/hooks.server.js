@@ -17,7 +17,7 @@ const createDevBypassUser = async () => {
 		role: 'admin',
 		user_type: 'admin',
 		is_sysadmin: true,
-		tenant_id: tenant?.id || null,
+		org_id: tenant?.id || null,
 		kind: 'staff',
 		is_dev_bypass: true
 	};
@@ -145,7 +145,7 @@ const autoProvisionAppUser = async (sessionUser) => {
 		}
 		const inserted = await runSingleQuery(
 			`INSERT INTO app_users
-			   (auth_id, email, name, role, user_type, contact_details, tenant_id, active, status, invited)
+			   (auth_id, email, name, role, user_type, contact_details, org_id, active, status, invited)
 			 VALUES
 			   (@authId, @email, @name, 'admin', 'staff', @contactDetails::jsonb, @tenantId, true, 'active', false)
 			 RETURNING *`,
@@ -182,7 +182,7 @@ export const handle = async ({ event, resolve }) => {
 	// 2. Resolve the app_user from the session. The kh_tenant_id cookie is
 	//    gone — access is decided by ownership/membership through authz.js.
 	//    Tenant context for the sidebar + legacy INSERT stamps is derived
-	//    from the resolved user's primary tenant_id.
+	//    from the resolved user's primary org_id.
 	let user = await resolveAppUser(session?.user?.id, session?.user?.email);
 
 	if (!user && session?.user && process.env.AUTH_DEV_AUTOPROVISION === 'true') {
@@ -195,19 +195,22 @@ export const handle = async ({ event, resolve }) => {
 
 	event.locals.user = user;
 
-	// 3. Derive tenant context from the user. Still needed by the 9
-	//    INSERT actions that haven't been migrated to owner_user_id yet
-	//    and by the sidebar workspace label. Phase 4 retires it.
-	if (user?.tenant_id) {
-		const tenant = await runSingleQuery(
-			`SELECT * FROM organizations WHERE id = @tenantId AND status = 'active' LIMIT 1`,
-			{ tenantId: user.tenant_id }
+	// 3. Derive the user's primary org context. Used by the sidebar
+	//    workspace label and by the small remaining set of INSERT actions
+	//    that still need to know which org to stamp on a new row
+	//    (templates, team-create, etc.). Phase 4 retired the entity-row
+	//    tenant_id columns; this is purely a "which org am I focused on"
+	//    pointer now.
+	if (user?.org_id) {
+		const org = await runSingleQuery(
+			`SELECT * FROM organizations WHERE id = @orgId AND status = 'active' LIMIT 1`,
+			{ orgId: user.org_id }
 		);
-		event.locals.tenantId = tenant?.id || null;
-		event.locals.tenant = tenant;
+		event.locals.orgId = org?.id || null;
+		event.locals.org = org;
 	} else {
-		event.locals.tenantId = null;
-		event.locals.tenant = null;
+		event.locals.orgId = null;
+		event.locals.org = null;
 	}
 
 	return resolve(event);

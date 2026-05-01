@@ -8,9 +8,9 @@ export async function POST({ request, locals }) {
 		return json({ success: false, error: 'ERPNext integration is not configured' }, { status: 501 });
 	}
 
-	const tenantId = locals.tenantId;
-	if (!tenantId) {
-		return json({ success: false, error: 'No tenant context' }, { status: 403 });
+	const orgId = locals.orgId;
+	if (!orgId) {
+		return json({ success: false, error: 'No org context' }, { status: 403 });
 	}
 
 	let body;
@@ -30,16 +30,16 @@ export async function POST({ request, locals }) {
 	try {
 		invoice = await runSingleQuery(
 			`SELECT i.*,
-			        u.name AS rentee_name, u.email AS rentee_email, u.contact_details->>'phone' AS rentee_phone,
+			        u.name AS tenant_name, u.email AS tenant_email, u.contact_details->>'phone' AS tenant_phone,
 			        p.name AS property_name, p.address AS property_address,
-			        o.name AS tenant_name, o.slug AS tenant_slug
+			        o.name AS org_name, o.slug AS org_slug
 			 FROM invoices i
 			 LEFT JOIN tenants u ON u.id = i.tenant_id
 			 LEFT JOIN properties p ON p.id = i.propertyid
 			 LEFT JOIN organizations o ON o.id = p.owner_org_id
 			 WHERE i.id = @invoiceId
-			   AND (p.owner_org_id = @tenantId OR p.owner_user_id = @tenantId)`,
-			{ tenantId, invoiceId }
+			   AND (p.owner_org_id = @orgId OR p.owner_user_id = @orgId)`,
+			{ orgId, invoiceId }
 		);
 	} catch (err) {
 		console.error('[ERPNext Sync] Query error:', err.message);
@@ -50,19 +50,19 @@ export async function POST({ request, locals }) {
 		return json({ success: false, error: 'Invoice not found' }, { status: 404 });
 	}
 
-	// Build tenant and rentee objects for the sync function
-	const tenant = {
-		name: invoice.tenant_name,
-		slug: invoice.tenant_slug
+	// Build org and tenant objects for the sync function.
+	const org = {
+		name: invoice.org_name,
+		slug: invoice.org_slug
 	};
 
-	const rentee = {
-		name: invoice.rentee_name,
-		email: invoice.rentee_email
+	const tenant = {
+		name: invoice.tenant_name,
+		email: invoice.tenant_email
 	};
 
 	// Sync to ERPNext
-	const result = await syncInvoiceToErpNext(invoice, tenant, rentee);
+	const result = await syncInvoiceToErpNext(invoice, org, tenant);
 
 	if (!result.success) {
 		return json({ success: false, error: result.error }, { status: 422 });

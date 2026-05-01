@@ -17,7 +17,7 @@ export const load = async ({ locals }) => {
 			accessible: false,
 			documents: [],
 			tags: [],
-			tenant: locals.tenant
+			org: locals.org
 		};
 	}
 
@@ -35,7 +35,7 @@ export const load = async ({ locals }) => {
 		documents: docsResult?.results || [],
 		totalDocuments: docsResult?.count || 0,
 		tags: tagsResult?.results || [],
-		tenant: locals.tenant
+		org: locals.org
 	};
 };
 
@@ -59,15 +59,15 @@ export const actions = {
 		const tagIds = selectedTags.map((t) => Number(t)).filter((t) => !isNaN(t));
 
 		// Ensure a tag exists for the current tenant
-		if (locals.tenant?.name) {
+		if (locals.org?.name) {
 			const tagsResult = await paperlessListTags();
 			const allTags = tagsResult?.results || [];
 			let tenantTag = allTags.find(
-				(t) => t.name.toLowerCase() === locals.tenant.name.toLowerCase()
+				(t) => t.name.toLowerCase() === locals.org.name.toLowerCase()
 			);
 
 			if (!tenantTag) {
-				tenantTag = await paperlessCreateTag(locals.tenant.name, '#6366f1');
+				tenantTag = await paperlessCreateTag(locals.org.name, '#6366f1');
 			}
 
 			if (tenantTag?.id && !tagIds.includes(tenantTag.id)) {

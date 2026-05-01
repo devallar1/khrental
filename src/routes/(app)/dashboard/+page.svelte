@@ -5,7 +5,7 @@
 
 	const cards = $derived([
 		{ label: 'Properties', count: data.stats.properties, icon: Building2, href: '/properties', color: 'bg-blue-500' },
-		{ label: 'Rentees', count: data.stats.rentees, icon: Users, href: '/rentees', color: 'bg-emerald-500' },
+		{ label: 'Tenants', count: data.stats.tenants, icon: Users, href: '/tenants', color: 'bg-emerald-500' },
 		{ label: 'Agreements', count: data.stats.agreements, icon: FileText, href: '/agreements', color: 'bg-violet-500' },
 		{ label: 'Invoices', count: data.stats.invoices, icon: Receipt, href: '/invoices', color: 'bg-amber-500' }
 	]);
@@ -18,8 +18,8 @@
 <div>
 	<div class="mb-8">
 		<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Dashboard</h1>
-		{#if data.tenant}
-			<p class="mt-1 text-sm text-slate-500">{data.tenant.name}</p>
+		{#if data.org}
+			<p class="mt-1 text-sm text-slate-500">{data.org.name}</p>
 		{/if}
 	</div>
 
@@ -50,7 +50,7 @@
 			</div>
 			<div class="flex items-center gap-2">
 				<span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
-				<span class="text-sm text-slate-600">Tenant: {data.tenant?.name || 'None'} ({data.tenant?.slug || '-'})</span>
+				<span class="text-sm text-slate-600">Org: {data.org?.name || 'None'} ({data.org?.slug || '-'})</span>
 			</div>
 			<div class="flex items-center gap-2">
 				<span class="h-2.5 w-2.5 rounded-full {data.user?.is_dev_bypass ? 'bg-amber-500' : 'bg-emerald-500'}"></span>

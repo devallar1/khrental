@@ -7,6 +7,10 @@ export const actions = {
 	default: async ({ request, locals }) => {
 		if (!locals.user?.id) return fail(401, { error: 'Not authenticated' });
 
+		// Pull the creator's primary org so we can place the new staff member
+		// inside it via org_memberships.
+		const creatorOrgId = locals.user.org_id || locals.orgId || null;
+
 		const formData = await request.formData();
 		const name = formData.get('name')?.toString().trim();
 		const email = formData.get('email')?.toString().trim();
@@ -24,10 +28,18 @@ export const actions = {
 		try {
 			const id = crypto.randomUUID();
 			await runQuery(
-				`INSERT INTO app_users (id, name, email, role, user_type, status, active, createdat)
-				 VALUES (@id, @name, @email, @role, @userType, 'active', true, NOW())`,
-				{ id, name, email, role, userType: role }
+				`INSERT INTO app_users (id, name, email, role, user_type, org_id, status, active, createdat)
+				 VALUES (@id, @name, @email, @role, @userType, @orgId, 'active', true, NOW())`,
+				{ id, name, email, role, userType: role, orgId: creatorOrgId }
 			);
+			if (creatorOrgId) {
+				await runQuery(
+					`INSERT INTO org_memberships (user_id, org_id, role, granted_by)
+					 VALUES (@id, @orgId, 'member', @grantedBy)
+					 ON CONFLICT (user_id, org_id) DO NOTHING`,
+					{ id, orgId: creatorOrgId, grantedBy: locals.user.id }
+				);
+			}
 		} catch (err) {
 			console.error('[Team] Create error:', err.message);
 			return fail(500, { error: 'Failed to create team member', name, email, role, notes });
