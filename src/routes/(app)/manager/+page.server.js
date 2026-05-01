@@ -4,13 +4,20 @@ import crypto from 'node:crypto';
 import { getActiveBillingConfig, agreementHasBillingConfig } from '$lib/billing/activeConfig.js';
 import { buildInvoiceComponents } from '$lib/billing/calc.js';
 import { parseBillingConfig } from '$lib/billing/config.js';
+import { assertSysadmin } from '$lib/server/authz.js';
 
 /**
  * Manager dashboard: cross-tenant view for the people running the show
  * (Liswith / Devalla / Ravi). Lists every property under every active
  * tenant, with each unit's current resident + quick stats.
+ *
+ * Privileged route — sysadmin only. Phase 1 will narrow this to a strict
+ * sysadmin check; Phase 2 routes most managerial work through the
+ * regular pages with proper ownership/membership checks instead.
  */
 export const load = async ({ locals }) => {
+	assertSysadmin(locals.user);
+
 	const properties = await runQuery(
 		`SELECT p.id, p.name, p.address, p.propertytype, p.description,
 		        p.tenant_id, t.name AS tenant_name, t.slug AS tenant_slug,
