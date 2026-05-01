@@ -20,7 +20,6 @@ export const load = async ({ locals }) => {
 		   FROM invoices i
 		   LEFT JOIN properties p ON p.id = i.propertyid
 		  WHERE i.renteeid = @userId
-		    AND i.tenant_id = @tenantId
 		  ORDER BY COALESCE(i.duedate, i.createdat) DESC`,
 		{ userId, tenantId }
 	);

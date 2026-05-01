@@ -5,8 +5,7 @@ import crypto from 'crypto';
 /** @type {import('./$types').Actions} */
 export const actions = {
 	default: async ({ request, locals }) => {
-		const tenantId = locals.tenantId;
-		if (!tenantId) return fail(400, { error: 'No tenant selected' });
+		if (!locals.user?.id) return fail(401, { error: 'Not authenticated' });
 
 		const formData = await request.formData();
 		const name = formData.get('name')?.toString().trim();
@@ -25,9 +24,9 @@ export const actions = {
 		try {
 			const id = crypto.randomUUID();
 			await runQuery(
-				`INSERT INTO app_users (id, name, email, role, user_type, status, active, tenant_id, createdat)
-				 VALUES (@id, @name, @email, @role, @userType, 'active', true, @tenantId, NOW())`,
-				{ id, name, email, role, userType: role, tenantId }
+				`INSERT INTO app_users (id, name, email, role, user_type, status, active, createdat)
+				 VALUES (@id, @name, @email, @role, @userType, 'active', true, NOW())`,
+				{ id, name, email, role, userType: role }
 			);
 		} catch (err) {
 			console.error('[Team] Create error:', err.message);

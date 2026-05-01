@@ -21,7 +21,7 @@ export const load = async ({ params, locals }) => {
 			 LEFT JOIN properties p ON p.id = mr.propertyid
 			 LEFT JOIN rentees rentee ON rentee.id = mr.renteeid
 			 LEFT JOIN app_users assigned ON assigned.id = mr.assignedto
-			 WHERE mr.id = @requestId AND mr.tenant_id = ANY(@orgs::uuid[])`,
+			 WHERE mr.id = @requestId AND p.owner_org_id = ANY(@orgs::uuid[])`,
 			{ orgs, requestId }
 		);
 	} catch (err) {

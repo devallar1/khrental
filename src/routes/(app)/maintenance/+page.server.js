@@ -10,7 +10,7 @@ export const load = async ({ locals, url }) => {
 
 	let requests = [];
 	try {
-		let whereClause = 'WHERE mr.tenant_id = ANY(@orgs::uuid[])';
+		let whereClause = 'WHERE p.owner_org_id = ANY(@orgs::uuid[])';
 		if (statusFilter && statusFilter !== 'all') {
 			whereClause += ' AND mr.status = @statusFilter';
 		}
@@ -22,7 +22,7 @@ export const load = async ({ locals, url }) => {
 			        rentee.name AS rentee_name,
 			        assigned.name AS assigned_name
 			 FROM maintenance_requests mr
-			 LEFT JOIN properties p ON p.id = mr.propertyid AND p.tenant_id = ANY(@orgs::uuid[])
+			 LEFT JOIN properties p ON p.id = mr.propertyid
 			 LEFT JOIN rentees rentee ON rentee.id = mr.renteeid
 			 LEFT JOIN app_users assigned ON assigned.id = mr.assignedto
 			 ${whereClause}

@@ -38,11 +38,7 @@ export const load = async ({ locals }) => {
 /** @type {import('./$types').Actions} */
 export const actions = {
 	default: async ({ request, locals }) => {
-		const tenantId = locals.tenantId;
-
-		if (!tenantId) {
-			return fail(403, { error: 'No tenant context' });
-		}
+		if (!locals.user?.id) return fail(401, { error: 'Not authenticated' });
 
 		const formData = await request.formData();
 		const propertyid = formData.get('propertyid')?.toString().trim();
@@ -99,8 +95,8 @@ export const actions = {
 
 		try {
 			await runSingleQuery(
-				`INSERT INTO invoices (id, renteeid, propertyid, billingperiod, components, totalamount, status, duedate, notes, tenant_id, createdat, updatedat)
-				 VALUES (@id, @renteeid, @propertyid, @billingperiod, @components::jsonb, @totalamount, 'pending', @duedate, @notes, @tenantId, NOW(), NOW())`,
+				`INSERT INTO invoices (id, renteeid, propertyid, billingperiod, components, totalamount, status, duedate, notes, createdat, updatedat)
+				 VALUES (@id, @renteeid, @propertyid, @billingperiod, @components::jsonb, @totalamount, 'pending', @duedate, @notes, NOW(), NOW())`,
 				{
 					id: invoiceId,
 					renteeid,
@@ -109,8 +105,7 @@ export const actions = {
 					components: JSON.stringify(components),
 					totalamount,
 					duedate,
-					notes,
-					tenantId
+					notes
 				}
 			);
 		} catch (err) {

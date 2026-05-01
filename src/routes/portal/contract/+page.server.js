@@ -33,7 +33,6 @@ export const load = async ({ locals }) => {
 		   LEFT JOIN properties p ON p.id = a.propertyid
 		   LEFT JOIN property_units u ON u.id = a.unitid
 		  WHERE a.renteeid = @userId
-		    AND a.tenant_id = @tenantId
 		  ORDER BY (a.status = 'active') DESC,
 		           COALESCE(a.startdate, a.createdat) DESC
 		  LIMIT 1`,

@@ -40,10 +40,7 @@ export const load = async ({ locals }) => {
 /** @type {import('./$types').Actions} */
 export const actions = {
 	default: async ({ request, locals }) => {
-		const tenantId = locals.tenantId;
-		if (!tenantId) {
-			return fail(400, { error: 'No tenant context' });
-		}
+		if (!locals.user?.id) return fail(401, { error: 'Not authenticated' });
 
 		const formData = await request.formData();
 		const title = formData.get('title')?.toString().trim() || '';
@@ -65,9 +62,9 @@ export const actions = {
 			const now = new Date().toISOString();
 
 			await runSingleQuery(
-				`INSERT INTO agreements (id, title, renteeid, propertyid, templateid, status, startdate, enddate, rentamount, depositamount, notes, createdat, updatedat, tenant_id)
-				VALUES (@id, @title, @renteeid, @propertyid, @templateid, 'draft', @startdate, @enddate, @rentamount, @depositamount, @notes, @now, @now, @tenantId)`,
-				{ id, title, renteeid, propertyid, templateid, startdate, enddate, rentamount, depositamount, notes, now, tenantId }
+				`INSERT INTO agreements (id, title, renteeid, propertyid, templateid, status, startdate, enddate, rentamount, depositamount, notes, createdat, updatedat)
+				VALUES (@id, @title, @renteeid, @propertyid, @templateid, 'draft', @startdate, @enddate, @rentamount, @depositamount, @notes, @now, @now)`,
+				{ id, title, renteeid, propertyid, templateid, startdate, enddate, rentamount, depositamount, notes, now }
 			);
 
 			throw redirect(303, `/agreements/${id}`);

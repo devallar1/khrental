@@ -4,8 +4,11 @@ import { fail, redirect } from '@sveltejs/kit';
 /** @type {import('./$types').Actions} */
 export const actions = {
 	default: async ({ request, locals }) => {
-		const tenantId = locals.tenantId;
-		if (!tenantId) return fail(401, { error: 'No tenant context' });
+		if (!locals.user?.id) return fail(401, { error: 'Not authenticated' });
+		// Properties default to owner_user_id = creator. "Private to me by
+		// default" per the redesign — transferring to an org is a separate
+		// action. The legacy tenant_id stamp is gone.
+		const ownerUserId = locals.user.id;
 
 		const formData = await request.formData();
 		const name = formData.get('name')?.toString().trim();
@@ -29,8 +32,8 @@ export const actions = {
 
 		try {
 			const result = await runSingleQuery(
-				`INSERT INTO properties (name, address, propertytype, status, description, squarefeet, yearbuilt, amenities, electricity_rate, water_rate, tenant_id, createdat, updatedat)
-				 VALUES (@name, @address, @propertytype, @status, @description, @squarefeet, @yearbuilt, @amenities, @electricity_rate, @water_rate, @tenantId, NOW(), NOW())
+				`INSERT INTO properties (name, address, propertytype, status, description, squarefeet, yearbuilt, amenities, electricity_rate, water_rate, owner_user_id, createdat, updatedat)
+				 VALUES (@name, @address, @propertytype, @status, @description, @squarefeet, @yearbuilt, @amenities, @electricity_rate, @water_rate, @ownerUserId, NOW(), NOW())
 				 RETURNING id`,
 				{
 					name,
@@ -43,7 +46,7 @@ export const actions = {
 					amenities,
 					electricity_rate: electricity_rate ? parseFloat(electricity_rate) : null,
 					water_rate: water_rate ? parseFloat(water_rate) : null,
-					tenantId
+					ownerUserId
 				}
 			);
 

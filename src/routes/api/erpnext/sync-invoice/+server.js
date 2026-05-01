@@ -32,12 +32,13 @@ export async function POST({ request, locals }) {
 			`SELECT i.*,
 			        u.name AS rentee_name, u.email AS rentee_email, u.contact_details->>'phone' AS rentee_phone,
 			        p.name AS property_name, p.address AS property_address,
-			        t.name AS tenant_name, t.slug AS tenant_slug
+			        o.name AS tenant_name, o.slug AS tenant_slug
 			 FROM invoices i
-			 LEFT JOIN rentees u ON u.id = i.renteeid AND u.tenant_id = @tenantId
-			 LEFT JOIN properties p ON p.id = i.propertyid AND p.tenant_id = @tenantId
-			 LEFT JOIN tenants t ON t.id = i.tenant_id
-			 WHERE i.id = @invoiceId AND i.tenant_id = @tenantId`,
+			 LEFT JOIN rentees u ON u.id = i.renteeid
+			 LEFT JOIN properties p ON p.id = i.propertyid
+			 LEFT JOIN organizations o ON o.id = p.owner_org_id
+			 WHERE i.id = @invoiceId
+			   AND (p.owner_org_id = @tenantId OR p.owner_user_id = @tenantId)`,
 			{ tenantId, invoiceId }
 		);
 	} catch (err) {

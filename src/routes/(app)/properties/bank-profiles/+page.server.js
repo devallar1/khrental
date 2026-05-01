@@ -6,16 +6,16 @@ export const load = async ({ locals }) => {
 	if (!locals.user?.id) error(401, 'Not authenticated');
 
 	const profiles = await runQuery(
-		`SELECT bp.id, bp.tenant_id, bp.label, bp.account_holder_name, bp.account_number,
+		`SELECT bp.id, bp.owner_org_id AS tenant_id, bp.label, bp.account_holder_name, bp.account_number,
 		        bp.bank_name, bp.branch, bp.notes, bp.active,
-		        t.name AS tenant_name, t.slug AS tenant_slug
+		        o.name AS tenant_name, o.slug AS tenant_slug
 		   FROM bank_profiles bp
-		   JOIN tenants t ON t.id = bp.tenant_id
-		  WHERE t.status = 'active'
-		  ORDER BY bp.active DESC, t.name, bp.label`
+		   LEFT JOIN organizations o ON o.id = bp.owner_org_id
+		  WHERE bp.owner_org_id IS NULL OR o.status = 'active'
+		  ORDER BY bp.active DESC, o.name NULLS LAST, bp.label`
 	);
 	const tenants = await runQuery(
-		`SELECT id, name, slug FROM tenants WHERE status = 'active' ORDER BY name`
+		`SELECT id, name, slug FROM organizations WHERE status = 'active' ORDER BY name`
 	);
 	return { profiles, tenants };
 };
@@ -40,10 +40,12 @@ export const actions = {
 		}
 
 		const id = crypto.randomUUID();
+		// The form's `tenant_id` field is the org the profile belongs to —
+		// stored as owner_org_id in the polymorphic owner model.
 		try {
 			await runQuery(
 				`INSERT INTO bank_profiles
-				   (id, tenant_id, label, account_holder_name, account_number,
+				   (id, owner_org_id, label, account_holder_name, account_number,
 				    bank_name, branch, notes, active, createdat, updatedat)
 				 VALUES
 				   (@id, @tenant_id, @label, @account_holder_name, @account_number,

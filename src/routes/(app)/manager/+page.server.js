@@ -20,13 +20,13 @@ export const load = async ({ locals }) => {
 
 	const properties = await runQuery(
 		`SELECT p.id, p.name, p.address, p.propertytype, p.description,
-		        p.tenant_id, t.name AS tenant_name, t.slug AS tenant_slug,
+		        p.owner_org_id AS tenant_id, o.name AS tenant_name, o.slug AS tenant_slug,
 		        p.bank_name, p.electricity_rate, p.water_rate,
 		        p.latitude, p.longitude, p.boundary_geojson
 		 FROM properties p
-		 JOIN tenants t ON t.id = p.tenant_id
-		 WHERE t.status = 'active'
-		 ORDER BY t.name, p.name`
+		 LEFT JOIN organizations o ON o.id = p.owner_org_id
+		 WHERE p.owner_org_id IS NULL OR o.status = 'active'
+		 ORDER BY COALESCE(o.name, '~~personal'), p.name`
 	);
 
 	const units = await runQuery(
@@ -158,11 +158,12 @@ export const load = async ({ locals }) => {
 
 	// Bank profiles for the new-tenant wizard's bank-routing step.
 	const bankProfiles = await runQuery(
-		`SELECT bp.id, bp.tenant_id, bp.label, bp.account_holder_name, bp.account_number,
+		`SELECT bp.id, bp.owner_org_id AS tenant_id, bp.label, bp.account_holder_name, bp.account_number,
 		        bp.bank_name, bp.branch
 		   FROM bank_profiles bp
-		   JOIN tenants t ON t.id = bp.tenant_id
-		  WHERE bp.active = TRUE AND t.status = 'active'
+		   LEFT JOIN organizations o ON o.id = bp.owner_org_id
+		  WHERE bp.active = TRUE
+		    AND (bp.owner_org_id IS NULL OR o.status = 'active')
 		  ORDER BY bp.label`
 	);
 
@@ -239,12 +240,6 @@ export const actions = {
 		);
 		const rent = Number(agreement?.rentamount) || 0;
 
-		const propertyTenant = await runSingleQuery(
-			`SELECT tenant_id FROM properties WHERE id = @propertyId LIMIT 1`,
-			{ propertyId }
-		);
-		const invoiceTenantId = propertyTenant?.tenant_id || tenantId;
-
 		const billingPeriod = new Date().toISOString().slice(0, 7); // YYYY-MM
 		const periodStart = `${billingPeriod}-01`;
 
@@ -307,15 +302,14 @@ export const actions = {
 		const id = crypto.randomUUID();
 		await runQuery(
 			`INSERT INTO invoices (
-			   id, tenant_id, renteeid, propertyid, billingperiod, components,
+			   id, renteeid, propertyid, billingperiod, components,
 			   totalamount, status, createdat, updatedat
 			 ) VALUES (
-			   @id, @tenantId, @renteeId, @propertyId, @billingPeriod, @components,
+			   @id, @renteeId, @propertyId, @billingPeriod, @components,
 			   @totalamount, 'pending', NOW(), NOW()
 			 )`,
 			{
 				id,
-				tenantId: invoiceTenantId,
 				renteeId,
 				propertyId,
 				billingPeriod,
@@ -452,11 +446,14 @@ export const actions = {
 				   JOIN properties p ON p.id = u.propertyid
 				   JOIN bank_profiles bp ON bp.id = @bank_profile_id
 				  WHERE u.id = @unit_id
-				    AND bp.tenant_id = p.tenant_id
+				    AND (
+				      (bp.owner_org_id IS NOT NULL AND bp.owner_org_id = p.owner_org_id)
+				      OR (bp.owner_user_id IS NOT NULL AND bp.owner_user_id = p.owner_user_id)
+				    )
 				  LIMIT 1`,
 				{ unit_id, bank_profile_id }
 			);
-			if (!ok) return fail(400, { action: 'setBankProfile', error: 'Profile does not belong to this unit\'s tenant' });
+			if (!ok) return fail(400, { action: 'setBankProfile', error: 'Profile does not belong to this property\'s owner' });
 		}
 
 		try {
@@ -511,16 +508,17 @@ export const actions = {
 			return fail(400, { action: 'createTenant', error: 'Property, unit, and start date are required' });
 		}
 
-		// Resolve the property's tenant_id — both the rentee and the agreement
-		// inherit org membership from the property.
+		// Resolve the property's owning org — the rentee inherits this for
+		// the staff "address book" scope. (User-owned properties have no
+		// org context; the rentee row's tenant_id stays null in that case.)
 		const property = await runSingleQuery(
-			`SELECT tenant_id FROM properties WHERE id = @property_id LIMIT 1`,
+			`SELECT owner_org_id, owner_user_id FROM properties WHERE id = @property_id LIMIT 1`,
 			{ property_id }
 		);
-		if (!property?.tenant_id) {
+		if (!property) {
 			return fail(400, { action: 'createTenant', error: 'Property not found' });
 		}
-		const tenantId = property.tenant_id;
+		const tenantId = property.owner_org_id || null;
 
 		// Billing config — Zod-validated before any DB work.
 		const billingConfigRaw = String(fd.get('billing_config') || '');

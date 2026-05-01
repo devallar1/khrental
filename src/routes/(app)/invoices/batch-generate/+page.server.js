@@ -24,8 +24,9 @@ export const load = async ({ locals }) => {
 				`SELECT a.id, a.renteeid, a.propertyid, a.rentamount, a.status,
 				        u.name AS rentee_name, u.email AS rentee_email
 				 FROM agreements a
-				 LEFT JOIN rentees u ON u.id = a.renteeid AND u.tenant_id = ANY(@orgs::uuid[])
-				 WHERE a.tenant_id = ANY(@orgs::uuid[]) AND a.status = 'active'
+				 LEFT JOIN rentees u ON u.id = a.renteeid
+				 LEFT JOIN properties p ON p.id = a.propertyid
+				 WHERE p.owner_org_id = ANY(@orgs::uuid[]) AND a.status = 'active'
 				 ORDER BY u.name ASC`,
 				{ orgs }
 			)
@@ -40,12 +41,8 @@ export const load = async ({ locals }) => {
 /** @type {import('./$types').Actions} */
 export const actions = {
 	generateBatch: async ({ request, locals }) => {
-		const tenantId = locals.tenantId;
+		if (!locals.user?.id) return fail(401, { error: 'Not authenticated' });
 		const orgs = await visibleOrgIds(locals.user);
-
-		if (!tenantId) {
-			return fail(403, { error: 'No tenant context' });
-		}
 
 		const formData = await request.formData();
 		const propertyIdsRaw = formData.get('propertyIds')?.toString() || '';
@@ -74,9 +71,9 @@ export const actions = {
 				        u.name AS rentee_name, u.email AS rentee_email,
 				        p.name AS property_name
 				 FROM agreements a
-				 LEFT JOIN rentees u ON u.id = a.renteeid AND u.tenant_id = ANY(@orgs::uuid[])
-				 LEFT JOIN properties p ON p.id = a.propertyid AND p.tenant_id = ANY(@orgs::uuid[])
-				 WHERE a.tenant_id = ANY(@orgs::uuid[]) AND a.status = 'active'
+				 LEFT JOIN rentees u ON u.id = a.renteeid
+				 LEFT JOIN properties p ON p.id = a.propertyid
+				 WHERE p.owner_org_id = ANY(@orgs::uuid[]) AND a.status = 'active'
 				   AND a.propertyid = ANY(@propertyIds::uuid[])`,
 				{ orgs, propertyIds: `{${propertyIds.join(',')}}` }
 			);
@@ -122,8 +119,8 @@ export const actions = {
 
 			try {
 				await runQuery(
-					`INSERT INTO invoices (id, renteeid, propertyid, billingperiod, components, totalamount, status, duedate, notes, tenant_id, createdat, updatedat)
-					 VALUES (@id, @renteeid, @propertyid, @billingPeriod, @components::jsonb, @totalamount, 'pending', @dueDate, @notes, @tenantId, NOW(), NOW())`,
+					`INSERT INTO invoices (id, renteeid, propertyid, billingperiod, components, totalamount, status, duedate, notes, createdat, updatedat)
+					 VALUES (@id, @renteeid, @propertyid, @billingPeriod, @components::jsonb, @totalamount, 'pending', @dueDate, @notes, NOW(), NOW())`,
 					{
 						id: invoiceId,
 						renteeid: agreement.renteeid,
@@ -132,8 +129,7 @@ export const actions = {
 						components: JSON.stringify(components),
 						totalamount: invoiceTotal,
 						dueDate,
-						notes,
-						tenantId
+						notes
 					}
 				);
 

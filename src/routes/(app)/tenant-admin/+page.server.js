@@ -9,23 +9,24 @@ export const load = async () => {
 
 	try {
 		tenants = await runQuery(
-			`SELECT t.id, t.name, t.slug, t.status, t.plan, t.createdat,
+			`SELECT o.id, o.name, o.slug, o.status, o.plan, o.createdat,
 			        COALESCE(mc.member_count, 0)::int AS member_count
-			 FROM tenants t
+			 FROM organizations o
 			 LEFT JOIN (
-			   SELECT tenantid, COUNT(*)::int AS member_count
-			   FROM tenant_memberships
-			   GROUP BY tenantid
-			 ) mc ON mc.tenantid = t.id
-			 ORDER BY t.createdat ASC`
+			   SELECT org_id, COUNT(*)::int AS member_count
+			   FROM org_memberships
+			   GROUP BY org_id
+			 ) mc ON mc.org_id = o.id
+			 ORDER BY o.createdat ASC`
 		);
 
 		memberships = await runQuery(
-			`SELECT tm.id, tm.tenantid, tm.role, tm.createdat,
+			`SELECT m.user_id || '::' || m.org_id AS id,
+			        m.org_id AS tenantid, m.role, m.granted_at AS createdat,
 			        au.name AS user_name, au.email AS user_email
-			 FROM tenant_memberships tm
-			 LEFT JOIN app_users au ON au.id = tm.userid
-			 ORDER BY tm.createdat DESC
+			 FROM org_memberships m
+			 LEFT JOIN app_users au ON au.id = m.user_id
+			 ORDER BY m.granted_at DESC
 			 LIMIT 100`
 		);
 	} catch (err) {
@@ -55,7 +56,7 @@ export const actions = {
 		try {
 			const id = crypto.randomUUID();
 			await runQuery(
-				`INSERT INTO tenants (id, name, slug, status, plan, createdat, updatedat)
+				`INSERT INTO organizations (id, name, slug, status, plan, createdat, updatedat)
 				 VALUES (@id, @name, @slug, 'active', @plan, NOW(), NOW())`,
 				{ id, name, slug, plan }
 			);
