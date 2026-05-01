@@ -21,10 +21,10 @@ export const load = async ({ locals }) => {
 				{ orgs }
 			),
 			runQuery(
-				`SELECT a.id, a.renteeid, a.propertyid, a.rentamount, a.status,
+				`SELECT a.id, a.tenant_id, a.propertyid, a.rentamount, a.status,
 				        u.name AS rentee_name, u.email AS rentee_email
 				 FROM agreements a
-				 LEFT JOIN rentees u ON u.id = a.renteeid
+				 LEFT JOIN tenants u ON u.id = a.tenant_id
 				 LEFT JOIN properties p ON p.id = a.propertyid
 				 WHERE p.owner_org_id = ANY(@orgs::uuid[]) AND a.status = 'active'
 				 ORDER BY u.name ASC`,
@@ -67,11 +67,11 @@ export const actions = {
 		let agreements = [];
 		try {
 			agreements = await runQuery(
-				`SELECT a.id, a.renteeid, a.propertyid, a.rentamount,
+				`SELECT a.id, a.tenant_id, a.propertyid, a.rentamount,
 				        u.name AS rentee_name, u.email AS rentee_email,
 				        p.name AS property_name
 				 FROM agreements a
-				 LEFT JOIN rentees u ON u.id = a.renteeid
+				 LEFT JOIN tenants u ON u.id = a.tenant_id
 				 LEFT JOIN properties p ON p.id = a.propertyid
 				 WHERE p.owner_org_id = ANY(@orgs::uuid[]) AND a.status = 'active'
 				   AND a.propertyid = ANY(@propertyIds::uuid[])`,
@@ -119,11 +119,11 @@ export const actions = {
 
 			try {
 				await runQuery(
-					`INSERT INTO invoices (id, renteeid, propertyid, billingperiod, components, totalamount, status, duedate, notes, createdat, updatedat)
-					 VALUES (@id, @renteeid, @propertyid, @billingPeriod, @components::jsonb, @totalamount, 'pending', @dueDate, @notes, NOW(), NOW())`,
+					`INSERT INTO invoices (id, tenant_id, propertyid, billingperiod, components, totalamount, status, duedate, notes, createdat, updatedat)
+					 VALUES (@id, @tenant_id, @propertyid, @billingPeriod, @components::jsonb, @totalamount, 'pending', @dueDate, @notes, NOW(), NOW())`,
 					{
 						id: invoiceId,
-						renteeid: agreement.renteeid,
+						tenant_id: agreement.tenant_id,
 						propertyid: agreement.propertyid,
 						billingPeriod,
 						components: JSON.stringify(components),

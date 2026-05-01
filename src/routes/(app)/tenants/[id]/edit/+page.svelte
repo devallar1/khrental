@@ -17,7 +17,7 @@
 	<!-- Header -->
 	<div class="mb-6 flex items-center gap-3">
 		<a
-			href="/rentees/{rentee.id}"
+			href="/tenants/{rentee.id}"
 			class="rounded-2xl border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition hover:bg-slate-50"
 		>
 			<ArrowLeft class="h-4 w-4" />
@@ -136,7 +136,7 @@
 
 			<div class="mt-6 flex items-center justify-end gap-3">
 				<a
-					href="/rentees/{rentee.id}"
+					href="/tenants/{rentee.id}"
 					class="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
 				>
 					Cancel

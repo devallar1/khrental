@@ -35,14 +35,14 @@ const resolveDefaultTenant = async () => {
 };
 
 // Look up the app-side identity for a Better-Auth session. Tries the
-// staff table first, then rentees. Returns the row enriched with
-// `kind: 'staff' | 'rentee'` so callers can branch (route guards, UI,
-// authz). Vendors aren't in this lookup yet — they'll be added when
-// vendor onboarding lands.
+// staff table first, then tenants (renters). Returns the row enriched
+// with `kind: 'staff' | 'tenant'` so callers can branch (route guards,
+// UI, authz). Vendors aren't in this lookup yet — they'll be added
+// when vendor onboarding lands.
 const resolveAppUser = async (authUserId, authEmail) => {
 	if (!authUserId) return null;
 
-	// 1. Direct auth_id match — staff first, then rentees.
+	// 1. Direct auth_id match — staff first, then tenants.
 	try {
 		const staff = await runSingleQuery(
 			`SELECT * FROM app_users
@@ -53,14 +53,14 @@ const resolveAppUser = async (authUserId, authEmail) => {
 		);
 		if (staff) return { ...staff, kind: 'staff' };
 
-		const rentee = await runSingleQuery(
-			`SELECT * FROM rentees
+		const tenant = await runSingleQuery(
+			`SELECT * FROM tenants
 			  WHERE auth_id = @authId AND active = true
 			  ORDER BY createdat ASC
 			  LIMIT 1`,
 			{ authId: authUserId }
 		);
-		if (rentee) return { ...rentee, kind: 'rentee' };
+		if (tenant) return { ...tenant, kind: 'tenant' };
 	} catch (error) {
 		console.error('[hooks.server] resolveAppUser direct lookup failed:', error);
 	}
@@ -69,10 +69,10 @@ const resolveAppUser = async (authUserId, authEmail) => {
 	//    but auth_id is still NULL. Stamp atomically. Google-verified
 	//    emails only (Better-Auth requires verification before issuing a
 	//    token, so this can't be spoofed by another signed-in account).
-	//    Try staff side first, then rentee.
+	//    Try staff side first, then tenant.
 	if (!authEmail) return null;
 
-	for (const table of ['app_users', 'rentees']) {
+	for (const table of ['app_users', 'tenants']) {
 		try {
 			const candidate = await runSingleQuery(
 				`SELECT * FROM ${table}
@@ -93,7 +93,7 @@ const resolveAppUser = async (authUserId, authEmail) => {
 				{ authId: authUserId, id: candidate.id }
 			);
 			if (linked) {
-				const kind = table === 'app_users' ? 'staff' : 'rentee';
+				const kind = table === 'app_users' ? 'staff' : 'tenant';
 				console.log(
 					`[auth] Linked auth_user ${authUserId} → ${table} ${linked.id} (${authEmail}) via email match`
 				);
@@ -109,7 +109,7 @@ const resolveAppUser = async (authUserId, authEmail) => {
 
 // Dev-only: auto-provision an identity row on first sign-in so devs can
 // land on the right dashboard without the invite flow. Phone-OTP →
-// rentees; anything else → app_users (staff). Gated by
+// tenants (renters); anything else → app_users (staff). Gated by
 // AUTH_DEV_AUTOPROVISION=true. NEVER enable in production.
 const autoProvisionAppUser = async (sessionUser) => {
 	if (!sessionUser) return null;
@@ -127,8 +127,8 @@ const autoProvisionAppUser = async (sessionUser) => {
 	try {
 		if (isPhoneSignIn) {
 			const inserted = await runSingleQuery(
-				`INSERT INTO rentees
-				   (auth_id, email, name, contact_details, tenant_id, active, status, invited)
+				`INSERT INTO tenants
+				   (auth_id, email, name, contact_details, org_id, active, status, invited)
 				 VALUES
 				   (@authId, @email, @name, @contactDetails::jsonb, @tenantId, true, 'active', false)
 				 RETURNING *`,
@@ -140,8 +140,8 @@ const autoProvisionAppUser = async (sessionUser) => {
 					tenantId
 				}
 			);
-			console.log(`[auth] AUTH_DEV_AUTOPROVISION: created rentees row for ${name} in tenant ${tenantId}`);
-			return { ...inserted, kind: 'rentee' };
+			console.log(`[auth] AUTH_DEV_AUTOPROVISION: created tenants row for ${name} in tenant ${tenantId}`);
+			return { ...inserted, kind: 'tenant' };
 		}
 		const inserted = await runSingleQuery(
 			`INSERT INTO app_users

@@ -11,7 +11,7 @@ export const load = async ({ locals }) => {
 	try {
 		const [properties, rentees, agreements, invoices] = await Promise.all([
 			runSingleQuery('SELECT COUNT(*)::int AS count FROM properties WHERE tenant_id = ANY(@orgs::uuid[])', { orgs }),
-			runSingleQuery('SELECT COUNT(*)::int AS count FROM rentees WHERE tenant_id = ANY(@orgs::uuid[])', { orgs }),
+			runSingleQuery('SELECT COUNT(*)::int AS count FROM tenants WHERE org_id = ANY(@orgs::uuid[])', { orgs }),
 			runSingleQuery('SELECT COUNT(*)::int AS count FROM agreements WHERE tenant_id = ANY(@orgs::uuid[])', { orgs }),
 			runSingleQuery('SELECT COUNT(*)::int AS count FROM invoices WHERE tenant_id = ANY(@orgs::uuid[])', { orgs })
 		]);

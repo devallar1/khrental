@@ -13,13 +13,13 @@ export const load = async ({ params, locals }) => {
 		request = await runSingleQuery(
 			`SELECT mr.id, mr.title, mr.description, mr.priority, mr.status,
 			        mr.requesttype, mr.createdat, mr.notes,
-			        mr.propertyid, mr.renteeid, mr.assignedto,
+			        mr.propertyid, mr.tenant_id, mr.assignedto,
 			        p.name AS property_name, p.address AS property_address,
-			        rentee.name AS rentee_name, rentee.email AS rentee_email,
+			        tenant.name AS tenant_name, tenant.email AS tenant_email,
 			        assigned.name AS assigned_name, assigned.email AS assigned_email
 			 FROM maintenance_requests mr
 			 LEFT JOIN properties p ON p.id = mr.propertyid
-			 LEFT JOIN rentees rentee ON rentee.id = mr.renteeid
+			 LEFT JOIN tenants tenant ON tenant.id = mr.tenant_id
 			 LEFT JOIN app_users assigned ON assigned.id = mr.assignedto
 			 WHERE mr.id = @requestId AND p.owner_org_id = ANY(@orgs::uuid[])`,
 			{ orgs, requestId }

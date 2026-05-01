@@ -198,7 +198,7 @@ export async function canSeeAgreement(user, agreementId) {
 		`SELECT 1 AS ok FROM agreements a
 		   JOIN properties p ON p.id = a.propertyid
 		  WHERE a.id = @agreementId
-		    AND (a.renteeid = @userId OR ${PROPERTY_ACCESS_PREDICATE})
+		    AND (a.tenant_id = @userId OR ${PROPERTY_ACCESS_PREDICATE})
 		  LIMIT 1`,
 		{ agreementId, userId: user.id }
 	);
@@ -220,7 +220,7 @@ export async function canSeeInvoice(user, invoiceId) {
 		`SELECT 1 AS ok FROM invoices i
 		   JOIN properties p ON p.id = i.propertyid
 		  WHERE i.id = @invoiceId
-		    AND (i.renteeid = @userId OR ${PROPERTY_ACCESS_PREDICATE})
+		    AND (i.tenant_id = @userId OR ${PROPERTY_ACCESS_PREDICATE})
 		  LIMIT 1`,
 		{ invoiceId, userId: user.id }
 	);
@@ -233,41 +233,41 @@ export async function assertCanSeeInvoice(user, invoiceId) {
 	}
 }
 
-// Rentees: a rentee sees themselves; staff see rentees whose tenant_id
-// is in the staff's visible orgs (preserves existing "address book"
-// scope without forcing rentees through org_memberships).
-export async function canSeeRentee(user, renteeId) {
-	if (!user || !renteeId) return false;
+// Tenants (renters): a tenant sees themselves; staff see tenants whose
+// org_id is in the staff's visible orgs (preserves the "address book"
+// scope without forcing tenants through org_memberships).
+export async function canSeeTenant(user, tenantId) {
+	if (!user || !tenantId) return false;
 	if (isPrivileged(user)) return true;
-	if (user.id === renteeId) return true;
+	if (user.id === tenantId) return true;
 	const orgs = await visibleOrgIds(user);
 	if (orgs.length === 0) return false;
 	const row = await runSingleQuery(
-		`SELECT 1 AS ok FROM rentees
-		   WHERE id = @renteeId
-		     AND tenant_id = ANY(@orgs::uuid[])
+		`SELECT 1 AS ok FROM tenants
+		   WHERE id = @tenantId
+		     AND org_id = ANY(@orgs::uuid[])
 		   LIMIT 1`,
-		{ renteeId, orgs }
+		{ tenantId, orgs }
 	);
 	return !!row;
 }
 
-export async function assertCanSeeRentee(user, renteeId) {
-	if (!(await canSeeRentee(user, renteeId))) {
-		throw error(403, 'Not authorized to view this rentee');
+export async function assertCanSeeTenant(user, tenantId) {
+	if (!(await canSeeTenant(user, tenantId))) {
+		throw error(403, 'Not authorized to view this tenant');
 	}
 }
 
-export async function canManageRentee(user, renteeId) {
-	// Same as canSeeRentee but a rentee shouldn't be able to mutate
+export async function canManageTenant(user, tenantId) {
+	// Same as canSeeTenant but a tenant shouldn't be able to mutate
 	// their own row through a staff endpoint — that goes through the
-	// rentee portal with its own checks. Phase 2: collapse to canSee
-	// for now, tighten in a follow-up.
-	return canSeeRentee(user, renteeId);
+	// tenant portal with its own checks. Collapse to canSee for now;
+	// tighten in a follow-up.
+	return canSeeTenant(user, tenantId);
 }
 
-export async function assertCanManageRentee(user, renteeId) {
-	if (!(await canManageRentee(user, renteeId))) {
-		throw error(403, 'Not authorized to manage this rentee');
+export async function assertCanManageTenant(user, tenantId) {
+	if (!(await canManageTenant(user, tenantId))) {
+		throw error(403, 'Not authorized to manage this tenant');
 	}
 }

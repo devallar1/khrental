@@ -4,9 +4,9 @@ import { redirect, fail } from '@sveltejs/kit';
 /** @type {import('./$types').Actions} */
 export const actions = {
 	default: async ({ request, locals }) => {
-		const tenantId = locals.tenantId;
-		if (!tenantId) {
-			return fail(403, { error: 'No tenant context' });
+		const orgId = locals.tenantId;
+		if (!orgId) {
+			return fail(403, { error: 'No org context' });
 		}
 
 		const formData = await request.formData();
@@ -25,8 +25,8 @@ export const actions = {
 
 		try {
 			const result = await runSingleQuery(
-				`INSERT INTO rentees (name, email, contact_details, permanent_address, national_id, notes, tenant_id, active)
-				 VALUES (@name, @email, @contactDetails, @permanentAddress, @nationalId, @notes, @tenantId, true)
+				`INSERT INTO tenants (name, email, contact_details, permanent_address, national_id, notes, org_id, active)
+				 VALUES (@name, @email, @contactDetails, @permanentAddress, @nationalId, @notes, @orgId, true)
 				 RETURNING id`,
 				{
 					name: name || null,
@@ -35,15 +35,15 @@ export const actions = {
 					permanentAddress: permanent_address || null,
 					nationalId: national_id || null,
 					notes: notes || null,
-					tenantId
+					orgId
 				}
 			);
 
-			redirect(303, `/rentees/${result.id}`);
+			redirect(303, `/tenants/${result.id}`);
 		} catch (err) {
 			if (err.status === 303) throw err;
-			console.error('[Rentees] Create error:', err.message);
-			return fail(500, { error: 'Failed to create rentee', name, email, phone, permanent_address, national_id, notes });
+			console.error('[Tenants] Create error:', err.message);
+			return fail(500, { error: 'Failed to create tenant', name, email, phone, permanent_address, national_id, notes });
 		}
 	}
 };

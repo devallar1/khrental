@@ -58,7 +58,7 @@
 		{ path: '/dashboard', label: 'Dashboard', icon: Home },
 		{ path: '/manager', label: "Manager's Ledger", icon: Crown },
 		{ path: '/properties', label: 'Properties', icon: Building2 },
-		{ path: '/rentees', label: 'Rentees', icon: Users },
+		{ path: '/tenants', label: 'Tenants', icon: Users },
 	];
 
 	const bottomNavItems = [

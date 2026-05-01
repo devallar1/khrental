@@ -15,8 +15,8 @@ export const load = async ({ locals }) => {
 	try {
 		[rentees, properties, templates] = await Promise.all([
 			runQuery(
-				`SELECT id, name, email FROM rentees
-				 WHERE tenant_id = ANY(@orgs::uuid[]) ORDER BY name ASC`,
+				`SELECT id, name, email FROM tenants
+				 WHERE org_id = ANY(@orgs::uuid[]) ORDER BY name ASC`,
 				{ orgs }
 			),
 			runQuery(
@@ -44,7 +44,7 @@ export const actions = {
 
 		const formData = await request.formData();
 		const title = formData.get('title')?.toString().trim() || '';
-		const renteeid = formData.get('renteeid')?.toString() || null;
+		const tenant_id = formData.get('tenant_id')?.toString() || null;
 		const propertyid = formData.get('propertyid')?.toString() || null;
 		const templateid = formData.get('templateid')?.toString() || null;
 		const startdate = formData.get('startdate')?.toString() || null;
@@ -54,7 +54,7 @@ export const actions = {
 		const notes = formData.get('notes')?.toString().trim() || null;
 
 		if (!title) {
-			return fail(400, { error: 'Title is required', title, renteeid, propertyid, templateid, startdate, enddate, rentamount, depositamount, notes });
+			return fail(400, { error: 'Title is required', title, tenant_id, propertyid, templateid, startdate, enddate, rentamount, depositamount, notes });
 		}
 
 		try {
@@ -62,9 +62,9 @@ export const actions = {
 			const now = new Date().toISOString();
 
 			await runSingleQuery(
-				`INSERT INTO agreements (id, title, renteeid, propertyid, templateid, status, startdate, enddate, rentamount, depositamount, notes, createdat, updatedat)
-				VALUES (@id, @title, @renteeid, @propertyid, @templateid, 'draft', @startdate, @enddate, @rentamount, @depositamount, @notes, @now, @now)`,
-				{ id, title, renteeid, propertyid, templateid, startdate, enddate, rentamount, depositamount, notes, now }
+				`INSERT INTO agreements (id, title, tenant_id, propertyid, templateid, status, startdate, enddate, rentamount, depositamount, notes, createdat, updatedat)
+				VALUES (@id, @title, @tenant_id, @propertyid, @templateid, 'draft', @startdate, @enddate, @rentamount, @depositamount, @notes, @now, @now)`,
+				{ id, title, tenant_id, propertyid, templateid, startdate, enddate, rentamount, depositamount, notes, now }
 			);
 
 			throw redirect(303, `/agreements/${id}`);

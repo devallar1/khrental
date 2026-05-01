@@ -1,36 +1,36 @@
 import { runSingleQuery } from '$api/db/query.js';
 import { error, redirect, fail } from '@sveltejs/kit';
-import { assertCanSeeRentee, assertCanManageRentee } from '$lib/server/authz.js';
+import { assertCanSeeTenant, assertCanManageTenant } from '$lib/server/authz.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, locals }) => {
 	const { id } = params;
-	await assertCanSeeRentee(locals.user, id);
+	await assertCanSeeTenant(locals.user, id);
 
-	const rentee = await runSingleQuery(
+	const tenant = await runSingleQuery(
 		`SELECT id, name, email, contact_details, permanent_address, national_id, notes, active
-		 FROM rentees
+		 FROM tenants
 		 WHERE id = @id`,
 		{ id }
 	);
-	if (!rentee) error(404, 'Rentee not found');
+	if (!tenant) error(404, 'Tenant not found');
 
 	let phone = '';
-	if (rentee.contact_details) {
-		const cd = typeof rentee.contact_details === 'string'
-			? JSON.parse(rentee.contact_details)
-			: rentee.contact_details;
+	if (tenant.contact_details) {
+		const cd = typeof tenant.contact_details === 'string'
+			? JSON.parse(tenant.contact_details)
+			: tenant.contact_details;
 		phone = cd?.phone || '';
 	}
 
-	return { rentee, phone };
+	return { tenant, phone };
 };
 
 /** @type {import('./$types').Actions} */
 export const actions = {
 	default: async ({ request, params, locals }) => {
 		const { id } = params;
-		await assertCanManageRentee(locals.user, id);
+		await assertCanManageTenant(locals.user, id);
 
 		const formData = await request.formData();
 		const name = formData.get('name')?.toString().trim();
@@ -49,7 +49,7 @@ export const actions = {
 
 		try {
 			await runSingleQuery(
-				`UPDATE rentees
+				`UPDATE tenants
 				 SET name = @name,
 				     email = @email,
 				     contact_details = @contactDetails,
@@ -71,11 +71,11 @@ export const actions = {
 				}
 			);
 
-			redirect(303, `/rentees/${id}`);
+			redirect(303, `/tenants/${id}`);
 		} catch (err) {
 			if (err.status === 303) throw err;
-			console.error('[Rentees] Update error:', err.message);
-			return fail(500, { error: 'Failed to update rentee', name, email, phone, permanent_address, national_id, notes, active });
+			console.error('[Tenants] Update error:', err.message);
+			return fail(500, { error: 'Failed to update tenant', name, email, phone, permanent_address, national_id, notes, active });
 		}
 	}
 };

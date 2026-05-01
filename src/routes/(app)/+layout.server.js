@@ -7,8 +7,9 @@ export const load = ({ locals, url }) => {
 		throw redirect(303, `/login?next=${encodeURIComponent(target)}`);
 	}
 
-	// Rentees never see the staff app shell — bounce them to their portal.
-	if (locals.user.kind === 'rentee') {
+	// Tenants (renters) never see the staff app shell — bounce them
+	// to their portal.
+	if (locals.user.kind === 'tenant') {
 		throw redirect(303, '/portal');
 	}
 

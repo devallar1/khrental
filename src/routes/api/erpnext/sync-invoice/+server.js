@@ -34,7 +34,7 @@ export async function POST({ request, locals }) {
 			        p.name AS property_name, p.address AS property_address,
 			        o.name AS tenant_name, o.slug AS tenant_slug
 			 FROM invoices i
-			 LEFT JOIN rentees u ON u.id = i.renteeid
+			 LEFT JOIN tenants u ON u.id = i.tenant_id
 			 LEFT JOIN properties p ON p.id = i.propertyid
 			 LEFT JOIN organizations o ON o.id = p.owner_org_id
 			 WHERE i.id = @invoiceId

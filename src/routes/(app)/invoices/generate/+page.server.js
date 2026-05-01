@@ -15,8 +15,8 @@ export const load = async ({ locals }) => {
 		[rentees, properties] = await Promise.all([
 			runQuery(
 				`SELECT id, name, email
-				 FROM rentees
-				 WHERE tenant_id = ANY(@orgs::uuid[])
+				 FROM tenants
+				 WHERE org_id = ANY(@orgs::uuid[])
 				 ORDER BY name ASC`,
 				{ orgs }
 			),
@@ -42,17 +42,17 @@ export const actions = {
 
 		const formData = await request.formData();
 		const propertyid = formData.get('propertyid')?.toString().trim();
-		const renteeid = formData.get('renteeid')?.toString().trim();
+		const tenant_id = formData.get('tenant_id')?.toString().trim();
 		const billingperiod = formData.get('billingperiod')?.toString().trim();
 		const duedate = formData.get('duedate')?.toString().trim();
 		const notes = formData.get('notes')?.toString().trim() || null;
 		const componentsRaw = formData.get('components')?.toString();
 
-		if (!propertyid || !renteeid || !billingperiod || !duedate) {
+		if (!propertyid || !tenant_id || !billingperiod || !duedate) {
 			return fail(400, {
 				error: 'Property, rentee, billing period, and due date are required.',
 				propertyid,
-				renteeid,
+				tenant_id,
 				billingperiod,
 				duedate,
 				notes,
@@ -67,7 +67,7 @@ export const actions = {
 			return fail(400, {
 				error: 'Invalid components data.',
 				propertyid,
-				renteeid,
+				tenant_id,
 				billingperiod,
 				duedate,
 				notes
@@ -83,7 +83,7 @@ export const actions = {
 			return fail(400, {
 				error: 'At least one component with a valid amount is required.',
 				propertyid,
-				renteeid,
+				tenant_id,
 				billingperiod,
 				duedate,
 				notes,
@@ -95,11 +95,11 @@ export const actions = {
 
 		try {
 			await runSingleQuery(
-				`INSERT INTO invoices (id, renteeid, propertyid, billingperiod, components, totalamount, status, duedate, notes, createdat, updatedat)
-				 VALUES (@id, @renteeid, @propertyid, @billingperiod, @components::jsonb, @totalamount, 'pending', @duedate, @notes, NOW(), NOW())`,
+				`INSERT INTO invoices (id, tenant_id, propertyid, billingperiod, components, totalamount, status, duedate, notes, createdat, updatedat)
+				 VALUES (@id, @tenant_id, @propertyid, @billingperiod, @components::jsonb, @totalamount, 'pending', @duedate, @notes, NOW(), NOW())`,
 				{
 					id: invoiceId,
-					renteeid,
+					tenant_id,
 					propertyid,
 					billingperiod,
 					components: JSON.stringify(components),
@@ -113,7 +113,7 @@ export const actions = {
 			return fail(500, {
 				error: 'Failed to create invoice. Please try again.',
 				propertyid,
-				renteeid,
+				tenant_id,
 				billingperiod,
 				duedate,
 				notes,

@@ -15,7 +15,7 @@ export const load = async ({ params, locals }) => {
 			        u.name AS rentee_name, u.email AS rentee_email, u.contact_details->>'phone' AS rentee_phone,
 			        p.name AS property_name, p.address AS property_address
 			 FROM invoices i
-			 LEFT JOIN rentees u ON u.id = i.renteeid
+			 LEFT JOIN tenants u ON u.id = i.tenant_id
 			 LEFT JOIN properties p ON p.id = i.propertyid
 			 WHERE i.id = @invoiceId`,
 			{ invoiceId }

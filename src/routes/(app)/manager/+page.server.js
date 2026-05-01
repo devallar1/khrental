@@ -59,24 +59,24 @@ export const load = async ({ locals }) => {
 		    ORDER BY effective_from DESC, createdat DESC
 		    LIMIT 1
 		 ) be ON TRUE
-		 LEFT JOIN rentees au ON au.id = a.renteeid
+		 LEFT JOIN tenants au ON au.id = a.tenant_id
 		 ORDER BY u.unitnumber`
 	);
 
 	const latestReadings = await runQuery(
-		`SELECT DISTINCT ON (renteeid)
-		        renteeid, currentreading, readingdate, calculatedbill, status
+		`SELECT DISTINCT ON (tenant_id)
+		        tenant_id AS renteeid, currentreading, readingdate, calculatedbill, status
 		 FROM utility_readings
 		 WHERE utilitytype = 'electricity'
-		 ORDER BY renteeid, readingdate DESC, createdat DESC`
+		 ORDER BY tenant_id, readingdate DESC, createdat DESC`
 	);
 	const readingByRenteeId = new Map(latestReadings.map((r) => [r.renteeid, r]));
 
 	const latestInvoices = await runQuery(
-		`SELECT DISTINCT ON (renteeid)
-		        renteeid, billingperiod, totalamount, status, duedate, createdat
+		`SELECT DISTINCT ON (tenant_id)
+		        tenant_id AS renteeid, billingperiod, totalamount, status, duedate, createdat
 		 FROM invoices
-		 ORDER BY renteeid, createdat DESC`
+		 ORDER BY tenant_id, createdat DESC`
 	);
 	const invoiceByRenteeId = new Map(latestInvoices.map((r) => [r.renteeid, r]));
 
@@ -111,8 +111,8 @@ export const load = async ({ locals }) => {
 	// drawer can offer "show archived"; the default UI hides them.
 	const renteeRows = await runQuery(
 		`SELECT id, name, email, contact_details, national_id,
-		        permanent_address, notes, active, tenant_id, createdat
-		 FROM rentees
+		        permanent_address, notes, active, org_id AS tenant_id, createdat
+		 FROM tenants
 		 ORDER BY active DESC, name`
 	);
 	const rentees = renteeRows.map((r) => {
@@ -191,7 +191,7 @@ export const actions = {
 
 		const previous = await runSingleQuery(
 			`SELECT currentreading FROM utility_readings
-			 WHERE renteeid = @renteeId AND utilitytype = 'electricity'
+			 WHERE tenant_id = @renteeId AND utilitytype = 'electricity'
 			 ORDER BY readingdate DESC, createdat DESC LIMIT 1`,
 			{ renteeId }
 		);
@@ -208,7 +208,7 @@ export const actions = {
 		const id = crypto.randomUUID();
 		await runQuery(
 			`INSERT INTO utility_readings (
-			   id, renteeid, propertyid, utilitytype, previousreading, currentreading,
+			   id, tenant_id, propertyid, utilitytype, previousreading, currentreading,
 			   readingdate, calculatedbill, status, createdat, updatedat
 			 ) VALUES (
 			   @id, @renteeId, @propertyId, 'electricity', @previousReading, @currentReading,
@@ -255,14 +255,14 @@ export const actions = {
 			// can compute consumed units. Solar-offset only needs the latest one.
 			const elecReadings = await runQuery(
 				`SELECT currentreading FROM utility_readings
-				   WHERE renteeid = @renteeId AND utilitytype = 'electricity'
+				   WHERE tenant_id = @renteeId AND utilitytype = 'electricity'
 				   ORDER BY readingdate DESC, createdat DESC
 				   LIMIT 2`,
 				{ renteeId }
 			);
 			const waterReadings = await runQuery(
 				`SELECT currentreading FROM utility_readings
-				   WHERE renteeid = @renteeId AND utilitytype = 'water'
+				   WHERE tenant_id = @renteeId AND utilitytype = 'water'
 				   ORDER BY readingdate DESC, createdat DESC
 				   LIMIT 2`,
 				{ renteeId }
@@ -288,7 +288,7 @@ export const actions = {
 			// generating invoices identically until they're migrated.
 			const reading = await runSingleQuery(
 				`SELECT calculatedbill FROM utility_readings
-				   WHERE renteeid = @renteeId AND utilitytype = 'electricity'
+				   WHERE tenant_id = @renteeId AND utilitytype = 'electricity'
 				   ORDER BY readingdate DESC, createdat DESC LIMIT 1`,
 				{ renteeId }
 			);
@@ -302,7 +302,7 @@ export const actions = {
 		const id = crypto.randomUUID();
 		await runQuery(
 			`INSERT INTO invoices (
-			   id, renteeid, propertyid, billingperiod, components,
+			   id, tenant_id, propertyid, billingperiod, components,
 			   totalamount, status, createdat, updatedat
 			 ) VALUES (
 			   @id, @renteeId, @propertyId, @billingPeriod, @components,
@@ -338,9 +338,9 @@ export const actions = {
 		const contactDetails = phone ? JSON.stringify({ phone }) : null;
 
 		await runQuery(
-			`INSERT INTO rentees (
+			`INSERT INTO tenants (
 				id, name, email, contact_details, national_id, permanent_address,
-				notes, tenant_id, active, createdat, updatedat
+				notes, org_id, active, createdat, updatedat
 			) VALUES (
 				@id, @name, @email, @contactDetails, @national_id, @permanent_address,
 				@notes, @tenantId, TRUE, NOW(), NOW()
@@ -365,7 +365,7 @@ export const actions = {
 		const contactDetails = phone ? JSON.stringify({ phone }) : null;
 
 		await runQuery(
-			`UPDATE rentees
+			`UPDATE tenants
 			 SET name = @name, email = @email, contact_details = @contactDetails,
 			     national_id = @national_id, permanent_address = @permanent_address,
 			     notes = @notes, updatedat = NOW()
@@ -384,7 +384,7 @@ export const actions = {
 		if (!id) return fail(400, { action: 'archiveRentee', error: 'Missing id' });
 
 		await runQuery(
-			`UPDATE rentees SET active = FALSE, updatedat = NOW() WHERE id = @id`,
+			`UPDATE tenants SET active = FALSE, updatedat = NOW() WHERE id = @id`,
 			{ id }
 		);
 
@@ -397,7 +397,7 @@ export const actions = {
 		if (!id) return fail(400, { action: 'restoreRentee', error: 'Missing id' });
 
 		await runQuery(
-			`UPDATE rentees SET active = TRUE, updatedat = NOW() WHERE id = @id`,
+			`UPDATE tenants SET active = TRUE, updatedat = NOW() WHERE id = @id`,
 			{ id }
 		);
 
@@ -553,16 +553,16 @@ export const actions = {
 			await withTransaction(async ({ runQuery, runSingleQuery }) => {
 				if (existingRenteeId) {
 					const existing = await runSingleQuery(
-						`SELECT id FROM rentees WHERE id = @id AND active = TRUE LIMIT 1`,
+						`SELECT id FROM tenants WHERE id = @id AND active = TRUE LIMIT 1`,
 						{ id: existingRenteeId }
 					);
 					if (!existing) throw new Error('Selected tenant no longer exists');
 				} else {
 					const contactDetails = phone ? JSON.stringify({ phone }) : null;
 					await runQuery(
-						`INSERT INTO rentees (
+						`INSERT INTO tenants (
 						    id, name, email, contact_details, national_id, permanent_address,
-						    notes, tenant_id, active, status, createdat, updatedat
+						    notes, org_id, active, status, createdat, updatedat
 						 ) VALUES (
 						    @id, @name, @email, @contactDetails::jsonb, @national_id, @permanent_address,
 						    @notes, @tenantId, TRUE, 'active', NOW(), NOW()
@@ -573,7 +573,7 @@ export const actions = {
 
 				await runQuery(
 					`INSERT INTO agreements (
-					    id, renteeid, propertyid, unitid, startdate, enddate,
+					    id, tenant_id, propertyid, unitid, startdate, enddate,
 					    rentamount, depositamount, status, createdat
 					 ) VALUES (
 					    @id, @renteeId, @propertyId, @unitId, @startDate, @endDate,

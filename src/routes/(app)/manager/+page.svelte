@@ -1648,7 +1648,7 @@
 							<div class="mb-1 flex items-center justify-between">
 								<span class="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Resident</span>
 								{#if unit.rentee_id}
-									<a href="/rentees/{unit.rentee_id}" class="text-[11px] font-medium text-sky-600 hover:underline dark:text-sky-400">view</a>
+									<a href="/tenants/{unit.rentee_id}" class="text-[11px] font-medium text-sky-600 hover:underline dark:text-sky-400">view</a>
 								{/if}
 							</div>
 							{#if unit.rentee_name}
@@ -1702,11 +1702,11 @@
 								>
 									<Zap class="h-3.5 w-3.5" /> Reading
 								</button>
-								<a class="action-btn" href="/rentees/new?replaces={unit.rentee_id}&unit={unit.id}">
+								<a class="action-btn" href="/tenants/new?replaces={unit.rentee_id}&unit={unit.id}">
 									<UserPlus class="h-3.5 w-3.5" /> Change
 								</a>
 							{:else}
-								<a class="action-btn" href="/rentees/new?unit={unit.id}">
+								<a class="action-btn" href="/tenants/new?unit={unit.id}">
 									<UserPlus class="h-3.5 w-3.5" /> Onboard
 								</a>
 							{/if}
