@@ -66,7 +66,7 @@
 		{ path: '/cameras', label: 'Cameras', icon: Camera },
 		{ path: '/team', label: 'Team', icon: UsersRound },
 		{ path: '/settings', label: 'Settings', icon: Settings },
-		{ path: '/tenant-admin', label: 'Tenant Admin', icon: ShieldCheck },
+		{ path: '/tenant-admin', label: 'Organizations', icon: ShieldCheck },
 		{ path: '/admin-dashboard', label: 'Admin Dashboard', icon: LayoutDashboard },
 	];
 </script>

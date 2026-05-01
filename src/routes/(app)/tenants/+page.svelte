@@ -7,18 +7,18 @@
 	let statusFilter = $state('all');
 
 	const filtered = $derived(() => {
-		let list = data.rentees;
+		let list = data.tenants;
 
 		if (statusFilter !== 'all') {
 			const isActive = statusFilter === 'active';
-			list = list.filter((r) => r.active === isActive);
+			list = list.filter((t) => t.active === isActive);
 		}
 
 		if (searchQuery.trim()) {
 			const q = searchQuery.toLowerCase();
-			list = list.filter((r) => {
-				const name = (r.name || '').toLowerCase();
-				const email = (r.email || '').toLowerCase();
+			list = list.filter((t) => {
+				const name = (t.name || '').toLowerCase();
+				const email = (t.email || '').toLowerCase();
 				return name.includes(q) || email.includes(q);
 			});
 		}
@@ -47,22 +47,22 @@
 </script>
 
 <svelte:head>
-	<title>Rentees - KH Rentals</title>
+	<title>Tenants - KH Rentals</title>
 </svelte:head>
 
 <div>
 	<!-- Header -->
 	<div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Rentees</h1>
-			<p class="mt-1 text-sm text-slate-500">{data.rentees.length} total rentees</p>
+			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Tenants</h1>
+			<p class="mt-1 text-sm text-slate-500">{data.tenants.length} total tenants</p>
 		</div>
 		<a
-			href="/rentees/new"
+			href="/tenants/new"
 			class="inline-flex items-center gap-2 rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700"
 		>
 			<Plus class="h-4 w-4" />
-			Add Rentee
+			Add Tenant
 		</a>
 	</div>
 
@@ -90,47 +90,47 @@
 	<!-- Grid -->
 	{#if filtered().length > 0}
 		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-			{#each filtered() as rentee}
+			{#each filtered() as tenant}
 				<a
-					href="/rentees/{rentee.id}"
+					href="/tenants/{tenant.id}"
 					class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md"
 				>
 					<div class="flex items-start justify-between">
 						<div class="flex items-center gap-3">
 							<div class="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 text-sm font-semibold text-sky-700">
-								{(rentee.name || '?').charAt(0).toUpperCase()}
+								{(tenant.name || '?').charAt(0).toUpperCase()}
 							</div>
 							<div>
 								<h3 class="font-semibold text-slate-900 group-hover:text-sky-700">
-									{rentee.name || 'Unnamed'}
+									{tenant.name || 'Unnamed'}
 								</h3>
-								{#if rentee.email}
+								{#if tenant.email}
 									<p class="flex items-center gap-1 text-xs text-slate-500">
 										<Mail class="h-3 w-3" />
-										{rentee.email}
+										{tenant.email}
 									</p>
 								{/if}
 							</div>
 						</div>
 						<span
-							class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {rentee.active
+							class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {tenant.active
 								? 'bg-emerald-50 text-emerald-700'
 								: 'bg-slate-100 text-slate-600'}"
 						>
-							{rentee.active ? 'Active' : 'Inactive'}
+							{tenant.active ? 'Active' : 'Inactive'}
 						</span>
 					</div>
 
-					{#if getPhone(rentee.contact_details)}
+					{#if getPhone(tenant.contact_details)}
 						<p class="mt-3 flex items-center gap-1.5 text-sm text-slate-600">
 							<Phone class="h-3.5 w-3.5 text-slate-400" />
-							{getPhone(rentee.contact_details)}
+							{getPhone(tenant.contact_details)}
 						</p>
 					{/if}
 
-					{#if getPropertyNames(rentee.associated_property_ids).length > 0}
+					{#if getPropertyNames(tenant.associated_property_ids).length > 0}
 						<div class="mt-3 flex flex-wrap gap-1.5">
-							{#each getPropertyNames(rentee.associated_property_ids) as propName}
+							{#each getPropertyNames(tenant.associated_property_ids) as propName}
 								<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
 									<MapPin class="h-3 w-3" />
 									{propName}
@@ -145,21 +145,21 @@
 		<!-- Empty state -->
 		<div class="rounded-2xl border border-slate-200 bg-white py-16 text-center">
 			<Users class="mx-auto h-12 w-12 text-slate-300" />
-			<h3 class="mt-4 text-lg font-semibold text-slate-900">No rentees found</h3>
+			<h3 class="mt-4 text-lg font-semibold text-slate-900">No tenants found</h3>
 			<p class="mt-1 text-sm text-slate-500">
 				{#if searchQuery || statusFilter !== 'all'}
 					Try adjusting your search or filters.
 				{:else}
-					Get started by adding your first rentee.
+					Get started by adding your first tenant.
 				{/if}
 			</p>
 			{#if !searchQuery && statusFilter === 'all'}
 				<a
-					href="/rentees/new"
+					href="/tenants/new"
 					class="mt-4 inline-flex items-center gap-2 rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700"
 				>
 					<Plus class="h-4 w-4" />
-					Add Rentee
+					Add Tenant
 				</a>
 			{/if}
 		</div>

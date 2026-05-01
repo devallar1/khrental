@@ -3,7 +3,7 @@
 
 	let { data, form } = $props();
 
-	const tenants = $derived(data.tenants || []);
+	const orgs = $derived(data.tenants || []);
 	const memberships = $derived(data.memberships || []);
 
 	let showForm = $state(false);
@@ -20,28 +20,28 @@
 </script>
 
 <svelte:head>
-	<title>Tenant Admin - KH Rentals</title>
+	<title>Organizations - KH Rentals</title>
 </svelte:head>
 
 <div>
 	<div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Tenant Admin</h1>
-			<p class="mt-1 text-sm text-slate-500">Manage all tenants and memberships</p>
+			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Organizations</h1>
+			<p class="mt-1 text-sm text-slate-500">Manage all orgs and memberships</p>
 		</div>
 		<button
 			onclick={() => (showForm = !showForm)}
 			class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800 transition"
 		>
 			<Plus class="h-4 w-4" />
-			New Tenant
+			New Organization
 		</button>
 	</div>
 
 	<!-- Create form -->
 	{#if showForm}
 		<div class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-			<h2 class="text-lg font-semibold text-slate-900 mb-4">Create New Tenant</h2>
+			<h2 class="text-lg font-semibold text-slate-900 mb-4">Create New Organization</h2>
 
 			{#if form?.error}
 				<div class="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -59,7 +59,7 @@
 						value={form?.name || ''}
 						required
 						class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-						placeholder="Tenant name"
+						placeholder="Organization name"
 					/>
 				</div>
 				<div>
@@ -72,7 +72,7 @@
 						required
 						pattern="[a-z0-9-]+"
 						class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-mono text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-						placeholder="tenant-slug"
+						placeholder="org-slug"
 					/>
 				</div>
 				<div>
@@ -93,7 +93,7 @@
 						type="submit"
 						class="rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800 transition"
 					>
-						Create Tenant
+						Create Organization
 					</button>
 					<button
 						type="button"
@@ -109,19 +109,19 @@
 
 	{#if form?.success}
 		<div class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
-			Tenant created successfully.
+			Organization created successfully.
 		</div>
 	{/if}
 
-	<!-- Tenants list -->
+	<!-- Orgs list -->
 	<div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
 		<div class="px-5 py-4 border-b border-slate-100">
-			<h2 class="text-base font-semibold text-slate-900">All Tenants ({tenants.length})</h2>
+			<h2 class="text-base font-semibold text-slate-900">All Organizations ({orgs.length})</h2>
 		</div>
-		{#if tenants.length === 0}
+		{#if orgs.length === 0}
 			<div class="p-12 text-center">
 				<Building2 class="mx-auto h-12 w-12 text-slate-300" />
-				<p class="mt-4 text-sm text-slate-500">No tenants found</p>
+				<p class="mt-4 text-sm text-slate-500">No organizations yet</p>
 			</div>
 		{:else}
 			<div class="overflow-x-auto">
@@ -137,27 +137,27 @@
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-slate-100 bg-white">
-						{#each tenants as t}
+						{#each orgs as o}
 							<tr class="hover:bg-slate-50 transition">
-								<td class="px-4 py-3 text-sm font-medium text-slate-900">{t.name}</td>
-								<td class="px-4 py-3 text-sm font-mono text-slate-600">{t.slug}</td>
+								<td class="px-4 py-3 text-sm font-medium text-slate-900">{o.name}</td>
+								<td class="px-4 py-3 text-sm font-mono text-slate-600">{o.slug}</td>
 								<td class="px-4 py-3">
 									<span class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium capitalize text-blue-700">
-										{t.plan || 'free'}
+										{o.plan || 'free'}
 									</span>
 								</td>
 								<td class="px-4 py-3">
-									<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize {t.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}">
-										{t.status}
+									<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize {o.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}">
+										{o.status}
 									</span>
 								</td>
 								<td class="px-4 py-3">
 									<span class="inline-flex items-center gap-1 text-sm text-slate-600">
 										<Users class="h-3.5 w-3.5" />
-										{t.member_count}
+										{o.member_count}
 									</span>
 								</td>
-								<td class="px-4 py-3 text-sm text-slate-500">{formatDate(t.createdat)}</td>
+								<td class="px-4 py-3 text-sm text-slate-500">{formatDate(o.createdat)}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -179,7 +179,7 @@
 							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">User</th>
 							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Email</th>
 							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Role</th>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Joined</th>
+							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Granted</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-slate-100 bg-white">
