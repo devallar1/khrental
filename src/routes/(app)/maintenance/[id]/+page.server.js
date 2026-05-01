@@ -19,7 +19,7 @@ export const load = async ({ params, locals }) => {
 			        assigned.name AS assigned_name, assigned.email AS assigned_email
 			 FROM maintenance_requests mr
 			 LEFT JOIN properties p ON p.id = mr.propertyid
-			 LEFT JOIN app_users rentee ON rentee.id = mr.renteeid
+			 LEFT JOIN rentees rentee ON rentee.id = mr.renteeid
 			 LEFT JOIN app_users assigned ON assigned.id = mr.assignedto
 			 WHERE mr.id = @requestId AND mr.tenant_id = ANY(@orgs::uuid[])`,
 			{ orgs, requestId }

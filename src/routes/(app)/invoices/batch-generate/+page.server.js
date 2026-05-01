@@ -24,7 +24,7 @@ export const load = async ({ locals }) => {
 				`SELECT a.id, a.renteeid, a.propertyid, a.rentamount, a.status,
 				        u.name AS rentee_name, u.email AS rentee_email
 				 FROM agreements a
-				 LEFT JOIN app_users u ON u.id = a.renteeid AND u.tenant_id = ANY(@orgs::uuid[])
+				 LEFT JOIN rentees u ON u.id = a.renteeid AND u.tenant_id = ANY(@orgs::uuid[])
 				 WHERE a.tenant_id = ANY(@orgs::uuid[]) AND a.status = 'active'
 				 ORDER BY u.name ASC`,
 				{ orgs }
@@ -74,7 +74,7 @@ export const actions = {
 				        u.name AS rentee_name, u.email AS rentee_email,
 				        p.name AS property_name
 				 FROM agreements a
-				 LEFT JOIN app_users u ON u.id = a.renteeid AND u.tenant_id = ANY(@orgs::uuid[])
+				 LEFT JOIN rentees u ON u.id = a.renteeid AND u.tenant_id = ANY(@orgs::uuid[])
 				 LEFT JOIN properties p ON p.id = a.propertyid AND p.tenant_id = ANY(@orgs::uuid[])
 				 WHERE a.tenant_id = ANY(@orgs::uuid[]) AND a.status = 'active'
 				   AND a.propertyid = ANY(@propertyIds::uuid[])`,

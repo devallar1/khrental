@@ -15,7 +15,7 @@ export const load = async ({ locals }) => {
 	try {
 		[rentees, properties, templates] = await Promise.all([
 			runQuery(
-				`SELECT id, name, email FROM app_users
+				`SELECT id, name, email FROM rentees
 				 WHERE tenant_id = ANY(@orgs::uuid[]) ORDER BY name ASC`,
 				{ orgs }
 			),

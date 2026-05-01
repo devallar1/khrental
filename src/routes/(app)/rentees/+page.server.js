@@ -12,8 +12,8 @@ export const load = async ({ locals }) => {
 			`SELECT id, name, email, contact_details, status, active,
 			        associated_property_ids, national_id, permanent_address,
 			        createdat
-			 FROM app_users
-			 WHERE user_type = 'rentee' AND tenant_id = ANY(@orgs::uuid[])
+			 FROM rentees
+			 WHERE tenant_id = ANY(@orgs::uuid[])
 			 ORDER BY name ASC`,
 			{ orgs }
 		);

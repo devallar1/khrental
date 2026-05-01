@@ -59,7 +59,7 @@ export const load = async ({ locals }) => {
 		    ORDER BY effective_from DESC, createdat DESC
 		    LIMIT 1
 		 ) be ON TRUE
-		 LEFT JOIN app_users au ON au.id = a.renteeid
+		 LEFT JOIN rentees au ON au.id = a.renteeid
 		 ORDER BY u.unitnumber`
 	);
 
@@ -112,8 +112,7 @@ export const load = async ({ locals }) => {
 	const renteeRows = await runQuery(
 		`SELECT id, name, email, contact_details, national_id,
 		        permanent_address, notes, active, tenant_id, createdat
-		 FROM app_users
-		 WHERE COALESCE(user_type, 'rentee') = 'rentee'
+		 FROM rentees
 		 ORDER BY active DESC, name`
 	);
 	const rentees = renteeRows.map((r) => {
@@ -345,12 +344,12 @@ export const actions = {
 		const contactDetails = phone ? JSON.stringify({ phone }) : null;
 
 		await runQuery(
-			`INSERT INTO app_users (
+			`INSERT INTO rentees (
 				id, name, email, contact_details, national_id, permanent_address,
-				notes, user_type, tenant_id, active, createdat, updatedat
+				notes, tenant_id, active, createdat, updatedat
 			) VALUES (
 				@id, @name, @email, @contactDetails, @national_id, @permanent_address,
-				@notes, 'rentee', @tenantId, TRUE, NOW(), NOW()
+				@notes, @tenantId, TRUE, NOW(), NOW()
 			)`,
 			{ id, name, email, contactDetails, national_id, permanent_address, notes, tenantId }
 		);
@@ -372,7 +371,7 @@ export const actions = {
 		const contactDetails = phone ? JSON.stringify({ phone }) : null;
 
 		await runQuery(
-			`UPDATE app_users
+			`UPDATE rentees
 			 SET name = @name, email = @email, contact_details = @contactDetails,
 			     national_id = @national_id, permanent_address = @permanent_address,
 			     notes = @notes, updatedat = NOW()
@@ -391,7 +390,7 @@ export const actions = {
 		if (!id) return fail(400, { action: 'archiveRentee', error: 'Missing id' });
 
 		await runQuery(
-			`UPDATE app_users SET active = FALSE, updatedat = NOW() WHERE id = @id`,
+			`UPDATE rentees SET active = FALSE, updatedat = NOW() WHERE id = @id`,
 			{ id }
 		);
 
@@ -404,7 +403,7 @@ export const actions = {
 		if (!id) return fail(400, { action: 'restoreRentee', error: 'Missing id' });
 
 		await runQuery(
-			`UPDATE app_users SET active = TRUE, updatedat = NOW() WHERE id = @id`,
+			`UPDATE rentees SET active = TRUE, updatedat = NOW() WHERE id = @id`,
 			{ id }
 		);
 
@@ -556,19 +555,19 @@ export const actions = {
 			await withTransaction(async ({ runQuery, runSingleQuery }) => {
 				if (existingRenteeId) {
 					const existing = await runSingleQuery(
-						`SELECT id FROM app_users WHERE id = @id AND active = TRUE LIMIT 1`,
+						`SELECT id FROM rentees WHERE id = @id AND active = TRUE LIMIT 1`,
 						{ id: existingRenteeId }
 					);
 					if (!existing) throw new Error('Selected tenant no longer exists');
 				} else {
 					const contactDetails = phone ? JSON.stringify({ phone }) : null;
 					await runQuery(
-						`INSERT INTO app_users (
+						`INSERT INTO rentees (
 						    id, name, email, contact_details, national_id, permanent_address,
-						    notes, user_type, tenant_id, active, status, createdat, updatedat
+						    notes, tenant_id, active, status, createdat, updatedat
 						 ) VALUES (
 						    @id, @name, @email, @contactDetails::jsonb, @national_id, @permanent_address,
-						    @notes, 'rentee', @tenantId, TRUE, 'active', NOW(), NOW()
+						    @notes, @tenantId, TRUE, 'active', NOW(), NOW()
 						 )`,
 						{ id: renteeId, name, email, contactDetails, national_id, permanent_address, notes, tenantId }
 					);

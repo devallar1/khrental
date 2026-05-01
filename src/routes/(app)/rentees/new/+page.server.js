@@ -25,8 +25,8 @@ export const actions = {
 
 		try {
 			const result = await runSingleQuery(
-				`INSERT INTO app_users (name, email, contact_details, permanent_address, national_id, notes, user_type, tenant_id, active)
-				 VALUES (@name, @email, @contactDetails, @permanentAddress, @nationalId, @notes, 'rentee', @tenantId, true)
+				`INSERT INTO rentees (name, email, contact_details, permanent_address, national_id, notes, tenant_id, active)
+				 VALUES (@name, @email, @contactDetails, @permanentAddress, @nationalId, @notes, @tenantId, true)
 				 RETURNING id`,
 				{
 					name: name || null,

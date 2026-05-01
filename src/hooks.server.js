@@ -18,6 +18,7 @@ const createDevBypassUser = async () => {
 		user_type: 'admin',
 		is_sysadmin: true,
 		tenant_id: tenant?.id || null,
+		kind: 'staff',
 		is_dev_bypass: true
 	};
 };
@@ -33,73 +34,83 @@ const resolveDefaultTenant = async () => {
 	}
 };
 
+// Look up the app-side identity for a Better-Auth session. Tries the
+// staff table first, then rentees. Returns the row enriched with
+// `kind: 'staff' | 'rentee'` so callers can branch (route guards, UI,
+// authz). Vendors aren't in this lookup yet — they'll be added when
+// vendor onboarding lands.
 const resolveAppUser = async (authUserId, authEmail) => {
 	if (!authUserId) return null;
 
-	// 1. Direct match on auth_id — the steady state for any returning user.
+	// 1. Direct auth_id match — staff first, then rentees.
 	try {
-		const row = await runSingleQuery(
-			`SELECT *
-			   FROM app_users
-			  WHERE auth_id = @authId
-			    AND active = true
+		const staff = await runSingleQuery(
+			`SELECT * FROM app_users
+			  WHERE auth_id = @authId AND active = true
 			  ORDER BY createdat ASC
 			  LIMIT 1`,
 			{ authId: authUserId }
 		);
-		if (row) return row;
+		if (staff) return { ...staff, kind: 'staff' };
+
+		const rentee = await runSingleQuery(
+			`SELECT * FROM rentees
+			  WHERE auth_id = @authId AND active = true
+			  ORDER BY createdat ASC
+			  LIMIT 1`,
+			{ authId: authUserId }
+		);
+		if (rentee) return { ...rentee, kind: 'rentee' };
 	} catch (error) {
 		console.error('[hooks.server] resolveAppUser direct lookup failed:', error);
 	}
 
-	// 2. First-sign-in for a pre-seeded user: a row exists with their email
-	//    but auth_id is still NULL. Stamp auth_id atomically (only if still
-	//    unclaimed) and return. Google-verified emails only — Better-Auth's
-	//    google plugin requires email verification before issuing a token,
-	//    so this can't be spoofed by a different signed-in account.
+	// 2. First-sign-in fallback: a pre-seeded row exists with this email
+	//    but auth_id is still NULL. Stamp atomically. Google-verified
+	//    emails only (Better-Auth requires verification before issuing a
+	//    token, so this can't be spoofed by another signed-in account).
+	//    Try staff side first, then rentee.
 	if (!authEmail) return null;
-	try {
-		const candidate = await runSingleQuery(
-			`SELECT *
-			   FROM app_users
-			  WHERE LOWER(email) = LOWER(@email)
-			    AND auth_id IS NULL
-			    AND active = true
-			  ORDER BY createdat ASC
-			  LIMIT 1`,
-			{ email: authEmail }
-		);
-		if (!candidate) return null;
 
-		const linked = await runSingleQuery(
-			`UPDATE app_users
-			    SET auth_id = @authId,
-			        updatedat = NOW()
-			  WHERE id = @id
-			    AND auth_id IS NULL
-			  RETURNING *`,
-			{ authId: authUserId, id: candidate.id }
-		);
-		if (linked) {
-			console.log(
-				`[auth] Linked auth_user ${authUserId} → app_users ${linked.id} (${authEmail}) via email match`
+	for (const table of ['app_users', 'rentees']) {
+		try {
+			const candidate = await runSingleQuery(
+				`SELECT * FROM ${table}
+				  WHERE LOWER(email) = LOWER(@email)
+				    AND auth_id IS NULL
+				    AND active = true
+				  ORDER BY createdat ASC
+				  LIMIT 1`,
+				{ email: authEmail }
 			);
+			if (!candidate) continue;
+
+			const linked = await runSingleQuery(
+				`UPDATE ${table}
+				    SET auth_id = @authId, updatedat = NOW()
+				  WHERE id = @id AND auth_id IS NULL
+				  RETURNING *`,
+				{ authId: authUserId, id: candidate.id }
+			);
+			if (linked) {
+				const kind = table === 'app_users' ? 'staff' : 'rentee';
+				console.log(
+					`[auth] Linked auth_user ${authUserId} → ${table} ${linked.id} (${authEmail}) via email match`
+				);
+				return { ...linked, kind };
+			}
+		} catch (error) {
+			console.error(`[hooks.server] resolveAppUser email-fallback (${table}) failed:`, error);
 		}
-		return linked || null;
-	} catch (error) {
-		console.error('[hooks.server] resolveAppUser email-fallback failed:', error);
-		return null;
 	}
+
+	return null;
 };
 
-// Dev-only: when a Better-Auth session exists but there's no app_users row
-// for this identity, auto-provision a row in the active tenant so you can
-// land on the right dashboard without building the full invite flow first.
-//
-// Phone-OTP sign-ins -> role='rentee' (renter individual flow).
-// Anything else -> role='admin' (staff testing).
-//
-// Gated by AUTH_DEV_AUTOPROVISION=true. NEVER enable in production.
+// Dev-only: auto-provision an identity row on first sign-in so devs can
+// land on the right dashboard without the invite flow. Phone-OTP →
+// rentees; anything else → app_users (staff). Gated by
+// AUTH_DEV_AUTOPROVISION=true. NEVER enable in production.
 const autoProvisionAppUser = async (sessionUser) => {
 	if (!sessionUser) return null;
 	const tenant = await resolveDefaultTenant();
@@ -109,30 +120,45 @@ const autoProvisionAppUser = async (sessionUser) => {
 	const isPhoneSignIn =
 		Boolean(sessionUser.phoneNumber) &&
 		(!sessionUser.email || String(sessionUser.email).endsWith('@phone.local'));
-	const role = isPhoneSignIn ? 'rentee' : 'admin';
-	const userType = isPhoneSignIn ? 'rentee' : 'staff';
+
+	const name = sessionUser.name || sessionUser.email || sessionUser.phoneNumber || 'Auto-provisioned user';
+	const contactDetails = JSON.stringify(sessionUser.phoneNumber ? { phone: sessionUser.phoneNumber } : {});
 
 	try {
+		if (isPhoneSignIn) {
+			const inserted = await runSingleQuery(
+				`INSERT INTO rentees
+				   (auth_id, email, name, contact_details, tenant_id, active, status, invited)
+				 VALUES
+				   (@authId, @email, @name, @contactDetails::jsonb, @tenantId, true, 'active', false)
+				 RETURNING *`,
+				{
+					authId: sessionUser.id,
+					email: sessionUser.email || null,
+					name,
+					contactDetails,
+					tenantId
+				}
+			);
+			console.log(`[auth] AUTH_DEV_AUTOPROVISION: created rentees row for ${name} in tenant ${tenantId}`);
+			return { ...inserted, kind: 'rentee' };
+		}
 		const inserted = await runSingleQuery(
 			`INSERT INTO app_users
 			   (auth_id, email, name, role, user_type, contact_details, tenant_id, active, status, invited)
 			 VALUES
-			   (@authId, @email, @name, @role, @userType, @contactDetails::jsonb, @tenantId, true, 'active', false)
+			   (@authId, @email, @name, 'admin', 'staff', @contactDetails::jsonb, @tenantId, true, 'active', false)
 			 RETURNING *`,
 			{
 				authId: sessionUser.id,
 				email: sessionUser.email || null,
-				name: sessionUser.name || sessionUser.email || sessionUser.phoneNumber || 'Auto-provisioned user',
-				role,
-				userType,
-				contactDetails: JSON.stringify(sessionUser.phoneNumber ? { phone: sessionUser.phoneNumber } : {}),
+				name,
+				contactDetails,
 				tenantId
 			}
 		);
-		console.log(
-			`[auth] AUTH_DEV_AUTOPROVISION: created app_users for ${sessionUser.email || sessionUser.phoneNumber} as ${role} in tenant ${tenantId}`
-		);
-		return inserted;
+		console.log(`[auth] AUTH_DEV_AUTOPROVISION: created app_users row for ${name} in tenant ${tenantId}`);
+		return { ...inserted, kind: 'staff' };
 	} catch (error) {
 		console.error('[hooks.server] autoProvisionAppUser failed:', error);
 		// On unique-constraint conflict (someone raced us), re-query.

@@ -8,7 +8,7 @@ export const load = ({ locals, url }) => {
 	}
 
 	// Rentees never see the staff app shell — bounce them to their portal.
-	if (locals.user.role === 'rentee') {
+	if (locals.user.kind === 'rentee') {
 		throw redirect(303, '/portal');
 	}
 

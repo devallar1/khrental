@@ -11,8 +11,8 @@ export const load = async ({ params, locals }) => {
 		`SELECT id, name, email, contact_details, status, active,
 		        associated_property_ids, national_id, permanent_address,
 		        notes, id_copy_url, invited, last_login, createdat, updatedat
-		 FROM app_users
-		 WHERE id = @id AND user_type = 'rentee'`,
+		 FROM rentees
+		 WHERE id = @id`,
 		{ id }
 	);
 	if (!rentee) error(404, 'Rentee not found');

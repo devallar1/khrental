@@ -30,7 +30,7 @@ export const load = async ({ params, locals }) => {
 			        a.unitid, u.name AS rentee_name, u.email AS rentee_email,
 			        pu.unitnumber
 			 FROM agreements a
-			 LEFT JOIN app_users u ON u.id = a.renteeid
+			 LEFT JOIN rentees u ON u.id = a.renteeid
 			 LEFT JOIN property_units pu ON pu.id = a.unitid
 			 WHERE a.propertyid = @propertyId
 			 ORDER BY a.startdate DESC`,

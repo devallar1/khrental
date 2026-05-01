@@ -9,8 +9,8 @@ export const load = async ({ params, locals }) => {
 
 	const rentee = await runSingleQuery(
 		`SELECT id, name, email, contact_details, permanent_address, national_id, notes, active
-		 FROM app_users
-		 WHERE id = @id AND user_type = 'rentee'`,
+		 FROM rentees
+		 WHERE id = @id`,
 		{ id }
 	);
 	if (!rentee) error(404, 'Rentee not found');
@@ -49,7 +49,7 @@ export const actions = {
 
 		try {
 			await runSingleQuery(
-				`UPDATE app_users
+				`UPDATE rentees
 				 SET name = @name,
 				     email = @email,
 				     contact_details = @contactDetails,
@@ -58,7 +58,7 @@ export const actions = {
 				     notes = @notes,
 				     active = @active,
 				     updatedat = NOW()
-				 WHERE id = @id AND user_type = 'rentee'`,
+				 WHERE id = @id`,
 				{
 					name: name || null,
 					email: email || null,

@@ -243,9 +243,8 @@ export async function canSeeRentee(user, renteeId) {
 	const orgs = await visibleOrgIds(user);
 	if (orgs.length === 0) return false;
 	const row = await runSingleQuery(
-		`SELECT 1 AS ok FROM app_users
+		`SELECT 1 AS ok FROM rentees
 		   WHERE id = @renteeId
-		     AND user_type = 'rentee'
 		     AND tenant_id = ANY(@orgs::uuid[])
 		   LIMIT 1`,
 		{ renteeId, orgs }

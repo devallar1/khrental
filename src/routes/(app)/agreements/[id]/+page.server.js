@@ -21,7 +21,7 @@ export const load = async ({ locals, params }) => {
 			t.language AS template_language,
 			t.version AS template_version
 		FROM agreements a
-		LEFT JOIN app_users u ON u.id = a.renteeid
+		LEFT JOIN rentees u ON u.id = a.renteeid
 		LEFT JOIN properties p ON p.id = a.propertyid
 		LEFT JOIN property_units pu ON pu.id = a.unitid
 		LEFT JOIN agreement_templates t ON t.id = a.templateid

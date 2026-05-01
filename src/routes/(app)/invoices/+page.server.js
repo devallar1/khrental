@@ -14,7 +14,7 @@ export const load = async ({ locals }) => {
 			        u.name AS rentee_name, u.email AS rentee_email,
 			        p.name AS property_name
 			 FROM invoices i
-			 LEFT JOIN app_users u ON u.id = i.renteeid AND u.tenant_id = ANY(@orgs::uuid[])
+			 LEFT JOIN rentees u ON u.id = i.renteeid AND u.tenant_id = ANY(@orgs::uuid[])
 			 LEFT JOIN properties p ON p.id = i.propertyid AND p.tenant_id = ANY(@orgs::uuid[])
 			 WHERE i.tenant_id = ANY(@orgs::uuid[])
 			 ORDER BY i.createdat DESC`,
