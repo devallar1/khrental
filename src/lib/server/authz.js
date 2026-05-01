@@ -15,12 +15,16 @@ import { runQuery, runSingleQuery } from '$api/db/query.js';
 
 // ─── Role helpers ────────────────────────────────────────────────────────
 
-// True for users with system-wide override privileges. Today this maps to
-// `user_type = 'admin'` (the dev-bypass + seeded-admin path). Phase 1 will
-// split this into `system_role IN ('sysadmin', 'admin')` — for now both
-// tiers collapse to "sees everything".
+// True for users with system-wide override privileges. Union of the
+// legacy admin paths (`role = 'admin'` on real users, `user_type = 'admin'`
+// on the dev-bypass path) plus the Phase-1 `is_sysadmin` flag. Phase 2
+// narrows this once `system_role` replaces both `user_type` and `role`.
 export function isPrivileged(user) {
-	return user?.user_type === 'admin';
+	if (!user) return false;
+	if (user.is_sysadmin === true) return true;
+	if (user.role === 'admin') return true;
+	if (user.user_type === 'admin') return true;
+	return false;
 }
 
 // Hard guard for routes that should only be reachable by sysadmin (today:
