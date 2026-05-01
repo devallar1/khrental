@@ -1,19 +1,18 @@
 import { runSingleQuery, runQuery } from '$api/db/query.js';
 import { error, fail, redirect } from '@sveltejs/kit';
+import { assertCanSeeProperty, assertCanManageProperty } from '$lib/server/authz.js';
 
 export const load = async ({ params, locals }) => {
-	const tenantId = locals.tenantId;
 	const propertyId = params.id;
+	await assertCanSeeProperty(locals.user, propertyId);
 
 	const property = await runSingleQuery(
 		`SELECT id, name, latitude, longitude, boundary_geojson
-		 FROM properties WHERE id = @propertyId AND tenant_id = @tenantId`,
-		{ propertyId, tenantId }
+		 FROM properties WHERE id = @propertyId`,
+		{ propertyId }
 	);
-
 	if (!property) error(404, 'Property not found');
 
-	// Units to assign to unit-kind polygons
 	const units = await runQuery(
 		`SELECT id, unitnumber, status
 		 FROM property_units WHERE propertyid = @propertyId
@@ -26,9 +25,8 @@ export const load = async ({ params, locals }) => {
 
 export const actions = {
 	default: async ({ request, params, locals }) => {
-		const tenantId = locals.tenantId;
 		const propertyId = params.id;
-		if (!tenantId) return fail(401, { error: 'No tenant context' });
+		await assertCanManageProperty(locals.user, propertyId);
 
 		const formData = await request.formData();
 		const raw = formData.get('boundary_geojson')?.toString() || '';
@@ -51,11 +49,10 @@ export const actions = {
 			await runSingleQuery(
 				`UPDATE properties
 				 SET boundary_geojson = @geojson, updatedat = NOW()
-				 WHERE id = @propertyId AND tenant_id = @tenantId`,
+				 WHERE id = @propertyId`,
 				{
 					geojson: geojson ? JSON.stringify(geojson) : null,
-					propertyId,
-					tenantId
+					propertyId
 				}
 			);
 		} catch (err) {

@@ -1,19 +1,17 @@
 import { runSingleQuery } from '$api/db/query.js';
 import { error, fail, redirect } from '@sveltejs/kit';
+import { assertCanSeeProperty, assertCanManageProperty } from '$lib/server/authz.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, locals }) => {
-	const tenantId = locals.tenantId;
 	const propertyId = params.id;
+	await assertCanSeeProperty(locals.user, propertyId);
 
 	const property = await runSingleQuery(
-		`SELECT * FROM properties WHERE id = @propertyId AND tenant_id = @tenantId`,
-		{ propertyId, tenantId }
+		`SELECT * FROM properties WHERE id = @propertyId`,
+		{ propertyId }
 	);
-
-	if (!property) {
-		error(404, 'Property not found');
-	}
+	if (!property) error(404, 'Property not found');
 
 	return { property };
 };
@@ -21,9 +19,8 @@ export const load = async ({ params, locals }) => {
 /** @type {import('./$types').Actions} */
 export const actions = {
 	default: async ({ request, params, locals }) => {
-		const tenantId = locals.tenantId;
 		const propertyId = params.id;
-		if (!tenantId) return fail(401, { error: 'No tenant context' });
+		await assertCanManageProperty(locals.user, propertyId);
 
 		const formData = await request.formData();
 		const name = formData.get('name')?.toString().trim();
@@ -59,7 +56,7 @@ export const actions = {
 				     electricity_rate = @electricity_rate,
 				     water_rate = @water_rate,
 				     updatedat = NOW()
-				 WHERE id = @propertyId AND tenant_id = @tenantId`,
+				 WHERE id = @propertyId`,
 				{
 					name,
 					address,
@@ -71,8 +68,7 @@ export const actions = {
 					amenities,
 					electricity_rate: electricity_rate ? parseFloat(electricity_rate) : null,
 					water_rate: water_rate ? parseFloat(water_rate) : null,
-					propertyId,
-					tenantId
+					propertyId
 				}
 			);
 
