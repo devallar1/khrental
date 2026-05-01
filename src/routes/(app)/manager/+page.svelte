@@ -1,12 +1,13 @@
 <script>
 	import { enhance } from '$app/forms';
+	import toast from 'svelte-french-toast';
 	import {
 		Phone, Mail, ScrollText, Zap, Droplets, Wifi,
 		User, UserPlus, UserMinus, Home as HomeIcon,
 		ChevronLeft, Building2, TreePine, Layers, ArrowRight,
 		Plus, Minus, Maximize2, StickyNote, X,
 		RotateCw, Copy, MapPin, Landmark, Wrench, Bell, Edit3, Archive, History,
-		Group, Palette, Wallet, AlertTriangle
+		Group, Palette, Wallet, AlertTriangle, ChevronDown
 	} from 'lucide-svelte';
 	import panzoom from 'panzoom';
 	import PropertyMap from '$lib/components/PropertyMap.svelte';
@@ -47,17 +48,41 @@
 	function openTokenMenu(e, propertyId, unitId, rentee) {
 		// Clamp so the popover doesn't overflow the right/bottom of the
 		// viewport; small margin lets the dismissal backdrop stay clickable.
+		// H allows for the bank-account section (one row per profile + clear).
 		const PAD = 8;
-		const W = 220;
-		const H = 140;
+		const W = 260;
+		const H = 360;
 		const x = Math.min(e.clientX, window.innerWidth - W - PAD);
 		const y = Math.min(e.clientY, window.innerHeight - H - PAD);
 		tokenMenu = { open: true, x, y, propertyId, unitId, rentee: rentee || null };
+		bankExpanded = false;
 	}
 
 	function closeTokenMenu() {
 		if (tokenMenu.open) tokenMenu = { ...tokenMenu, open: false };
+		bankExpanded = false;
 	}
+
+	// Bank-account section starts collapsed (just the routed profile is
+	// shown). Clicking it expands the full list. Reset whenever the menu
+	// opens or closes so each new menu open starts collapsed again.
+	let bankExpanded = $state(false);
+
+	// Currently-open menu's unit + the bank profiles eligible for it (same
+	// tenant org as the unit's property). Derived so the menu reflects the
+	// latest server-validated state after each setBankProfile submit.
+	const tokenMenuContext = $derived.by(() => {
+		if (!tokenMenu.open) return null;
+		const property = (data.realm || []).find((p) => p.id === tokenMenu.propertyId);
+		const unit = property?.units?.find((u) => u.id === tokenMenu.unitId);
+		if (!property || !unit) return null;
+		const profiles = (data.bankProfiles || []).filter((bp) => bp.tenant_id === property.tenant_id);
+		return {
+			currentBankProfileId: unit.bank_profile_id || null,
+			currentBankProfileLabel: unit.bank_profile_label || null,
+			profiles
+		};
+	});
 
 	function tokenMenuAdd() {
 		const { propertyId, unitId } = tokenMenu;
@@ -112,6 +137,35 @@
 	}
 
 	let { data, form } = $props();
+
+	// Toast on action result. Each form action returns a fresh object so
+	// $effect re-runs on every submission. Action-aware messages where we
+	// have something useful to say; generic "Done." otherwise.
+	$effect(() => {
+		if (!form) return;
+		if (form.error) {
+			toast.error(form.error);
+			return;
+		}
+		if (!form.ok) return;
+		switch (form.action) {
+			case 'enterReading':
+				toast.success(`Reading logged · ${form.consumed} units · LKR ${form.calculatedBill}.`);
+				break;
+			case 'sendInvoice':
+				toast.success(`Invoice generated · ${fmtMoney(form.totalamount)}.`);
+				break;
+			case 'setBankProfile':
+				toast.success('Bank account updated');
+				break;
+			case 'endTenancy':
+				toast.success('Tenant removed');
+				break;
+			default:
+				toast.success('Done');
+		}
+	});
+
 	const realm = $derived(data.realm || []);
 
 	// Properties ordered for the mobile stack: real properties first (server's
@@ -978,24 +1032,6 @@
 		</div>
 	{/if}
 
-	{#if form?.ok}
-		<div class="mb-4 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
-			<span class="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white">✓</span>
-			<div>
-				{#if form.action === 'enterReading'}Reading logged · {form.consumed} units · LKR {form.calculatedBill}.
-				{:else if form.action === 'sendInvoice'}Invoice generated · {fmtMoney(form.totalamount)}.
-				{:else}Done.
-				{/if}
-			</div>
-		</div>
-	{/if}
-	{#if form?.error}
-		<div class="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200">
-			<span class="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs font-bold text-white">!</span>
-			<div>{form.error}</div>
-		</div>
-	{/if}
-
 	{#if !selectedProperty}
 		{#if isMobile}
 			<!-- Mobile: vertical card stack. Tap a card to open its detail page.
@@ -1754,6 +1790,62 @@
 				<span>Add tenant</span>
 			</button>
 		{/if}
+		{#if tokenMenuContext}
+			<div class="ctx-divider"></div>
+			<div class="ctx-hint">Bank account</div>
+			{#if tokenMenuContext.profiles.length === 0}
+				<div class="ctx-hint" style="color:#94a3b8; text-transform:none; letter-spacing:0;">
+					No profiles for this org. Add one in Properties → Bank profiles.
+				</div>
+			{:else if tokenMenuContext.currentBankProfileId && !bankExpanded}
+				<button
+					type="button"
+					class="ctx-item"
+					onclick={() => (bankExpanded = true)}
+				>
+					<Landmark class="h-4 w-4" style="color: var(--aqua);" />
+					<span>{tokenMenuContext.currentBankProfileLabel}</span>
+					<ChevronDown class="ctx-item-chev" />
+				</button>
+			{:else}
+				{#each tokenMenuContext.profiles as bp (bp.id)}
+					<form
+						method="POST"
+						action="?/setBankProfile"
+						use:enhance={() => {
+							return async ({ update }) => { await update(); closeTokenMenu(); };
+						}}
+					>
+						<input type="hidden" name="unit_id" value={tokenMenu.unitId} />
+						<input type="hidden" name="bank_profile_id" value={bp.id} />
+						<button
+							type="submit"
+							class="ctx-item"
+							class:ctx-item-active={bp.id === tokenMenuContext.currentBankProfileId}
+						>
+							<Landmark class="h-4 w-4" style="color: var(--aqua);" />
+							<span>{bp.label}</span>
+						</button>
+					</form>
+				{/each}
+				{#if tokenMenuContext.currentBankProfileId}
+					<form
+						method="POST"
+						action="?/setBankProfile"
+						use:enhance={() => {
+							return async ({ update }) => { await update(); closeTokenMenu(); };
+						}}
+					>
+						<input type="hidden" name="unit_id" value={tokenMenu.unitId} />
+						<input type="hidden" name="bank_profile_id" value="" />
+						<button type="submit" class="ctx-item ctx-item-warn">
+							<X class="h-4 w-4" />
+							<span>Clear bank routing</span>
+						</button>
+					</form>
+				{/if}
+			{/if}
+		{/if}
 	</div>
 {/if}
 
@@ -2169,6 +2261,24 @@
 	.ctx-item-warn:hover {
 		background: oklch(0.66 0.18 25 / 0.18);
 		color: oklch(0.92 0.10 25);
+	}
+	.ctx-item-active { background: #1e293b; }
+	.ctx-item-active::after {
+		content: '✓';
+		margin-left: auto;
+		color: var(--aqua);
+		font-weight: 600;
+	}
+	.ctx-divider {
+		height: 1px;
+		margin: 4px 6px;
+		background: #1e293b;
+	}
+	.ctx-item-chev {
+		width: 14px;
+		height: 14px;
+		margin-left: auto;
+		color: #94a3b8;
 	}
 	.ctx-hint {
 		padding: 6px 10px;

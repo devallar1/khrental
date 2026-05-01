@@ -25,6 +25,8 @@ export const load = async ({ locals }) => {
 	const units = await runQuery(
 		`SELECT u.id, u.unitnumber, u.propertyid, u.status, u.bedrooms, u.bathrooms,
 		        u.squarefeet, u.description AS unit_description,
+		        u.bank_profile_id,
+		        bp.label AS bank_profile_label,
 		        a.id AS agreement_id, a.status AS agreement_status,
 		        a.rentamount, a.depositamount, a.startdate, a.enddate,
 		        au.id AS rentee_id, au.name AS rentee_name, au.email AS rentee_email,
@@ -34,6 +36,7 @@ export const load = async ({ locals }) => {
 		        be.meter_readings AS billing_meter_readings,
 		        be.effective_from AS billing_effective_from
 		 FROM property_units u
+		 LEFT JOIN bank_profiles bp ON bp.id = u.bank_profile_id
 		 LEFT JOIN LATERAL (
 		   SELECT * FROM agreements ag
 		   WHERE ag.unitid = u.id AND ag.status IN ('signed','active','draft')
@@ -425,6 +428,43 @@ export const actions = {
 			return fail(500, { action: 'endTenancy', error: 'Failed to end tenancy' });
 		}
 		return { ok: true, action: 'endTenancy' };
+	},
+
+	// Re-route a unit to a different bank profile (or clear the routing).
+	// Profile must belong to the same tenant org as the unit's property.
+	setBankProfile: async ({ request, locals }) => {
+		if (!locals.user?.id) return fail(401, { action: 'setBankProfile', error: 'Not authenticated' });
+		const fd = await request.formData();
+		const unit_id = String(fd.get('unit_id') || '').trim();
+		const bank_profile_id = String(fd.get('bank_profile_id') || '').trim() || null;
+		if (!unit_id) return fail(400, { action: 'setBankProfile', error: 'Missing unit id' });
+
+		if (bank_profile_id) {
+			const ok = await runSingleQuery(
+				`SELECT 1 AS ok
+				   FROM property_units u
+				   JOIN properties p ON p.id = u.propertyid
+				   JOIN bank_profiles bp ON bp.id = @bank_profile_id
+				  WHERE u.id = @unit_id
+				    AND bp.tenant_id = p.tenant_id
+				  LIMIT 1`,
+				{ unit_id, bank_profile_id }
+			);
+			if (!ok) return fail(400, { action: 'setBankProfile', error: 'Profile does not belong to this unit\'s tenant' });
+		}
+
+		try {
+			await runQuery(
+				`UPDATE property_units
+				    SET bank_profile_id = @bank_profile_id, updatedat = NOW()
+				  WHERE id = @unit_id`,
+				{ unit_id, bank_profile_id }
+			);
+		} catch (err) {
+			console.error('[setBankProfile]', err);
+			return fail(500, { action: 'setBankProfile', error: 'Failed to update bank routing' });
+		}
+		return { ok: true, action: 'setBankProfile' };
 	},
 
 	// ── New-tenant wizard: rentee + agreement + initial billing event ──
