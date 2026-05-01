@@ -1,34 +1,37 @@
 import { runQuery, runSingleQuery } from '$api/db/query.js';
 import { redirect, fail } from '@sveltejs/kit';
 import crypto from 'crypto';
+import { visibleOrgIds } from '$lib/server/authz.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ locals }) => {
-	const tenantId = locals.tenantId;
+	const orgs = await visibleOrgIds(locals.user);
+	if (orgs.length === 0) return { rentees: [], properties: [], templates: [] };
 
 	let rentees = [];
 	let properties = [];
 	let templates = [];
 
-	if (tenantId) {
-		try {
-			[rentees, properties, templates] = await Promise.all([
-				runQuery(
-					`SELECT id, name, email FROM app_users WHERE tenant_id = @tenantId ORDER BY name ASC`,
-					{ tenantId }
-				),
-				runQuery(
-					`SELECT id, name, address FROM properties WHERE tenant_id = @tenantId ORDER BY name ASC`,
-					{ tenantId }
-				),
-				runQuery(
-					`SELECT id, name, language, version FROM agreement_templates WHERE tenant_id = @tenantId ORDER BY name ASC`,
-					{ tenantId }
-				)
-			]);
-		} catch (err) {
-			console.error('[Agreements/New] Load error:', err.message);
-		}
+	try {
+		[rentees, properties, templates] = await Promise.all([
+			runQuery(
+				`SELECT id, name, email FROM app_users
+				 WHERE tenant_id = ANY(@orgs::uuid[]) ORDER BY name ASC`,
+				{ orgs }
+			),
+			runQuery(
+				`SELECT id, name, address FROM properties
+				 WHERE tenant_id = ANY(@orgs::uuid[]) ORDER BY name ASC`,
+				{ orgs }
+			),
+			runQuery(
+				`SELECT id, name, language, version FROM agreement_templates
+				 WHERE tenant_id = ANY(@orgs::uuid[]) ORDER BY name ASC`,
+				{ orgs }
+			)
+		]);
+	} catch (err) {
+		console.error('[Agreements/New] Load error:', err.message);
 	}
 
 	return { rentees, properties, templates };

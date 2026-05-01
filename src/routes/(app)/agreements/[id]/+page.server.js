@@ -1,10 +1,11 @@
 import { runSingleQuery } from '$api/db/query.js';
 import { error } from '@sveltejs/kit';
+import { assertCanSeeAgreement } from '$lib/server/authz.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ locals, params }) => {
-	const tenantId = locals.tenantId;
 	const { id } = params;
+	await assertCanSeeAgreement(locals.user, id);
 
 	const agreement = await runSingleQuery(
 		`SELECT
@@ -24,13 +25,10 @@ export const load = async ({ locals, params }) => {
 		LEFT JOIN properties p ON p.id = a.propertyid
 		LEFT JOIN property_units pu ON pu.id = a.unitid
 		LEFT JOIN agreement_templates t ON t.id = a.templateid
-		WHERE a.id = @id AND a.tenant_id = @tenantId`,
-		{ id, tenantId }
+		WHERE a.id = @id`,
+		{ id }
 	);
-
-	if (!agreement) {
-		throw error(404, 'Agreement not found');
-	}
+	if (!agreement) throw error(404, 'Agreement not found');
 
 	return { agreement };
 };
