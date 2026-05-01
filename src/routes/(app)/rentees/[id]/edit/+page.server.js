@@ -1,23 +1,20 @@
 import { runSingleQuery } from '$api/db/query.js';
 import { error, redirect, fail } from '@sveltejs/kit';
+import { assertCanSeeRentee, assertCanManageRentee } from '$lib/server/authz.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, locals }) => {
-	const tenantId = locals.tenantId;
 	const { id } = params;
+	await assertCanSeeRentee(locals.user, id);
 
 	const rentee = await runSingleQuery(
 		`SELECT id, name, email, contact_details, permanent_address, national_id, notes, active
 		 FROM app_users
-		 WHERE id = @id AND user_type = 'rentee' AND tenant_id = @tenantId`,
-		{ id, tenantId }
+		 WHERE id = @id AND user_type = 'rentee'`,
+		{ id }
 	);
+	if (!rentee) error(404, 'Rentee not found');
 
-	if (!rentee) {
-		error(404, 'Rentee not found');
-	}
-
-	// Extract phone from contact_details for the form
 	let phone = '';
 	if (rentee.contact_details) {
 		const cd = typeof rentee.contact_details === 'string'
@@ -32,12 +29,8 @@ export const load = async ({ params, locals }) => {
 /** @type {import('./$types').Actions} */
 export const actions = {
 	default: async ({ request, params, locals }) => {
-		const tenantId = locals.tenantId;
 		const { id } = params;
-
-		if (!tenantId) {
-			return fail(403, { error: 'No tenant context' });
-		}
+		await assertCanManageRentee(locals.user, id);
 
 		const formData = await request.formData();
 		const name = formData.get('name')?.toString().trim();
@@ -65,7 +58,7 @@ export const actions = {
 				     notes = @notes,
 				     active = @active,
 				     updatedat = NOW()
-				 WHERE id = @id AND user_type = 'rentee' AND tenant_id = @tenantId`,
+				 WHERE id = @id AND user_type = 'rentee'`,
 				{
 					name: name || null,
 					email: email || null,
@@ -74,8 +67,7 @@ export const actions = {
 					nationalId: national_id || null,
 					notes: notes || null,
 					active,
-					id,
-					tenantId
+					id
 				}
 			);
 

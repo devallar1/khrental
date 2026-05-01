@@ -124,6 +124,38 @@ export async function assertCanSeeAgreement(user, agreementId) {
 	}
 }
 
+export async function canSeeRentee(user, renteeId) {
+	if (!user || !renteeId) return false;
+	if (isPrivileged(user)) return true;
+	const orgs = await visibleOrgIds(user);
+	if (orgs.length === 0) return false;
+	const row = await runSingleQuery(
+		`SELECT 1 AS ok FROM app_users
+		   WHERE id = @renteeId
+		     AND user_type = 'rentee'
+		     AND tenant_id = ANY(@orgs::uuid[])
+		   LIMIT 1`,
+		{ renteeId, orgs }
+	);
+	return !!row;
+}
+
+export async function assertCanSeeRentee(user, renteeId) {
+	if (!(await canSeeRentee(user, renteeId))) {
+		throw error(403, 'Not authorized to view this rentee');
+	}
+}
+
+export async function canManageRentee(user, renteeId) {
+	return canSeeRentee(user, renteeId);
+}
+
+export async function assertCanManageRentee(user, renteeId) {
+	if (!(await canManageRentee(user, renteeId))) {
+		throw error(403, 'Not authorized to manage this rentee');
+	}
+}
+
 export async function canSeeInvoice(user, invoiceId) {
 	if (!user || !invoiceId) return false;
 	if (isPrivileged(user)) return true;
