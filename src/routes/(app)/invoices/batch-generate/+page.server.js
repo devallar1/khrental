@@ -1,37 +1,37 @@
 import { runQuery } from '$api/db/query.js';
 import { fail } from '@sveltejs/kit';
 import crypto from 'crypto';
+import { visibleOrgIds } from '$lib/server/authz.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ locals }) => {
-	const tenantId = locals.tenantId;
+	const orgs = await visibleOrgIds(locals.user);
+	if (orgs.length === 0) return { properties: [], agreements: [] };
 
 	let properties = [];
 	let agreements = [];
 
-	if (tenantId) {
-		try {
-			[properties, agreements] = await Promise.all([
-				runQuery(
-					`SELECT id, name, address
-					 FROM properties
-					 WHERE tenant_id = @tenantId
-					 ORDER BY name ASC`,
-					{ tenantId }
-				),
-				runQuery(
-					`SELECT a.id, a.renteeid, a.propertyid, a.rentamount, a.status,
-					        u.name AS rentee_name, u.email AS rentee_email
-					 FROM agreements a
-					 LEFT JOIN app_users u ON u.id = a.renteeid AND u.tenant_id = @tenantId
-					 WHERE a.tenant_id = @tenantId AND a.status = 'active'
-					 ORDER BY u.name ASC`,
-					{ tenantId }
-				)
-			]);
-		} catch (err) {
-			console.error('[Batch Generate] Load error:', err.message);
-		}
+	try {
+		[properties, agreements] = await Promise.all([
+			runQuery(
+				`SELECT id, name, address
+				 FROM properties
+				 WHERE tenant_id = ANY(@orgs::uuid[])
+				 ORDER BY name ASC`,
+				{ orgs }
+			),
+			runQuery(
+				`SELECT a.id, a.renteeid, a.propertyid, a.rentamount, a.status,
+				        u.name AS rentee_name, u.email AS rentee_email
+				 FROM agreements a
+				 LEFT JOIN app_users u ON u.id = a.renteeid AND u.tenant_id = ANY(@orgs::uuid[])
+				 WHERE a.tenant_id = ANY(@orgs::uuid[]) AND a.status = 'active'
+				 ORDER BY u.name ASC`,
+				{ orgs }
+			)
+		]);
+	} catch (err) {
+		console.error('[Batch Generate] Load error:', err.message);
 	}
 
 	return { properties, agreements };
@@ -41,6 +41,7 @@ export const load = async ({ locals }) => {
 export const actions = {
 	generateBatch: async ({ request, locals }) => {
 		const tenantId = locals.tenantId;
+		const orgs = await visibleOrgIds(locals.user);
 
 		if (!tenantId) {
 			return fail(403, { error: 'No tenant context' });
@@ -63,7 +64,9 @@ export const actions = {
 			return fail(400, { error: 'At least one property must be selected.' });
 		}
 
-		// Fetch active agreements for the selected properties
+		// Authz: filter the submitted property IDs down to ones the user
+		// actually has access to. Anything outside the user's visible
+		// orgs is silently dropped here so we don't leak existence.
 		let agreements = [];
 		try {
 			agreements = await runQuery(
@@ -71,11 +74,11 @@ export const actions = {
 				        u.name AS rentee_name, u.email AS rentee_email,
 				        p.name AS property_name
 				 FROM agreements a
-				 LEFT JOIN app_users u ON u.id = a.renteeid AND u.tenant_id = @tenantId
-				 LEFT JOIN properties p ON p.id = a.propertyid AND p.tenant_id = @tenantId
-				 WHERE a.tenant_id = @tenantId AND a.status = 'active'
+				 LEFT JOIN app_users u ON u.id = a.renteeid AND u.tenant_id = ANY(@orgs::uuid[])
+				 LEFT JOIN properties p ON p.id = a.propertyid AND p.tenant_id = ANY(@orgs::uuid[])
+				 WHERE a.tenant_id = ANY(@orgs::uuid[]) AND a.status = 'active'
 				   AND a.propertyid = ANY(@propertyIds::uuid[])`,
-				{ tenantId, propertyIds: `{${propertyIds.join(',')}}` }
+				{ orgs, propertyIds: `{${propertyIds.join(',')}}` }
 			);
 		} catch (err) {
 			console.error('[Batch Generate] Agreements query error:', err.message);

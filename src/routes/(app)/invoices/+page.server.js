@@ -1,28 +1,27 @@
 import { runQuery } from '$api/db/query.js';
+import { visibleOrgIds } from '$lib/server/authz.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ locals }) => {
-	const tenantId = locals.tenantId;
+	const orgs = await visibleOrgIds(locals.user);
+	if (orgs.length === 0) return { invoices: [] };
 
 	let invoices = [];
-
-	if (tenantId) {
-		try {
-			invoices = await runQuery(
-				`SELECT i.id, i.billingperiod, i.totalamount, i.status, i.duedate,
-				        i.paymentdate, i.createdat,
-				        u.name AS rentee_name, u.email AS rentee_email,
-				        p.name AS property_name
-				 FROM invoices i
-				 LEFT JOIN app_users u ON u.id = i.renteeid AND u.tenant_id = @tenantId
-				 LEFT JOIN properties p ON p.id = i.propertyid AND p.tenant_id = @tenantId
-				 WHERE i.tenant_id = @tenantId
-				 ORDER BY i.createdat DESC`,
-				{ tenantId }
-			);
-		} catch (err) {
-			console.error('[Invoices] List query error:', err.message);
-		}
+	try {
+		invoices = await runQuery(
+			`SELECT i.id, i.billingperiod, i.totalamount, i.status, i.duedate,
+			        i.paymentdate, i.createdat,
+			        u.name AS rentee_name, u.email AS rentee_email,
+			        p.name AS property_name
+			 FROM invoices i
+			 LEFT JOIN app_users u ON u.id = i.renteeid AND u.tenant_id = ANY(@orgs::uuid[])
+			 LEFT JOIN properties p ON p.id = i.propertyid AND p.tenant_id = ANY(@orgs::uuid[])
+			 WHERE i.tenant_id = ANY(@orgs::uuid[])
+			 ORDER BY i.createdat DESC`,
+			{ orgs }
+		);
+	} catch (err) {
+		console.error('[Invoices] List query error:', err.message);
 	}
 
 	return { invoices };

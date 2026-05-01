@@ -1,35 +1,35 @@
 import { runQuery, runSingleQuery } from '$api/db/query.js';
 import { fail, redirect } from '@sveltejs/kit';
 import crypto from 'crypto';
+import { visibleOrgIds } from '$lib/server/authz.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ locals }) => {
-	const tenantId = locals.tenantId;
+	const orgs = await visibleOrgIds(locals.user);
+	if (orgs.length === 0) return { rentees: [], properties: [] };
 
 	let rentees = [];
 	let properties = [];
 
-	if (tenantId) {
-		try {
-			[rentees, properties] = await Promise.all([
-				runQuery(
-					`SELECT id, name, email
-					 FROM app_users
-					 WHERE tenant_id = @tenantId
-					 ORDER BY name ASC`,
-					{ tenantId }
-				),
-				runQuery(
-					`SELECT id, name, address
-					 FROM properties
-					 WHERE tenant_id = @tenantId
-					 ORDER BY name ASC`,
-					{ tenantId }
-				)
-			]);
-		} catch (err) {
-			console.error('[Invoice Generate] Load error:', err.message);
-		}
+	try {
+		[rentees, properties] = await Promise.all([
+			runQuery(
+				`SELECT id, name, email
+				 FROM app_users
+				 WHERE tenant_id = ANY(@orgs::uuid[])
+				 ORDER BY name ASC`,
+				{ orgs }
+			),
+			runQuery(
+				`SELECT id, name, address
+				 FROM properties
+				 WHERE tenant_id = ANY(@orgs::uuid[])
+				 ORDER BY name ASC`,
+				{ orgs }
+			)
+		]);
+	} catch (err) {
+		console.error('[Invoice Generate] Load error:', err.message);
 	}
 
 	return { rentees, properties };
@@ -52,7 +52,6 @@ export const actions = {
 		const notes = formData.get('notes')?.toString().trim() || null;
 		const componentsRaw = formData.get('components')?.toString();
 
-		// Validation
 		if (!propertyid || !renteeid || !billingperiod || !duedate) {
 			return fail(400, {
 				error: 'Property, rentee, billing period, and due date are required.',
@@ -79,7 +78,6 @@ export const actions = {
 			});
 		}
 
-		// Filter out empty rows and calculate total
 		components = components.filter(
 			(c) => c.description && c.description.trim() && Number(c.amount) > 0
 		);
