@@ -1,11 +1,10 @@
 <script>
-	import { Settings, User, Building2, ArrowRightLeft, FileText } from 'lucide-svelte';
+	import { Settings, User, Building2, FileText } from 'lucide-svelte';
 
 	let { data } = $props();
 
 	const user = $derived(data.user);
 	const tenant = $derived(data.tenant);
-	const tenants = $derived(data.tenants || []);
 </script>
 
 <svelte:head>
@@ -99,34 +98,4 @@
 		</a>
 	</div>
 
-	<!-- Tenant Switcher -->
-	{#if tenants.length > 1}
-		<div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-			<div class="flex items-center gap-3 mb-4">
-				<div class="rounded-xl bg-amber-500 p-2.5 text-white">
-					<ArrowRightLeft class="h-5 w-5" />
-				</div>
-				<h2 class="text-lg font-semibold text-slate-900">Switch Workspace</h2>
-			</div>
-			<p class="text-sm text-slate-500 mb-4">You have access to {tenants.length} workspaces. Select one to switch.</p>
-			<div class="space-y-2">
-				{#each tenants as t}
-					<form method="POST" action="?/switchTenant" class="flex items-center justify-between rounded-xl border border-slate-100 p-3 hover:bg-slate-50 transition">
-						<input type="hidden" name="tenantId" value={t.id} />
-						<div>
-							<p class="text-sm font-medium text-slate-900">{t.name}</p>
-							<p class="text-xs text-slate-500">{t.slug} &middot; {t.plan || 'free'}</p>
-						</div>
-						{#if t.id === tenant?.id}
-							<span class="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">Current</span>
-						{:else}
-							<button type="submit" class="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 transition">
-								Switch
-							</button>
-						{/if}
-					</form>
-				{/each}
-			</div>
-		</div>
-	{/if}
 </div>

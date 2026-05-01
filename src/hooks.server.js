@@ -4,24 +4,28 @@
 import 'dotenv/config';
 
 import { auth } from '$lib/server/auth';
-import { runSingleQuery, runQuery } from './api/db/query.js';
+import { runSingleQuery } from './api/db/query.js';
 
 // Dev bypass: hardcoded admin user, gated behind AUTH_DEV_BYPASS=true.
 // Default is real auth.
-const createDevBypassUser = (tenantId) => ({
-	id: 'dev-bypass-admin',
-	email: 'dev+admin@localhost',
-	name: 'Development Admin',
-	role: 'admin',
-	user_type: 'admin',
-	tenant_id: tenantId,
-	is_dev_bypass: true
-});
+const createDevBypassUser = async () => {
+	const tenant = await resolveDefaultTenant();
+	return {
+		id: 'dev-bypass-admin',
+		email: 'dev+admin@localhost',
+		name: 'Development Admin',
+		role: 'admin',
+		user_type: 'admin',
+		is_sysadmin: true,
+		tenant_id: tenant?.id || null,
+		is_dev_bypass: true
+	};
+};
 
 const resolveDefaultTenant = async () => {
 	try {
 		const tenant = await runSingleQuery(
-			`SELECT * FROM tenants WHERE status = 'active' ORDER BY createdat ASC LIMIT 1`
+			`SELECT * FROM organizations WHERE status = 'active' ORDER BY createdat ASC LIMIT 1`
 		);
 		return tenant || null;
 	} catch {
@@ -29,34 +33,12 @@ const resolveDefaultTenant = async () => {
 	}
 };
 
-const resolveAllTenants = async () => {
-	try {
-		return await runQuery(
-			`SELECT id, name, slug, status, plan FROM tenants WHERE status = 'active' ORDER BY name ASC`
-		);
-	} catch {
-		return [];
-	}
-};
-
-const resolveAppUser = async (authUserId, authEmail, tenantId) => {
+const resolveAppUser = async (authUserId, authEmail) => {
 	if (!authUserId) return null;
 
 	// 1. Direct match on auth_id — the steady state for any returning user.
 	try {
-		if (tenantId) {
-			const row = await runSingleQuery(
-				`SELECT *
-				   FROM app_users
-				  WHERE auth_id = @authId
-				    AND tenant_id = @tenantId
-				    AND active = true
-				  LIMIT 1`,
-				{ authId: authUserId, tenantId }
-			);
-			if (row) return row;
-		}
-		const anyTenant = await runSingleQuery(
+		const row = await runSingleQuery(
 			`SELECT *
 			   FROM app_users
 			  WHERE auth_id = @authId
@@ -65,7 +47,7 @@ const resolveAppUser = async (authUserId, authEmail, tenantId) => {
 			  LIMIT 1`,
 			{ authId: authUserId }
 		);
-		if (anyTenant) return anyTenant;
+		if (row) return row;
 	} catch (error) {
 		console.error('[hooks.server] resolveAppUser direct lookup failed:', error);
 	}
@@ -118,8 +100,11 @@ const resolveAppUser = async (authUserId, authEmail, tenantId) => {
 // Anything else -> role='admin' (staff testing).
 //
 // Gated by AUTH_DEV_AUTOPROVISION=true. NEVER enable in production.
-const autoProvisionAppUser = async (sessionUser, tenantId) => {
-	if (!sessionUser || !tenantId) return null;
+const autoProvisionAppUser = async (sessionUser) => {
+	if (!sessionUser) return null;
+	const tenant = await resolveDefaultTenant();
+	const tenantId = tenant?.id;
+	if (!tenantId) return null;
 
 	const isPhoneSignIn =
 		Boolean(sessionUser.phoneNumber) &&
@@ -151,14 +136,14 @@ const autoProvisionAppUser = async (sessionUser, tenantId) => {
 	} catch (error) {
 		console.error('[hooks.server] autoProvisionAppUser failed:', error);
 		// On unique-constraint conflict (someone raced us), re-query.
-		return resolveAppUser(sessionUser.id, tenantId);
+		return resolveAppUser(sessionUser.id, sessionUser.email);
 	}
 };
 
 /** @type {import('@sveltejs/kit').Handle} */
 export const handle = async ({ event, resolve }) => {
-	// 1. Read the Better-Auth session (if any). This does NOT mutate cookies;
-	//    cookie writes happen inside the /auth/[...all] catch-all route.
+	// 1. Better-Auth session (if any). Cookie mutations live inside
+	//    /auth/[...all]; we just read here.
 	let session = null;
 	try {
 		session = await auth.api.getSession({ headers: event.request.headers });
@@ -168,53 +153,36 @@ export const handle = async ({ event, resolve }) => {
 
 	event.locals.session = session;
 
-	// 2. Resolve tenant from cookie or fall back to a default. Same logic
-	//    as before — auth doesn't change tenant resolution.
-	const cookieTenantId = event.cookies.get('kh_tenant_id');
+	// 2. Resolve the app_user from the session. The kh_tenant_id cookie is
+	//    gone — access is decided by ownership/membership through authz.js.
+	//    Tenant context for the sidebar + legacy INSERT stamps is derived
+	//    from the resolved user's primary tenant_id.
+	let user = await resolveAppUser(session?.user?.id, session?.user?.email);
 
-	let tenant = null;
-	if (cookieTenantId) {
-		tenant = await runSingleQuery(
-			`SELECT * FROM tenants WHERE id = @tenantId AND status = 'active' LIMIT 1`,
-			{ tenantId: cookieTenantId }
-		);
-	}
-
-	if (!tenant) {
-		tenant = await resolveDefaultTenant();
-	}
-
-	const tenantId = tenant?.id || null;
-	const allTenants = await resolveAllTenants();
-
-	if (tenantId && cookieTenantId !== tenantId) {
-		event.cookies.set('kh_tenant_id', tenantId, {
-			path: '/',
-			httpOnly: false, // JS needs to read this for tenant switcher
-			sameSite: 'lax',
-			maxAge: 60 * 60 * 24 * 365
-		});
-	}
-
-	// 3. Look up the app_users row for the authenticated identity. Email is
-	//    used for the pre-seeded-row email-fallback path inside resolveAppUser.
-	let user = await resolveAppUser(session?.user?.id, session?.user?.email, tenantId);
-
-	// 3b. Dev convenience: auto-provision an app_users admin row on first
-	//     sign-in so you can land on /dashboard without an invite flow.
 	if (!user && session?.user && process.env.AUTH_DEV_AUTOPROVISION === 'true') {
-		user = await autoProvisionAppUser(session.user, tenantId);
+		user = await autoProvisionAppUser(session.user);
 	}
 
-	// 4. Optional dev bypass — only when AUTH_DEV_BYPASS=true is explicitly set.
 	if (!user && process.env.AUTH_DEV_BYPASS === 'true') {
-		user = createDevBypassUser(tenantId);
+		user = await createDevBypassUser();
 	}
 
 	event.locals.user = user;
-	event.locals.tenantId = tenantId;
-	event.locals.tenant = tenant;
-	event.locals.tenants = allTenants;
+
+	// 3. Derive tenant context from the user. Still needed by the 9
+	//    INSERT actions that haven't been migrated to owner_user_id yet
+	//    and by the sidebar workspace label. Phase 4 retires it.
+	if (user?.tenant_id) {
+		const tenant = await runSingleQuery(
+			`SELECT * FROM organizations WHERE id = @tenantId AND status = 'active' LIMIT 1`,
+			{ tenantId: user.tenant_id }
+		);
+		event.locals.tenantId = tenant?.id || null;
+		event.locals.tenant = tenant;
+	} else {
+		event.locals.tenantId = null;
+		event.locals.tenant = null;
+	}
 
 	return resolve(event);
 };
