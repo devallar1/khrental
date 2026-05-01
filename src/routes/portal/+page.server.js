@@ -41,7 +41,7 @@ export const load = async ({ locals }) => {
 	return {
 		profile: {
 			name: locals.user.name,
-			role: locals.user.role,
+			role: 'rentee',
 			email: identity?.auth_email || locals.user.email,
 			phone: identity?.auth_phone || locals.user.contact_details?.phone || null,
 			emailVerified: identity?.auth_email_verified || false,
