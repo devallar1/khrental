@@ -1,5 +1,6 @@
 <script>
 	import { ArrowLeft, Pencil, Mail, Phone, MapPin, CreditCard, FileText, Receipt, Calendar, User } from 'lucide-svelte';
+	import { formatCurrency } from '$lib/format/money.js';
 
 	let { data } = $props();
 
@@ -17,11 +18,6 @@
 	const formatDate = (d) => {
 		if (!d) return '-';
 		return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-	};
-
-	const formatCurrency = (amount) => {
-		if (amount == null) return '-';
-		return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 	};
 
 	const statusColor = (status) => {
@@ -150,7 +146,7 @@
 								<td class="py-3 pr-4 text-slate-600">
 									{formatDate(agreement.startdate)} - {formatDate(agreement.enddate)}
 								</td>
-								<td class="py-3 pr-4 text-slate-600">{formatCurrency(agreement.rentamount)}</td>
+								<td class="py-3 pr-4 text-slate-600">{formatCurrency(agreement.rentamount, agreement.currency)}</td>
 								<td class="py-3">
 									<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {statusColor(agreement.status)}">
 										{agreement.status || '-'}
@@ -195,7 +191,7 @@
 									</a>
 								</td>
 								<td class="py-3 pr-4 text-slate-600">{invoice.property_name || '-'}</td>
-								<td class="py-3 pr-4 text-slate-600">{formatCurrency(invoice.totalamount)}</td>
+								<td class="py-3 pr-4 text-slate-600">{formatCurrency(invoice.totalamount, invoice.currency)}</td>
 								<td class="py-3 pr-4 text-slate-600">{formatDate(invoice.duedate)}</td>
 								<td class="py-3">
 									<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {statusColor(invoice.status)}">

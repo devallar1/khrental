@@ -10,7 +10,7 @@ export const load = async ({ locals }) => {
 	try {
 		invoices = await runQuery(
 			`SELECT i.id, i.billingperiod, i.totalamount, i.status, i.duedate,
-			        i.paymentdate, i.createdat,
+			        i.paymentdate, i.createdat, i.currency,
 			        u.name AS tenant_name, u.email AS tenant_email,
 			        p.name AS property_name
 			 FROM invoices i

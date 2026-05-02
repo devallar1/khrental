@@ -1,5 +1,6 @@
 <script>
 	import { ArrowLeft, FileText, User, Building2, Calendar, DollarSign } from 'lucide-svelte';
+	import { formatCurrency } from '$lib/format/money.js';
 
 	let { data } = $props();
 
@@ -31,13 +32,6 @@
 		});
 	};
 
-	const formatCurrency = (amount) => {
-		if (amount == null) return '-';
-		return new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency: 'USD'
-		}).format(amount);
-	};
 </script>
 
 <svelte:head>
@@ -87,11 +81,11 @@
 					</div>
 					<div>
 						<dt class="text-sm font-medium text-slate-500">Monthly Rent</dt>
-						<dd class="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(a.rentamount)}</dd>
+						<dd class="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(a.rentamount, a.currency)}</dd>
 					</div>
 					<div>
 						<dt class="text-sm font-medium text-slate-500">Security Deposit</dt>
-						<dd class="mt-1 text-sm text-slate-900">{formatCurrency(a.depositamount)}</dd>
+						<dd class="mt-1 text-sm text-slate-900">{formatCurrency(a.depositamount, a.currency)}</dd>
 					</div>
 				</dl>
 

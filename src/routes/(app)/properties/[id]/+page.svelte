@@ -1,5 +1,6 @@
 <script>
 	import { ArrowLeft, Pencil, Building2, MapPin, Calendar, Maximize2, Zap, Droplets, Layers, Hash, Map, Box } from 'lucide-svelte';
+	import { formatCurrency, formatMoney } from '$lib/format/money.js';
 
 	let { data } = $props();
 
@@ -30,10 +31,6 @@
 		return `${dd}/${mm}/${date.getFullYear()}`;
 	};
 
-	const formatCurrency = (v) => {
-		if (v == null) return '-';
-		return Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-	};
 </script>
 
 <svelte:head>
@@ -124,7 +121,7 @@
 					<p class="text-xs font-medium text-slate-500">Electricity Rate</p>
 					<p class="mt-0.5 flex items-center gap-1 text-sm font-medium text-slate-900">
 						<Zap class="h-3.5 w-3.5 text-slate-400" />
-						{formatCurrency(property.electricity_rate)} / kWh
+						{formatCurrency(property.electricity_rate, property.currency)} / kWh
 					</p>
 				</div>
 			{/if}
@@ -133,7 +130,7 @@
 					<p class="text-xs font-medium text-slate-500">Water Rate</p>
 					<p class="mt-0.5 flex items-center gap-1 text-sm font-medium text-slate-900">
 						<Droplets class="h-3.5 w-3.5 text-slate-400" />
-						{formatCurrency(property.water_rate)} / unit
+						{formatCurrency(property.water_rate, property.currency)} / unit
 					</p>
 				</div>
 			{/if}
@@ -272,7 +269,7 @@
 								<td class="py-3 pr-4 text-slate-600">
 									{formatDate(ag.startdate)} - {formatDate(ag.enddate)}
 								</td>
-								<td class="py-3 pr-4 text-slate-600">{formatCurrency(ag.rentamount)}</td>
+								<td class="py-3 pr-4 text-slate-600">{formatCurrency(ag.rentamount, ag.currency)}</td>
 								<td class="py-3">
 									<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {statusBadge(ag.status)}">
 										{ag.status}

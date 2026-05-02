@@ -18,7 +18,7 @@ export const load = async ({ params, locals }) => {
 	if (!tenant) error(404, 'Tenant not found');
 
 	const agreements = await runQuery(
-		`SELECT a.id, a.title, a.status, a.startdate, a.enddate, a.rentamount,
+		`SELECT a.id, a.title, a.status, a.startdate, a.enddate, a.rentamount, a.currency,
 		        p.name AS property_name
 		 FROM agreements a
 		 LEFT JOIN properties p ON p.id = a.propertyid
@@ -28,7 +28,7 @@ export const load = async ({ params, locals }) => {
 	);
 
 	const invoices = await runQuery(
-		`SELECT i.id, i.billingperiod, i.totalamount, i.status, i.duedate,
+		`SELECT i.id, i.billingperiod, i.totalamount, i.status, i.duedate, i.currency,
 		        p.name AS property_name
 		 FROM invoices i
 		 LEFT JOIN properties p ON p.id = i.propertyid

@@ -1,5 +1,6 @@
 <script>
 	import { ArrowLeft, Receipt, Calendar, User, Building2, CreditCard, FileText, RefreshCw } from 'lucide-svelte';
+	import { formatCurrency } from '$lib/format/money.js';
 
 	let { data } = $props();
 
@@ -45,12 +46,6 @@
 		}
 		return Array.isArray(invoice.components) ? invoice.components : [];
 	});
-
-	const formatCurrency = (amount) => {
-		const num = Number(amount);
-		if (isNaN(num)) return '--';
-		return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-	};
 
 	const formatDate = (dateStr) => {
 		if (!dateStr) return '--';
@@ -210,7 +205,7 @@
 											{comp.description || comp.name || '--'}
 										</td>
 										<td class="px-4 py-3 text-right text-sm font-medium text-slate-900">
-											{formatCurrency(comp.amount)}
+											{formatCurrency(comp.amount, invoice.currency)}
 										</td>
 									</tr>
 								{/each}
@@ -219,7 +214,7 @@
 								<tr>
 									<td class="px-4 py-3 text-sm font-semibold text-slate-900">Total</td>
 									<td class="px-4 py-3 text-right text-sm font-bold text-slate-900">
-										{formatCurrency(invoice.totalamount)}
+										{formatCurrency(invoice.totalamount, invoice.currency)}
 									</td>
 								</tr>
 							</tfoot>
@@ -228,7 +223,7 @@
 				{:else}
 					<div class="mt-4 rounded-xl border border-dashed border-slate-200 p-6 text-center">
 						<p class="text-sm text-slate-500">No line items recorded.</p>
-						<p class="mt-1 text-lg font-bold text-slate-900">Total: {formatCurrency(invoice.totalamount)}</p>
+						<p class="mt-1 text-lg font-bold text-slate-900">Total: {formatCurrency(invoice.totalamount, invoice.currency)}</p>
 					</div>
 				{/if}
 			</div>
@@ -250,7 +245,7 @@
 			<!-- Amount card -->
 			<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 				<p class="text-xs font-medium uppercase tracking-wider text-slate-400">Total Amount</p>
-				<p class="mt-2 text-3xl font-bold text-slate-900">{formatCurrency(invoice.totalamount)}</p>
+				<p class="mt-2 text-3xl font-bold text-slate-900">{formatCurrency(invoice.totalamount, invoice.currency)}</p>
 				<div class="mt-3">
 					<span class={statusBadgeClass(invoice.status)}>
 						{invoice.status || 'unknown'}

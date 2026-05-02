@@ -1,5 +1,6 @@
 <script>
 	import { enhance } from '$app/forms';
+	import { formatCurrency } from '$lib/format/money.js';
 	import {
 		ArrowLeft,
 		ArrowRight,
@@ -83,12 +84,6 @@
 	const canProceedToStep2 = $derived(
 		selectedPropertyIds.length > 0 && billingPeriod && dueDate
 	);
-
-	const formatCurrency = (amount) => {
-		const num = Number(amount);
-		if (isNaN(num)) return '$0.00';
-		return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-	};
 
 	const formatPeriod = (period) => {
 		if (!period) return '';

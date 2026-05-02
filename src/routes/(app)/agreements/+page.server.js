@@ -17,6 +17,7 @@ export const load = async ({ locals }) => {
 				a.enddate,
 				a.rentamount,
 				a.depositamount,
+				a.currency,
 				a.createdat,
 				u.name AS tenant_name,
 				u.email AS tenant_email,

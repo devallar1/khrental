@@ -1,5 +1,6 @@
 <script>
 	import { Search, Plus, FileText } from 'lucide-svelte';
+	import { formatCurrency } from '$lib/format/money.js';
 
 	let { data } = $props();
 
@@ -32,14 +33,6 @@
 			month: 'short',
 			day: 'numeric'
 		});
-	};
-
-	const formatCurrency = (amount) => {
-		if (amount == null) return '-';
-		return new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency: 'USD'
-		}).format(amount);
 	};
 
 	const filtered = $derived(
@@ -139,7 +132,7 @@
 										{agreement.status || 'draft'}
 									</span>
 								</td>
-								<td class="px-4 py-3 text-right text-slate-600">{formatCurrency(agreement.rentamount)}</td>
+								<td class="px-4 py-3 text-right text-slate-600">{formatCurrency(agreement.rentamount, agreement.currency)}</td>
 								<td class="px-4 py-3 text-slate-600">{formatDate(agreement.startdate)}</td>
 								<td class="px-4 py-3 text-slate-600">{formatDate(agreement.enddate)}</td>
 							</tr>

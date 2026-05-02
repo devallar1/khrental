@@ -1,5 +1,6 @@
 <script>
 	import { Receipt, Search, Plus, ChevronRight } from 'lucide-svelte';
+	import { formatCurrency } from '$lib/format/money.js';
 
 	let { data } = $props();
 
@@ -19,8 +20,8 @@
 			const q = searchQuery.toLowerCase();
 			list = list.filter(
 				(inv) =>
-					inv.rentee_name?.toLowerCase().includes(q) ||
-					inv.rentee_email?.toLowerCase().includes(q) ||
+					inv.tenant_name?.toLowerCase().includes(q) ||
+					inv.tenant_email?.toLowerCase().includes(q) ||
 					inv.property_name?.toLowerCase().includes(q) ||
 					inv.billingperiod?.toLowerCase().includes(q)
 			);
@@ -28,12 +29,6 @@
 
 		return list;
 	});
-
-	const formatCurrency = (amount) => {
-		const num = Number(amount);
-		if (isNaN(num)) return '--';
-		return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-	};
 
 	const formatDate = (dateStr) => {
 		if (!dateStr) return '--';
@@ -155,13 +150,13 @@
 									{invoice.billingperiod || '--'}
 								</td>
 								<td class="whitespace-nowrap px-4 py-3.5 text-sm text-slate-600">
-									{invoice.rentee_name || invoice.rentee_email || '--'}
+									{invoice.tenant_name || invoice.tenant_email || '--'}
 								</td>
 								<td class="whitespace-nowrap px-4 py-3.5 text-sm text-slate-600">
 									{invoice.property_name || '--'}
 								</td>
 								<td class="whitespace-nowrap px-4 py-3.5 text-right text-sm font-medium text-slate-900">
-									{formatCurrency(invoice.totalamount)}
+									{formatCurrency(invoice.totalamount, invoice.currency)}
 								</td>
 								<td class="whitespace-nowrap px-4 py-3.5">
 									<span class={statusBadgeClass(invoice.status)}>

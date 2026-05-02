@@ -26,7 +26,7 @@ export const load = async ({ params, locals }) => {
 			{ propertyId }
 		),
 		runQuery(
-			`SELECT a.id, a.title, a.status, a.startdate, a.enddate, a.rentamount,
+			`SELECT a.id, a.title, a.status, a.startdate, a.enddate, a.rentamount, a.currency,
 			        a.unitid, u.name AS tenant_name, u.email AS tenant_email,
 			        pu.unitnumber
 			 FROM agreements a
