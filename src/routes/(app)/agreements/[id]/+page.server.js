@@ -15,7 +15,6 @@ export const load = async ({ locals, params }) => {
 			u.contact_details->>'phone' AS tenant_phone,
 			p.name AS property_name,
 			p.address AS property_address,
-			p.city AS property_city,
 			pu.unitnumber AS unit_number,
 			t.name AS template_name,
 			t.language AS template_language,
