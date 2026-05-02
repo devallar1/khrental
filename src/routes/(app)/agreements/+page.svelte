@@ -48,7 +48,7 @@
 			const matchesSearch =
 				!searchQuery ||
 				a.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				a.rentee_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+				a.tenant_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
 				a.property_name?.toLowerCase().includes(searchQuery.toLowerCase());
 			return matchesStatus && matchesSearch;
 		})
@@ -113,7 +113,7 @@
 					<thead>
 						<tr class="border-b border-slate-100 bg-slate-50">
 							<th class="px-4 py-3 font-medium text-slate-500">Title</th>
-							<th class="px-4 py-3 font-medium text-slate-500">Rentee</th>
+							<th class="px-4 py-3 font-medium text-slate-500">Tenant</th>
 							<th class="px-4 py-3 font-medium text-slate-500">Property</th>
 							<th class="px-4 py-3 font-medium text-slate-500">Status</th>
 							<th class="px-4 py-3 font-medium text-slate-500 text-right">Rent</th>
@@ -132,7 +132,7 @@
 										{agreement.title || 'Untitled'}
 									</a>
 								</td>
-								<td class="px-4 py-3 text-slate-600">{agreement.rentee_name || '-'}</td>
+								<td class="px-4 py-3 text-slate-600">{agreement.tenant_name || '-'}</td>
 								<td class="px-4 py-3 text-slate-600">{agreement.property_name || '-'}</td>
 								<td class="px-4 py-3">
 									<span class={statusBadgeClass(agreement.status)}>

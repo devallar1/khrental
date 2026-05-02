@@ -125,7 +125,7 @@
 
 		<!-- Sidebar -->
 		<div class="space-y-6">
-			<!-- Rentee Info -->
+			<!-- Tenant Info -->
 			<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 				<h2 class="flex items-center gap-2 text-lg font-semibold text-slate-900">
 					<User class="h-5 w-5 text-slate-400" />

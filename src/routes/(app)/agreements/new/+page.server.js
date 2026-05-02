@@ -6,14 +6,14 @@ import { visibleOrgIds } from '$lib/server/authz.js';
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ locals }) => {
 	const orgs = await visibleOrgIds(locals.user);
-	if (orgs.length === 0) return { rentees: [], properties: [], templates: [] };
+	if (orgs.length === 0) return { tenants: [], properties: [], templates: [] };
 
-	let rentees = [];
+	let tenants = [];
 	let properties = [];
 	let templates = [];
 
 	try {
-		[rentees, properties, templates] = await Promise.all([
+		[tenants, properties, templates] = await Promise.all([
 			runQuery(
 				`SELECT id, name, email FROM tenants
 				 WHERE org_id = ANY(@orgs::uuid[]) ORDER BY name ASC`,
@@ -34,7 +34,7 @@ export const load = async ({ locals }) => {
 		console.error('[Agreements/New] Load error:', err.message);
 	}
 
-	return { rentees, properties, templates };
+	return { tenants, properties, templates };
 };
 
 /** @type {import('./$types').Actions} */

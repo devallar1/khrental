@@ -56,18 +56,18 @@
 				/>
 			</div>
 
-			<!-- Rentee -->
+			<!-- Tenant -->
 			<div>
-				<label for="renteeid" class="block text-sm font-medium text-slate-700">Rentee</label>
+				<label for="tenant_id" class="block text-sm font-medium text-slate-700">Tenant</label>
 				<select
-					id="renteeid"
-					name="renteeid"
+					id="tenant_id"
+					name="tenant_id"
 					class="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-300"
 				>
-					<option value="">Select rentee...</option>
-					{#each data.rentees as rentee}
-						<option value={rentee.id} selected={form?.renteeid === rentee.id}>
-							{rentee.name || rentee.email}
+					<option value="">Select tenant...</option>
+					{#each data.tenants as tenant}
+						<option value={tenant.id} selected={form?.tenant_id === tenant.id}>
+							{tenant.name || tenant.email}
 						</option>
 					{/each}
 				</select>
