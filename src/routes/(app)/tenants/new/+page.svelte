@@ -8,7 +8,7 @@
 </script>
 
 <svelte:head>
-	<title>Add Rentee - KH Rentals</title>
+	<title>Add Tenant - KH Rentals</title>
 </svelte:head>
 
 <div>
@@ -21,8 +21,8 @@
 			<ArrowLeft class="h-4 w-4" />
 		</a>
 		<div>
-			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Add Rentee</h1>
-			<p class="mt-0.5 text-sm text-slate-500">Create a new rentee record</p>
+			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Add Tenant</h1>
+			<p class="mt-0.5 text-sm text-slate-500">Create a new tenant record</p>
 		</div>
 	</div>
 
@@ -132,7 +132,7 @@
 					disabled={loading}
 					class="rounded-2xl bg-sky-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-50"
 				>
-					{loading ? 'Creating...' : 'Create Rentee'}
+					{loading ? 'Creating...' : 'Create Tenant'}
 				</button>
 			</div>
 		</form>

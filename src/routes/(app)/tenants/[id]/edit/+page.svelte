@@ -6,25 +6,25 @@
 
 	let loading = $state(false);
 
-	const rentee = $derived(data.rentee);
+	const tenant = $derived(data.tenant);
 </script>
 
 <svelte:head>
-	<title>Edit {rentee.name || 'Rentee'} - KH Rentals</title>
+	<title>Edit {tenant.name || 'Tenant'} - KH Rentals</title>
 </svelte:head>
 
 <div>
 	<!-- Header -->
 	<div class="mb-6 flex items-center gap-3">
 		<a
-			href="/tenants/{rentee.id}"
+			href="/tenants/{tenant.id}"
 			class="rounded-2xl border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition hover:bg-slate-50"
 		>
 			<ArrowLeft class="h-4 w-4" />
 		</a>
 		<div>
-			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Edit Rentee</h1>
-			<p class="mt-0.5 text-sm text-slate-500">{rentee.name}</p>
+			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Edit Tenant</h1>
+			<p class="mt-0.5 text-sm text-slate-500">{tenant.name}</p>
 		</div>
 	</div>
 
@@ -56,7 +56,7 @@
 						id="name"
 						name="name"
 						required
-						value={form?.name ?? rentee.name ?? ''}
+						value={form?.name ?? tenant.name ?? ''}
 						class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
 						placeholder="Full name"
 					/>
@@ -68,7 +68,7 @@
 						type="email"
 						id="email"
 						name="email"
-						value={form?.email ?? rentee.email ?? ''}
+						value={form?.email ?? tenant.email ?? ''}
 						class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
 						placeholder="email@example.com"
 					/>
@@ -92,7 +92,7 @@
 						type="text"
 						id="national_id"
 						name="national_id"
-						value={form?.national_id ?? rentee.national_id ?? ''}
+						value={form?.national_id ?? tenant.national_id ?? ''}
 						class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
 						placeholder="ID number"
 					/>
@@ -104,7 +104,7 @@
 						type="text"
 						id="permanent_address"
 						name="permanent_address"
-						value={form?.permanent_address ?? rentee.permanent_address ?? ''}
+						value={form?.permanent_address ?? tenant.permanent_address ?? ''}
 						class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
 						placeholder="Home address"
 					/>
@@ -118,7 +118,7 @@
 						rows="3"
 						class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
 						placeholder="Additional notes..."
-					>{form?.notes ?? rentee.notes ?? ''}</textarea>
+					>{form?.notes ?? tenant.notes ?? ''}</textarea>
 				</div>
 
 				<div class="sm:col-span-2">
@@ -126,7 +126,7 @@
 						<input
 							type="checkbox"
 							name="active"
-							checked={form?.active ?? rentee.active ?? true}
+							checked={form?.active ?? tenant.active ?? true}
 							class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
 						/>
 						<span class="text-sm font-medium text-slate-700">Active</span>
@@ -136,7 +136,7 @@
 
 			<div class="mt-6 flex items-center justify-end gap-3">
 				<a
-					href="/tenants/{rentee.id}"
+					href="/tenants/{tenant.id}"
 					class="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
 				>
 					Cancel

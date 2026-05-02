@@ -3,10 +3,10 @@
 
 	let { data } = $props();
 
-	const rentee = $derived(data.rentee);
+	const tenant = $derived(data.tenant);
 
 	const phone = $derived(() => {
-		const cd = rentee.contact_details;
+		const cd = tenant.contact_details;
 		if (!cd) return null;
 		if (typeof cd === 'string') {
 			try { return JSON.parse(cd)?.phone || null; } catch { return null; }
@@ -34,7 +34,7 @@
 </script>
 
 <svelte:head>
-	<title>{rentee.name || 'Rentee'} - KH Rentals</title>
+	<title>{tenant.name || 'Tenant'} - KH Rentals</title>
 </svelte:head>
 
 <div>
@@ -48,13 +48,13 @@
 				<ArrowLeft class="h-4 w-4" />
 			</a>
 			<div>
-				<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">{rentee.name || 'Unnamed Rentee'}</h1>
-				<p class="mt-0.5 text-sm text-slate-500">Added {formatDate(rentee.createdat)}</p>
+				<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">{tenant.name || 'Unnamed Tenant'}</h1>
+				<p class="mt-0.5 text-sm text-slate-500">Added {formatDate(tenant.createdat)}</p>
 			</div>
 		</div>
 		<div class="flex gap-2">
 			<a
-				href="/tenants/{rentee.id}/edit"
+				href="/tenants/{tenant.id}/edit"
 				class="inline-flex items-center gap-2 rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700"
 			>
 				<Pencil class="h-4 w-4" />
@@ -68,26 +68,26 @@
 		<div class="flex items-start justify-between">
 			<div class="flex items-center gap-4">
 				<div class="flex h-14 w-14 items-center justify-center rounded-full bg-sky-100 text-xl font-semibold text-sky-700">
-					{(rentee.name || '?').charAt(0).toUpperCase()}
+					{(tenant.name || '?').charAt(0).toUpperCase()}
 				</div>
 				<div>
-					<h2 class="text-lg font-semibold text-slate-900">{rentee.name || 'Unnamed'}</h2>
+					<h2 class="text-lg font-semibold text-slate-900">{tenant.name || 'Unnamed'}</h2>
 					<span
-						class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {rentee.active
+						class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {tenant.active
 							? 'bg-emerald-50 text-emerald-700'
 							: 'bg-slate-100 text-slate-600'}"
 					>
-						{rentee.active ? 'Active' : 'Inactive'}
+						{tenant.active ? 'Active' : 'Inactive'}
 					</span>
 				</div>
 			</div>
 		</div>
 
 		<div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-			{#if rentee.email}
+			{#if tenant.email}
 				<div class="flex items-center gap-2 text-sm">
 					<Mail class="h-4 w-4 text-slate-400" />
-					<span class="text-slate-700">{rentee.email}</span>
+					<span class="text-slate-700">{tenant.email}</span>
 				</div>
 			{/if}
 			{#if phone()}
@@ -96,24 +96,24 @@
 					<span class="text-slate-700">{phone()}</span>
 				</div>
 			{/if}
-			{#if rentee.permanent_address}
+			{#if tenant.permanent_address}
 				<div class="flex items-center gap-2 text-sm">
 					<MapPin class="h-4 w-4 text-slate-400" />
-					<span class="text-slate-700">{rentee.permanent_address}</span>
+					<span class="text-slate-700">{tenant.permanent_address}</span>
 				</div>
 			{/if}
-			{#if rentee.national_id}
+			{#if tenant.national_id}
 				<div class="flex items-center gap-2 text-sm">
 					<CreditCard class="h-4 w-4 text-slate-400" />
-					<span class="text-slate-700">ID: {rentee.national_id}</span>
+					<span class="text-slate-700">ID: {tenant.national_id}</span>
 				</div>
 			{/if}
 		</div>
 
-		{#if rentee.notes}
+		{#if tenant.notes}
 			<div class="mt-4 rounded-xl bg-slate-50 p-4">
 				<p class="text-xs font-medium uppercase tracking-wide text-slate-500">Notes</p>
-				<p class="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{rentee.notes}</p>
+				<p class="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{tenant.notes}</p>
 			</div>
 		{/if}
 	</div>
@@ -162,7 +162,7 @@
 				</table>
 			</div>
 		{:else}
-			<p class="text-center text-sm text-slate-500 py-6">No agreements found for this rentee.</p>
+			<p class="text-center text-sm text-slate-500 py-6">No agreements found for this tenant.</p>
 		{/if}
 	</div>
 
@@ -208,7 +208,7 @@
 				</table>
 			</div>
 		{:else}
-			<p class="text-center text-sm text-slate-500 py-6">No invoices found for this rentee.</p>
+			<p class="text-center text-sm text-slate-500 py-6">No invoices found for this tenant.</p>
 		{/if}
 	</div>
 </div>
