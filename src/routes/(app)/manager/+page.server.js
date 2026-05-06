@@ -167,7 +167,7 @@ export const load = async ({ locals }) => {
 		  ORDER BY bp.label`
 	);
 
-	return { realm, tenants, canvasState, canvasUpdatedAt, bankProfiles };
+	return { realm, rentees: tenants, canvasState, canvasUpdatedAt, bankProfiles };
 };
 
 const numericForm = (formData, key) => {

@@ -84,7 +84,7 @@
 	const availableUnits = $derived(selectedProperty?.units || []);
 	const filteredBankProfiles = $derived(
 		selectedProperty
-			? bankProfiles.filter((bp) => bp.tenant_id === selectedProperty.tenant_id)
+			? bankProfiles.filter((bp) => bp.org_id === selectedProperty.org_id)
 			: []
 	);
 

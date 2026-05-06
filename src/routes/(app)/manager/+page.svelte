@@ -7,7 +7,7 @@
 		ChevronLeft, Building2, TreePine, Layers, ArrowRight,
 		Plus, Minus, Maximize2, StickyNote, X,
 		RotateCw, Copy, MapPin, Landmark, Wrench, Bell, Edit3, Archive, History,
-		Group, Palette, Wallet, AlertTriangle, ChevronDown
+		Group, Palette, Wallet, AlertTriangle, ChevronDown, Receipt
 	} from 'lucide-svelte';
 	import panzoom from 'panzoom';
 	import PropertyMap from '$lib/components/PropertyMap.svelte';
@@ -76,7 +76,7 @@
 		const property = (data.realm || []).find((p) => p.id === tokenMenu.propertyId);
 		const unit = property?.units?.find((u) => u.id === tokenMenu.unitId);
 		if (!property || !unit) return null;
-		const profiles = (data.bankProfiles || []).filter((bp) => bp.tenant_id === property.tenant_id);
+		const profiles = (data.bankProfiles || []).filter((bp) => bp.org_id === property.org_id);
 		return {
 			currentBankProfileId: unit.bank_profile_id || null,
 			currentBankProfileLabel: unit.bank_profile_label || null,
@@ -1772,6 +1772,15 @@
 			<div class="ctx-hint token-menu-title">{tokenMenu.rentee.name}</div>
 		{/if}
 		{#if tokenMenu.rentee?.id}
+			<a
+				class="ctx-item ctx-item-primary"
+				href="/invoices/new?tenantId={tokenMenu.rentee.id}&unitId={tokenMenu.unitId}&propertyId={tokenMenu.propertyId}"
+				onclick={closeTokenMenu}
+			>
+				<Receipt class="h-4 w-4" style="color: var(--aqua);" />
+				<span>Generate invoice</span>
+			</a>
+			<div class="ctx-divider"></div>
 			<button type="button" class="ctx-item" onclick={tokenMenuEdit}>
 				<Edit3 class="h-4 w-4" style="color: var(--aqua);" />
 				<span>Edit tenant</span>
@@ -2257,6 +2266,13 @@
 		cursor: pointer;
 	}
 	.ctx-item:hover { background: #1e293b; }
+	a.ctx-item { text-decoration: none; }
+	.ctx-item.ctx-item-primary {
+		background: oklch(0.45 0.12 195 / 0.18);
+		color: oklch(0.92 0.10 195);
+		font-weight: 600;
+	}
+	.ctx-item.ctx-item-primary:hover { background: oklch(0.55 0.14 195 / 0.28); }
 	.ctx-item-warn { color: oklch(0.85 0.10 25); }
 	.ctx-item-warn:hover {
 		background: oklch(0.66 0.18 25 / 0.18);
