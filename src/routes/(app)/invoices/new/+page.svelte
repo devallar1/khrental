@@ -151,16 +151,16 @@
 <div class="mx-auto max-w-5xl">
 	<!-- Header -->
 	<div class="mb-6 flex items-center gap-3">
-		<a href="/manager" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-slate-900">
+		<a href="/manager" class="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition hover:text-foreground">
 			<ArrowLeft class="h-4 w-4" />
 			Back to manager
 		</a>
 	</div>
 
 	<div class="mb-6">
-		<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">New invoice</h1>
-		<p class="mt-1 text-sm text-slate-500">
-			Draft invoice for <span class="font-medium text-slate-700">{tenant?.name || '—'}</span>
+		<h1 class="text-2xl font-bold text-foreground sm:text-3xl">New invoice</h1>
+		<p class="mt-1 text-sm text-muted-foreground">
+			Draft invoice for <span class="font-medium text-foreground">{tenant?.name || '—'}</span>
 			{#if property}
 				· {property.name}{#if unit?.unitnumber}, Unit {unit.unitnumber}{/if}
 			{/if}
@@ -168,7 +168,7 @@
 	</div>
 
 	{#if form?.error}
-		<div class="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+		<div class="mb-4 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
 			<AlertTriangle class="h-4 w-4 flex-shrink-0" />
 			<span>{form.error}</span>
 		</div>
@@ -184,36 +184,36 @@
 			<!-- Main form column -->
 			<div class="lg:col-span-2 space-y-6">
 				<!-- Period + due date -->
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-					<h2 class="text-base font-semibold text-slate-900">Period</h2>
+				<div class="rounded-2xl border border-border bg-white p-6 shadow-sm">
+					<h2 class="text-base font-semibold text-foreground">Period</h2>
 					<div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<label class="block">
-							<span class="text-xs font-medium uppercase tracking-wider text-slate-500">Billing period</span>
+							<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Billing period</span>
 							<input
 								type="text"
 								name="billingPeriod"
 								bind:value={billingPeriod}
 								placeholder="2026-05"
-								class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+								class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
 							/>
 						</label>
 						<label class="block">
-							<span class="text-xs font-medium uppercase tracking-wider text-slate-500">Due date</span>
+							<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Due date</span>
 							<input
 								type="date"
 								name="dueDate"
 								bind:value={dueDate}
-								class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+								class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
 							/>
 						</label>
 					</div>
 				</div>
 
 				<!-- Rent -->
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+				<div class="rounded-2xl border border-border bg-white p-6 shadow-sm">
 					<div class="flex items-center justify-between">
-						<h2 class="text-base font-semibold text-slate-900">Rent</h2>
-						<label class="flex items-center gap-2 text-sm text-slate-600">
+						<h2 class="text-base font-semibold text-foreground">Rent</h2>
+						<label class="flex items-center gap-2 text-sm text-muted-foreground">
 							<input type="checkbox" bind:checked={rent.include} class="h-4 w-4" />
 							Include
 						</label>
@@ -224,26 +224,26 @@
 								type="text"
 								bind:value={rent.description}
 								placeholder="Monthly Rent"
-								class="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+								class="rounded-lg border border-border px-3 py-2 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
 							/>
 							<input
 								type="number"
 								bind:value={rent.amount}
 								step="0.01"
 								min="0"
-								class="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+								class="rounded-lg border border-border px-3 py-2 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
 							/>
 						</div>
 					{/if}
 				</div>
 
 				<!-- Electricity -->
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+				<div class="rounded-2xl border border-border bg-white p-6 shadow-sm">
 					<div class="flex items-center justify-between">
-						<h2 class="text-base font-semibold text-slate-900">Electricity</h2>
+						<h2 class="text-base font-semibold text-foreground">Electricity</h2>
 						<select
 							bind:value={elec.mode}
-							class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+							class="rounded-lg border border-border px-3 py-1.5 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
 						>
 							<option value="skip">Skip</option>
 							<option value="fixed">Fixed amount</option>
@@ -255,66 +255,66 @@
 					{#if elec.mode === 'fixed'}
 						<div class="mt-4">
 							<label class="block">
-								<span class="text-xs font-medium uppercase tracking-wider text-slate-500">Amount (LKR)</span>
+								<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Amount (LKR)</span>
 								<input
 									type="number"
 									bind:value={elec.fixed_lkr}
 									step="0.01"
 									min="0"
-									class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+									class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
 								/>
 							</label>
 						</div>
 					{:else if elec.mode === 'unit_based'}
 						<div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
 							<label class="block">
-								<span class="text-xs font-medium uppercase tracking-wider text-slate-500">Previous reading</span>
-								<input type="number" bind:value={elec.prev} step="0.01" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+								<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Previous reading</span>
+								<input type="number" bind:value={elec.prev} step="0.01" class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm" />
 							</label>
 							<label class="block">
-								<span class="text-xs font-medium uppercase tracking-wider text-slate-500">Current reading</span>
-								<input type="number" bind:value={elec.curr} step="0.01" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+								<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Current reading</span>
+								<input type="number" bind:value={elec.curr} step="0.01" class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm" />
 							</label>
 							<label class="block">
-								<span class="text-xs font-medium uppercase tracking-wider text-slate-500">Rate (LKR/unit)</span>
-								<input type="number" bind:value={elec.rate} step="0.01" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+								<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Rate (LKR/unit)</span>
+								<input type="number" bind:value={elec.rate} step="0.01" class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm" />
 							</label>
 						</div>
-						<p class="mt-3 text-xs text-slate-500">
+						<p class="mt-3 text-xs text-muted-foreground">
 							{Math.max(0, (Number(elec.curr) || 0) - (Number(elec.prev) || 0))} units
 							× {formatCurrency(elec.rate, currency)}
-							= <span class="font-semibold text-slate-700">{formatCurrency(elecAmount, currency)}</span>
+							= <span class="font-semibold text-foreground">{formatCurrency(elecAmount, currency)}</span>
 						</p>
 					{:else if elec.mode === 'solar_offset'}
 						<div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
 							<label class="block">
-								<span class="text-xs font-medium uppercase tracking-wider text-slate-500">Current reading</span>
-								<input type="number" bind:value={elec.curr} step="0.01" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+								<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Current reading</span>
+								<input type="number" bind:value={elec.curr} step="0.01" class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm" />
 							</label>
 							<label class="block">
-								<span class="text-xs font-medium uppercase tracking-wider text-slate-500">Offset units</span>
-								<input type="number" bind:value={elec.offset_units} step="0.01" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+								<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Offset units</span>
+								<input type="number" bind:value={elec.offset_units} step="0.01" class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm" />
 							</label>
 							<label class="block">
-								<span class="text-xs font-medium uppercase tracking-wider text-slate-500">Rate (LKR/unit)</span>
-								<input type="number" bind:value={elec.rate} step="0.01" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+								<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Rate (LKR/unit)</span>
+								<input type="number" bind:value={elec.rate} step="0.01" class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm" />
 							</label>
 						</div>
-						<p class="mt-3 text-xs text-slate-500">
+						<p class="mt-3 text-xs text-muted-foreground">
 							max(0, {elec.curr} − {elec.offset_units})
 							× {formatCurrency(elec.rate, currency)}
-							= <span class="font-semibold text-slate-700">{formatCurrency(elecAmount, currency)}</span>
+							= <span class="font-semibold text-foreground">{formatCurrency(elecAmount, currency)}</span>
 						</p>
 					{/if}
 				</div>
 
 				<!-- Water -->
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+				<div class="rounded-2xl border border-border bg-white p-6 shadow-sm">
 					<div class="flex items-center justify-between">
-						<h2 class="text-base font-semibold text-slate-900">Water</h2>
+						<h2 class="text-base font-semibold text-foreground">Water</h2>
 						<select
 							bind:value={water.mode}
-							class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+							class="rounded-lg border border-border px-3 py-1.5 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
 						>
 							<option value="skip">Skip</option>
 							<option value="fixed">Fixed amount</option>
@@ -325,40 +325,40 @@
 					{#if water.mode === 'fixed'}
 						<div class="mt-4">
 							<label class="block">
-								<span class="text-xs font-medium uppercase tracking-wider text-slate-500">Amount (LKR)</span>
-								<input type="number" bind:value={water.fixed_lkr} step="0.01" min="0" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+								<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Amount (LKR)</span>
+								<input type="number" bind:value={water.fixed_lkr} step="0.01" min="0" class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm" />
 							</label>
 						</div>
 					{:else if water.mode === 'unit_based'}
 						<div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
 							<label class="block">
-								<span class="text-xs font-medium uppercase tracking-wider text-slate-500">Previous reading</span>
-								<input type="number" bind:value={water.prev} step="0.01" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+								<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Previous reading</span>
+								<input type="number" bind:value={water.prev} step="0.01" class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm" />
 							</label>
 							<label class="block">
-								<span class="text-xs font-medium uppercase tracking-wider text-slate-500">Current reading</span>
-								<input type="number" bind:value={water.curr} step="0.01" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+								<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Current reading</span>
+								<input type="number" bind:value={water.curr} step="0.01" class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm" />
 							</label>
 							<label class="block">
-								<span class="text-xs font-medium uppercase tracking-wider text-slate-500">Rate (LKR/unit)</span>
-								<input type="number" bind:value={water.rate} step="0.01" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+								<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Rate (LKR/unit)</span>
+								<input type="number" bind:value={water.rate} step="0.01" class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm" />
 							</label>
 						</div>
-						<p class="mt-3 text-xs text-slate-500">
+						<p class="mt-3 text-xs text-muted-foreground">
 							{Math.max(0, (Number(water.curr) || 0) - (Number(water.prev) || 0))} units
 							× {formatCurrency(water.rate, currency)}
-							= <span class="font-semibold text-slate-700">{formatCurrency(waterAmount, currency)}</span>
+							= <span class="font-semibold text-foreground">{formatCurrency(waterAmount, currency)}</span>
 						</p>
 					{/if}
 				</div>
 
 				<!-- Internet (SLT) -->
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+				<div class="rounded-2xl border border-border bg-white p-6 shadow-sm">
 					<div class="flex items-center justify-between">
-						<h2 class="text-base font-semibold text-slate-900">Internet (SLT)</h2>
+						<h2 class="text-base font-semibold text-foreground">Internet (SLT)</h2>
 						<select
 							bind:value={slt.mode}
-							class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+							class="rounded-lg border border-border px-3 py-1.5 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
 						>
 							<option value="skip">Skip</option>
 							<option value="passthrough">Pass-through (enter actual bill)</option>
@@ -369,36 +369,36 @@
 					{#if slt.mode === 'fixed'}
 						<div class="mt-4">
 							<label class="block">
-								<span class="text-xs font-medium uppercase tracking-wider text-slate-500">Amount (LKR)</span>
-								<input type="number" bind:value={slt.fixed_lkr} step="0.01" min="0" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+								<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Amount (LKR)</span>
+								<input type="number" bind:value={slt.fixed_lkr} step="0.01" min="0" class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm" />
 							</label>
 						</div>
 					{:else if slt.mode === 'passthrough'}
 						<div class="mt-4">
 							<label class="block">
-								<span class="text-xs font-medium uppercase tracking-wider text-slate-500">SLT bill amount (LKR)</span>
-								<input type="number" bind:value={slt.passthrough_amount} step="0.01" min="0" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+								<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">SLT bill amount (LKR)</span>
+								<input type="number" bind:value={slt.passthrough_amount} step="0.01" min="0" class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm" />
 							</label>
-							<p class="mt-2 text-xs text-slate-500">Enter the actual SLT invoice amount you received for this period.</p>
+							<p class="mt-2 text-xs text-muted-foreground">Enter the actual SLT invoice amount you received for this period.</p>
 						</div>
 					{/if}
 				</div>
 
 				<!-- Other items -->
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+				<div class="rounded-2xl border border-border bg-white p-6 shadow-sm">
 					<div class="flex items-center justify-between">
-						<h2 class="text-base font-semibold text-slate-900">Other items</h2>
+						<h2 class="text-base font-semibold text-foreground">Other items</h2>
 						<button
 							type="button"
 							onclick={addOther}
-							class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+							class="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-slate-200"
 						>
 							<Plus class="h-3.5 w-3.5" />
 							Add row
 						</button>
 					</div>
 					{#if others.length === 0}
-						<p class="mt-3 text-sm text-slate-500">No other items.</p>
+						<p class="mt-3 text-sm text-muted-foreground">No other items.</p>
 					{:else}
 						<div class="mt-4 space-y-2">
 							{#each others as o, idx (idx)}
@@ -407,19 +407,19 @@
 										type="text"
 										bind:value={o.description}
 										placeholder="Description"
-										class="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+										class="rounded-lg border border-border px-3 py-2 text-sm"
 									/>
 									<input
 										type="number"
 										bind:value={o.amount}
 										step="0.01"
 										placeholder="0.00"
-										class="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+										class="rounded-lg border border-border px-3 py-2 text-sm"
 									/>
 									<button
 										type="button"
 										onclick={() => removeOther(idx)}
-										class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-red-600"
+										class="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-red-600"
 										title="Remove"
 									>
 										<Trash2 class="h-4 w-4" />
@@ -431,14 +431,14 @@
 				</div>
 
 				<!-- Notes -->
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-					<h2 class="text-base font-semibold text-slate-900">Notes</h2>
+				<div class="rounded-2xl border border-border bg-white p-6 shadow-sm">
+					<h2 class="text-base font-semibold text-foreground">Notes</h2>
 					<textarea
 						name="notes"
 						bind:value={notes}
 						rows="3"
 						placeholder="Optional notes shown on the invoice."
-						class="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+						class="mt-3 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
 					></textarea>
 				</div>
 			</div>
@@ -446,57 +446,57 @@
 			<!-- Sidebar -->
 			<div class="space-y-6">
 				<!-- Bill-to summary -->
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-					<p class="text-xs font-medium uppercase tracking-wider text-slate-400">Bill to</p>
+				<div class="rounded-2xl border border-border bg-white p-6 shadow-sm">
+					<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Bill to</p>
 					<div class="mt-2 flex items-start gap-2">
-						<User class="mt-0.5 h-4 w-4 text-slate-400" />
+						<User class="mt-0.5 h-4 w-4 text-muted-foreground" />
 						<div>
-							<p class="text-sm font-medium text-slate-900">{tenant?.name || '—'}</p>
-							{#if tenant?.email}<p class="text-xs text-slate-500">{tenant.email}</p>{/if}
-							{#if tenant?.phone}<p class="text-xs text-slate-500">{tenant.phone}</p>{/if}
+							<p class="text-sm font-medium text-foreground">{tenant?.name || '—'}</p>
+							{#if tenant?.email}<p class="text-xs text-muted-foreground">{tenant.email}</p>{/if}
+							{#if tenant?.phone}<p class="text-xs text-muted-foreground">{tenant.phone}</p>{/if}
 						</div>
 					</div>
 					{#if property}
 						<div class="mt-3 flex items-start gap-2">
-							<Building2 class="mt-0.5 h-4 w-4 text-slate-400" />
+							<Building2 class="mt-0.5 h-4 w-4 text-muted-foreground" />
 							<div>
-								<p class="text-sm font-medium text-slate-900">{property.name}</p>
-								{#if unit?.unitnumber}<p class="text-xs text-slate-500">Unit {unit.unitnumber}</p>{/if}
-								{#if property.address}<p class="text-xs text-slate-500">{property.address}</p>{/if}
+								<p class="text-sm font-medium text-foreground">{property.name}</p>
+								{#if unit?.unitnumber}<p class="text-xs text-muted-foreground">Unit {unit.unitnumber}</p>{/if}
+								{#if property.address}<p class="text-xs text-muted-foreground">{property.address}</p>{/if}
 							</div>
 						</div>
 					{/if}
 				</div>
 
 				<!-- Bank routing -->
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-					<p class="text-xs font-medium uppercase tracking-wider text-slate-400">Bank routing</p>
+				<div class="rounded-2xl border border-border bg-white p-6 shadow-sm">
+					<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Bank routing</p>
 					{#if unit?.bank_label}
 						<div class="mt-2 flex items-start gap-2">
-							<Landmark class="mt-0.5 h-4 w-4 text-slate-400" />
+							<Landmark class="mt-0.5 h-4 w-4 text-muted-foreground" />
 							<div>
-								<p class="text-sm font-medium text-slate-900">{unit.bank_label}</p>
-								{#if unit.bank_name}<p class="text-xs text-slate-500">{unit.bank_name}{#if unit.branch} — {unit.branch}{/if}</p>{/if}
-								{#if unit.account_number}<p class="font-mono text-xs text-slate-500">{unit.account_number}</p>{/if}
+								<p class="text-sm font-medium text-foreground">{unit.bank_label}</p>
+								{#if unit.bank_name}<p class="text-xs text-muted-foreground">{unit.bank_name}{#if unit.branch} — {unit.branch}{/if}</p>{/if}
+								{#if unit.account_number}<p class="font-mono text-xs text-muted-foreground">{unit.account_number}</p>{/if}
 							</div>
 						</div>
 					{:else}
-						<p class="mt-2 text-sm text-slate-500">No bank profile routed for this unit.</p>
+						<p class="mt-2 text-sm text-muted-foreground">No bank profile routed for this unit.</p>
 					{/if}
 				</div>
 
 				<!-- Live total -->
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-					<p class="text-xs font-medium uppercase tracking-wider text-slate-400">Total</p>
-					<p class="mt-2 text-3xl font-bold text-slate-900">{formatCurrency(total, currency)}</p>
-					<p class="mt-1 text-xs text-slate-500">{components.length} line item{components.length === 1 ? '' : 's'}</p>
+				<div class="rounded-2xl border border-border bg-white p-6 shadow-sm">
+					<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total</p>
+					<p class="mt-2 text-3xl font-bold text-foreground">{formatCurrency(total, currency)}</p>
+					<p class="mt-1 text-xs text-muted-foreground">{components.length} line item{components.length === 1 ? '' : 's'}</p>
 
 					{#if components.length > 0}
 						<ul class="mt-4 space-y-1 border-t border-slate-100 pt-3">
 							{#each components as c}
 								<li class="flex justify-between text-xs">
-									<span class="text-slate-600">{c.description}</span>
-									<span class="font-medium text-slate-900">{formatCurrency(c.amount, currency)}</span>
+									<span class="text-muted-foreground">{c.description}</span>
+									<span class="font-medium text-foreground">{formatCurrency(c.amount, currency)}</span>
 								</li>
 							{/each}
 						</ul>
@@ -515,12 +515,12 @@
 					</button>
 					<a
 						href="/manager"
-						class="block w-full rounded-lg bg-white px-4 py-2.5 text-center text-sm font-medium text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50"
+						class="block w-full rounded-lg bg-white px-4 py-2.5 text-center text-sm font-medium text-muted-foreground ring-1 ring-slate-200 transition hover:bg-slate-50"
 					>
 						Cancel
 					</a>
 					{#if components.length === 0}
-						<p class="text-center text-xs text-slate-500">Add at least one line item to save.</p>
+						<p class="text-center text-xs text-muted-foreground">Add at least one line item to save.</p>
 					{/if}
 				</div>
 			</div>

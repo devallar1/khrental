@@ -8,24 +8,29 @@
 </script>
 
 <svelte:head>
-	<title>New Agreement - KH Rentals</title>
+	<title>New agreement — KH Rentals</title>
 </svelte:head>
 
-<div>
+<div class="space-y-6">
 	<!-- Header -->
-	<div class="mb-6">
+	<header>
 		<a
 			href="/agreements"
-			class="inline-flex items-center gap-1.5 text-sm text-slate-500 transition hover:text-slate-700"
+			class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
 		>
 			<ArrowLeft class="h-4 w-4" />
-			Back to Agreements
+			Back to agreements
 		</a>
-		<h1 class="mt-3 text-2xl font-bold text-slate-900 sm:text-3xl">New Agreement</h1>
-	</div>
+		<div class="mt-3">
+			<p class="kicker">Agreement</p>
+			<h1 class="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+				New agreement
+			</h1>
+		</div>
+	</header>
 
 	{#if form?.error}
-		<div class="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+		<div class="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
 			{form.error}
 		</div>
 	{/if}
@@ -39,32 +44,36 @@
 				await update();
 			};
 		}}
-		class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+		class="rounded-2xl border border-border bg-card p-6 glow-primary"
 	>
-		<div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+		<div class="grid gap-6 sm:grid-cols-2">
 			<!-- Title -->
 			<div class="sm:col-span-2">
-				<label for="title" class="block text-sm font-medium text-slate-700">Title <span class="text-red-500">*</span></label>
+				<label for="title" class="mb-1.5 block text-sm font-medium text-foreground">
+					Title <span class="text-destructive">*</span>
+				</label>
 				<input
 					type="text"
 					id="title"
 					name="title"
 					value={form?.title || ''}
 					required
-					class="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-300"
+					class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 					placeholder="Agreement title"
 				/>
 			</div>
 
 			<!-- Tenant -->
 			<div>
-				<label for="tenant_id" class="block text-sm font-medium text-slate-700">Tenant</label>
+				<label for="tenant_id" class="mb-1.5 block text-sm font-medium text-foreground">
+					Tenant
+				</label>
 				<select
 					id="tenant_id"
 					name="tenant_id"
-					class="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-300"
+					class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 				>
-					<option value="">Select tenant...</option>
+					<option value="">Select tenant…</option>
 					{#each data.tenants as tenant}
 						<option value={tenant.id} selected={form?.tenant_id === tenant.id}>
 							{tenant.name || tenant.email}
@@ -75,13 +84,15 @@
 
 			<!-- Property -->
 			<div>
-				<label for="propertyid" class="block text-sm font-medium text-slate-700">Property</label>
+				<label for="propertyid" class="mb-1.5 block text-sm font-medium text-foreground">
+					Property
+				</label>
 				<select
 					id="propertyid"
 					name="propertyid"
-					class="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-300"
+					class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 				>
-					<option value="">Select property...</option>
+					<option value="">Select property…</option>
 					{#each data.properties as property}
 						<option value={property.id} selected={form?.propertyid === property.id}>
 							{property.name}
@@ -92,13 +103,15 @@
 
 			<!-- Template -->
 			<div class="sm:col-span-2">
-				<label for="templateid" class="block text-sm font-medium text-slate-700">Template</label>
+				<label for="templateid" class="mb-1.5 block text-sm font-medium text-foreground">
+					Template
+				</label>
 				<select
 					id="templateid"
 					name="templateid"
-					class="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-300"
+					class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 				>
-					<option value="">Select template...</option>
+					<option value="">Select template…</option>
 					{#each data.templates as template}
 						<option value={template.id} selected={form?.templateid === template.id}>
 							{template.name} (v{template.version || '1.0'} / {template.language || 'English'})
@@ -109,31 +122,37 @@
 
 			<!-- Start Date -->
 			<div>
-				<label for="startdate" class="block text-sm font-medium text-slate-700">Start Date</label>
+				<label for="startdate" class="mb-1.5 block text-sm font-medium text-foreground">
+					Start date
+				</label>
 				<input
 					type="date"
 					id="startdate"
 					name="startdate"
 					value={form?.startdate || ''}
-					class="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-300"
+					class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 				/>
 			</div>
 
 			<!-- End Date -->
 			<div>
-				<label for="enddate" class="block text-sm font-medium text-slate-700">End Date</label>
+				<label for="enddate" class="mb-1.5 block text-sm font-medium text-foreground">
+					End date
+				</label>
 				<input
 					type="date"
 					id="enddate"
 					name="enddate"
 					value={form?.enddate || ''}
-					class="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-300"
+					class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 				/>
 			</div>
 
 			<!-- Rent Amount -->
 			<div>
-				<label for="rentamount" class="block text-sm font-medium text-slate-700">Monthly Rent</label>
+				<label for="rentamount" class="mb-1.5 block text-sm font-medium text-foreground">
+					Monthly rent
+				</label>
 				<input
 					type="number"
 					id="rentamount"
@@ -141,14 +160,16 @@
 					value={form?.rentamount || ''}
 					step="0.01"
 					min="0"
-					class="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-300"
+					class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 font-mono text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 					placeholder="0.00"
 				/>
 			</div>
 
 			<!-- Deposit Amount -->
 			<div>
-				<label for="depositamount" class="block text-sm font-medium text-slate-700">Security Deposit</label>
+				<label for="depositamount" class="mb-1.5 block text-sm font-medium text-foreground">
+					Security deposit
+				</label>
 				<input
 					type="number"
 					id="depositamount"
@@ -156,38 +177,38 @@
 					value={form?.depositamount || ''}
 					step="0.01"
 					min="0"
-					class="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-300"
+					class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 font-mono text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 					placeholder="0.00"
 				/>
 			</div>
 
 			<!-- Notes -->
 			<div class="sm:col-span-2">
-				<label for="notes" class="block text-sm font-medium text-slate-700">Notes</label>
+				<label for="notes" class="mb-1.5 block text-sm font-medium text-foreground">Notes</label>
 				<textarea
 					id="notes"
 					name="notes"
 					rows="4"
-					class="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-300"
-					placeholder="Optional notes..."
+					class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
+					placeholder="Optional notes…"
 				>{form?.notes || ''}</textarea>
 			</div>
 		</div>
 
 		<!-- Actions -->
-		<div class="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-6">
+		<div class="mt-6 flex items-center justify-end gap-3 border-t border-border pt-6">
 			<a
 				href="/agreements"
-				class="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:text-slate-900"
+				class="rounded-2xl px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
 			>
 				Cancel
 			</a>
 			<button
 				type="submit"
 				disabled={submitting}
-				class="rounded-2xl bg-slate-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-50"
+				class="rounded-2xl bg-gradient-to-r from-primary to-accent px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary disabled:opacity-50"
 			>
-				{submitting ? 'Creating...' : 'Create Agreement'}
+				{submitting ? 'Creating…' : 'Create agreement'}
 			</button>
 		</div>
 	</form>

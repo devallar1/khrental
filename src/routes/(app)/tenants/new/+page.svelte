@@ -8,28 +8,32 @@
 </script>
 
 <svelte:head>
-	<title>Add Tenant - KH Rentals</title>
+	<title>Add tenant — KH Rentals</title>
 </svelte:head>
 
-<div>
+<div class="space-y-6">
 	<!-- Header -->
-	<div class="mb-6 flex items-center gap-3">
+	<header class="flex items-start gap-3">
 		<a
 			href="/tenants"
-			class="rounded-2xl border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition hover:bg-slate-50"
+			class="rounded-2xl border border-border bg-card p-2.5 text-muted-foreground transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:text-foreground"
+			aria-label="Back to tenants"
 		>
 			<ArrowLeft class="h-4 w-4" />
 		</a>
 		<div>
-			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Add Tenant</h1>
-			<p class="mt-0.5 text-sm text-slate-500">Create a new tenant record</p>
+			<p class="kicker">Tenant</p>
+			<h1 class="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+				Add tenant
+			</h1>
+			<p class="mt-0.5 text-sm text-muted-foreground">Create a new tenant record</p>
 		</div>
-	</div>
+	</header>
 
 	<!-- Form -->
-	<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+	<div class="rounded-2xl border border-border bg-card p-6 glow-primary">
 		{#if form?.error}
-			<div class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+			<div class="mb-6 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
 				{form.error}
 			</div>
 		{/if}
@@ -44,10 +48,10 @@
 				};
 			}}
 		>
-			<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div class="grid gap-5 sm:grid-cols-2">
 				<div class="sm:col-span-2">
-					<label for="name" class="block text-sm font-medium text-slate-700">
-						Name <span class="text-red-500">*</span>
+					<label for="name" class="mb-1.5 block text-sm font-medium text-foreground">
+						Name <span class="text-destructive">*</span>
 					</label>
 					<input
 						type="text"
@@ -55,67 +59,71 @@
 						name="name"
 						required
 						value={form?.name ?? ''}
-						class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
+						class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 						placeholder="Full name"
 					/>
 				</div>
 
 				<div>
-					<label for="email" class="block text-sm font-medium text-slate-700">Email</label>
+					<label for="email" class="mb-1.5 block text-sm font-medium text-foreground">Email</label>
 					<input
 						type="email"
 						id="email"
 						name="email"
 						value={form?.email ?? ''}
-						class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
+						class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 						placeholder="email@example.com"
 					/>
 				</div>
 
 				<div>
-					<label for="phone" class="block text-sm font-medium text-slate-700">Phone</label>
+					<label for="phone" class="mb-1.5 block text-sm font-medium text-foreground">Phone</label>
 					<input
 						type="tel"
 						id="phone"
 						name="phone"
 						value={form?.phone ?? ''}
-						class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
-						placeholder="+1 234 567 890"
+						class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 font-mono text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
+						placeholder="+94 77 555 0123"
 					/>
 				</div>
 
 				<div>
-					<label for="national_id" class="block text-sm font-medium text-slate-700">National ID</label>
+					<label for="national_id" class="mb-1.5 block text-sm font-medium text-foreground">
+						National ID
+					</label>
 					<input
 						type="text"
 						id="national_id"
 						name="national_id"
 						value={form?.national_id ?? ''}
-						class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
+						class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 font-mono text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 						placeholder="ID number"
 					/>
 				</div>
 
 				<div>
-					<label for="permanent_address" class="block text-sm font-medium text-slate-700">Permanent Address</label>
+					<label for="permanent_address" class="mb-1.5 block text-sm font-medium text-foreground">
+						Permanent address
+					</label>
 					<input
 						type="text"
 						id="permanent_address"
 						name="permanent_address"
 						value={form?.permanent_address ?? ''}
-						class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
+						class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 						placeholder="Home address"
 					/>
 				</div>
 
 				<div class="sm:col-span-2">
-					<label for="notes" class="block text-sm font-medium text-slate-700">Notes</label>
+					<label for="notes" class="mb-1.5 block text-sm font-medium text-foreground">Notes</label>
 					<textarea
 						id="notes"
 						name="notes"
 						rows="3"
-						class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
-						placeholder="Additional notes..."
+						class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
+						placeholder="Additional notes…"
 					>{form?.notes ?? ''}</textarea>
 				</div>
 			</div>
@@ -123,16 +131,16 @@
 			<div class="mt-6 flex items-center justify-end gap-3">
 				<a
 					href="/tenants"
-					class="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+					class="rounded-2xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:bg-secondary"
 				>
 					Cancel
 				</a>
 				<button
 					type="submit"
 					disabled={loading}
-					class="rounded-2xl bg-sky-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-50"
+					class="rounded-2xl bg-gradient-to-r from-primary to-accent px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary disabled:opacity-50"
 				>
-					{loading ? 'Creating...' : 'Create Tenant'}
+					{loading ? 'Creating…' : 'Create tenant'}
 				</button>
 			</div>
 		</form>
