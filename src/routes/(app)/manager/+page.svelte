@@ -1275,9 +1275,9 @@
 						<!-- Estate utility chips -->
 						<div class="utility-strip flex items-center justify-between gap-1 px-4 py-2">
 							{#each [
-								{ Icon: Zap, label: 'Electricity', tint: 'oklch(0.80 0.16 65)' },
+								{ Icon: Zap, label: 'Electricity', tint: 'hsl(var(--warning))' },
 								{ Icon: Droplets, label: 'Water', tint: 'var(--aqua)' },
-								{ Icon: Wifi, label: 'SLT', tint: 'oklch(0.78 0.13 165)' }
+								{ Icon: Wifi, label: 'SLT', tint: 'hsl(var(--success))' }
 							] as bill}
 								<span class="utility-chip" title={`${bill.label} · no bill recorded`}>
 									<bill.Icon class="h-3.5 w-3.5" style={`color: ${bill.tint};`} />
@@ -1348,9 +1348,9 @@
 						<!-- Estate utility chips -->
 						<div class="utility-strip flex items-center justify-between gap-1 px-4 py-2">
 							{#each [
-								{ Icon: Zap, label: 'Electricity', tint: 'oklch(0.80 0.16 65)' },
+								{ Icon: Zap, label: 'Electricity', tint: 'hsl(var(--warning))' },
 								{ Icon: Droplets, label: 'Water', tint: 'var(--aqua)' },
-								{ Icon: Wifi, label: 'SLT', tint: 'oklch(0.78 0.13 165)' }
+								{ Icon: Wifi, label: 'SLT', tint: 'hsl(var(--success))' }
 							] as bill}
 								<span class="utility-chip" title={`${bill.label} · no bill recorded`}>
 									<bill.Icon class="h-3.5 w-3.5" style={`color: ${bill.tint};`} />
@@ -1438,7 +1438,7 @@
 									</div>
 								</div>
 								<div class="assignment-row">
-									<Bell class="h-3.5 w-3.5 flex-shrink-0" style="color: oklch(0.78 0.16 35);" />
+									<Bell class="h-3.5 w-3.5 flex-shrink-0" style="color: hsl(var(--destructive));" />
 									<div class="copy-meta">
 										<div class="copy-label">Escalation contact</div>
 										<button
@@ -1908,25 +1908,28 @@
 </div>
 
 <style>
-	/* ─── Aquamarine theme tokens (OKLCH, à la solarsems) ───────────────── */
+	/* ─── Manager theme tokens — bound to global design tokens ─────────────
+	   Manager keeps its bespoke OKLCH-feeling vocabulary (aqua, ink, panel)
+	   but the values now flex per active theme + mode. Themes inherit via
+	   --background/--foreground/--card/--accent etc. set on <html>. */
 	:global(.aqua-theme) {
-		--bg:        oklch(0.16 0.025 220);     /* deep cool blue-black */
-		--panel:     oklch(0.215 0.028 220);    /* card surface */
-		--panel-2:   oklch(0.255 0.030 220);    /* nested panel */
-		--line:      oklch(0.32 0.030 220);     /* borders */
-		--line-soft: oklch(0.275 0.028 220);    /* soft dividers */
-		--ink:       oklch(0.97 0.012 200);     /* primary text */
-		--ink-2:     oklch(0.78 0.018 200);     /* secondary */
-		--ink-3:     oklch(0.58 0.020 200);     /* tertiary / muted */
-		--ink-4:     oklch(0.42 0.020 220);     /* labels */
+		--bg:        hsl(var(--background));        /* canvas */
+		--panel:     hsl(var(--card));              /* card surface */
+		--panel-2:   hsl(var(--secondary));         /* nested panel */
+		--line:      hsl(var(--border));            /* borders */
+		--line-soft: hsl(var(--border) / 0.6);      /* soft dividers */
+		--ink:       hsl(var(--foreground));        /* primary text */
+		--ink-2:     hsl(var(--foreground) / 0.85); /* secondary */
+		--ink-3:     hsl(var(--muted-foreground));  /* tertiary / muted */
+		--ink-4:     hsl(var(--muted-foreground) / 0.7); /* labels */
 
-		--aqua:      oklch(0.86 0.13 195);      /* primary accent — bright aquamarine */
-		--aqua-2:    oklch(0.72 0.14 200);      /* mid aquamarine */
-		--aqua-dim:  oklch(0.55 0.11 210);      /* dimmed accent */
+		--aqua:      hsl(var(--accent));            /* primary accent */
+		--aqua-2:    hsl(var(--accent) / 0.85);     /* mid */
+		--aqua-dim:  hsl(var(--accent) / 0.55);     /* dimmed accent */
 
-		--good:      oklch(0.78 0.13 165);      /* occupied / positive */
-		--warn:      oklch(0.78 0.16 65);
-		--bad:       oklch(0.66 0.18 25);
+		--good:      hsl(var(--success));
+		--warn:      hsl(var(--warning));
+		--bad:       hsl(var(--destructive));
 
 		--r:    14px;
 		--r-sm: 10px;
@@ -1944,14 +1947,14 @@
 		width: 420px;
 		height: 420px;
 		border-radius: 50%;
-		background: radial-gradient(circle, oklch(0.86 0.13 195 / 0.20) 0%, oklch(0.86 0.13 195 / 0) 60%);
+		background: radial-gradient(circle, hsl(var(--accent) / 0.20) 0%, hsl(var(--accent) / 0) 60%);
 		pointer-events: none;
 	}
 
 	/* Pulsing live dot */
 	@keyframes aqua-pulse {
-		0%, 100% { box-shadow: 0 0 0 3px oklch(0.86 0.13 195 / 0.18); }
-		50%      { box-shadow: 0 0 0 7px oklch(0.86 0.13 195 / 0); }
+		0%, 100% { box-shadow: 0 0 0 3px hsl(var(--accent) / 0.18); }
+		50%      { box-shadow: 0 0 0 7px hsl(var(--accent) / 0); }
 	}
 	:global(.aqua-theme) .aqua-dot {
 		display: inline-block;
@@ -1959,7 +1962,7 @@
 		height: 7px;
 		border-radius: 50%;
 		background: var(--aqua);
-		box-shadow: 0 0 0 3px oklch(0.86 0.13 195 / 0.18);
+		box-shadow: 0 0 0 3px hsl(var(--accent) / 0.18);
 		animation: aqua-pulse 2.4s infinite;
 	}
 
@@ -1982,11 +1985,11 @@
 		cursor: default;
 	}
 	.unit-token.occupied {
-		background: linear-gradient(160deg, oklch(0.86 0.13 195) 0%, oklch(0.55 0.11 210) 100%);
-		color: oklch(0.16 0.025 220);
+		background: linear-gradient(160deg, hsl(var(--accent)) 0%, hsl(var(--accent) / 0.55) 100%);
+		color: hsl(var(--background));
 		box-shadow:
-			0 0 0 1px oklch(0.86 0.13 195 / 0.4) inset,
-			0 4px 14px -4px oklch(0.86 0.13 195 / 0.55);
+			0 0 0 1px hsl(var(--accent) / 0.4) inset,
+			0 4px 14px -4px hsl(var(--accent) / 0.55);
 	}
 	.unit-token.vacant {
 		background: var(--panel-2);
@@ -2000,8 +2003,8 @@
 	}
 	.unit-token.occupied:hover {
 		box-shadow:
-			0 0 0 1px oklch(0.86 0.13 195 / 0.6) inset,
-			0 6px 20px -4px oklch(0.86 0.13 195 / 0.7);
+			0 0 0 1px hsl(var(--accent) / 0.6) inset,
+			0 6px 20px -4px hsl(var(--accent) / 0.7);
 	}
 
 	.unit-token-xl {
@@ -2028,7 +2031,7 @@
 		border: 1px solid var(--line);
 	}
 	.unit-token-btn:focus-visible {
-		outline: 2px solid oklch(0.86 0.13 195);
+		outline: 2px solid hsl(var(--accent));
 		outline-offset: 2px;
 	}
 
@@ -2054,11 +2057,11 @@
 		background:
 			radial-gradient(
 				circle var(--spot-size) at var(--mouse-x) var(--mouse-y),
-				oklch(0.86 0.13 195 / 0.22) 0%,
-				oklch(0.86 0.13 195 / 0.07) 30%,
-				oklch(0.86 0.13 195 / 0) 70%
+				hsl(var(--accent) / 0.22) 0%,
+				hsl(var(--accent) / 0.07) 30%,
+				hsl(var(--accent) / 0) 70%
 			),
-			oklch(0.12 0.025 220);
+			hsl(var(--background));
 		cursor: grab;
 		transition: --spot-size 180ms ease;
 	}
@@ -2071,7 +2074,7 @@
 
 	:global(.aqua-theme .page-title) {
 		color: var(--ink);
-		text-shadow: 0 0 32px oklch(0.86 0.13 195 / 0.3);
+		text-shadow: 0 0 32px hsl(var(--accent) / 0.3);
 		letter-spacing: -0.01em;
 	}
 
@@ -2090,9 +2093,9 @@
 	}
 	:global(.zoom-btn:hover) {
 		background: var(--panel-2);
-		border-color: oklch(0.86 0.13 195 / 0.4);
+		border-color: hsl(var(--accent) / 0.4);
 		color: var(--aqua);
-		box-shadow: 0 0 18px -2px oklch(0.86 0.13 195 / 0.3);
+		box-shadow: 0 0 18px -2px hsl(var(--accent) / 0.3);
 	}
 
 	/* Sticky notes */
@@ -2161,18 +2164,18 @@
 	/* ─── Districts (labeled regions) ───────────────────────────────────── */
 	.district {
 		position: absolute;
-		border: 2px dashed var(--district-line, oklch(0.86 0.13 195 / 0.55));
-		background: var(--district-bg, oklch(0.86 0.13 195 / 0.05));
+		border: 2px dashed var(--district-line, hsl(var(--accent) / 0.55));
+		background: var(--district-bg, hsl(var(--accent) / 0.05));
 		border-radius: 16px;
 		min-width: 220px;
 		min-height: 160px;
 		z-index: 0;          /* sit behind cards (cards default render later in DOM) */
 		pointer-events: none; /* let clicks pass through to cards/canvas underneath */
 	}
-	.district-aqua    { --district-line: oklch(0.86 0.13 195 / 0.55); --district-bg: oklch(0.86 0.13 195 / 0.06); }
-	.district-rose    { --district-line: oklch(0.78 0.16 25 / 0.55);  --district-bg: oklch(0.78 0.16 25 / 0.06); }
-	.district-emerald { --district-line: oklch(0.78 0.13 165 / 0.55); --district-bg: oklch(0.78 0.13 165 / 0.06); }
-	.district-amber   { --district-line: oklch(0.80 0.16 75 / 0.55);  --district-bg: oklch(0.80 0.16 75 / 0.06); }
+	.district-aqua    { --district-line: hsl(var(--accent) / 0.55); --district-bg: hsl(var(--accent) / 0.06); }
+	.district-rose    { --district-line: hsl(var(--destructive) / 0.55);  --district-bg: hsl(var(--destructive) / 0.06); }
+	.district-emerald { --district-line: hsl(var(--success) / 0.55); --district-bg: hsl(var(--success) / 0.06); }
+	.district-amber   { --district-line: hsl(var(--warning) / 0.55);  --district-bg: hsl(var(--warning) / 0.06); }
 
 	.district-header {
 		position: absolute;
@@ -2182,8 +2185,8 @@
 		align-items: center;
 		gap: 4px;
 		padding: 4px 8px 4px 10px;
-		background: oklch(0.16 0.025 220);
-		border: 1.5px solid var(--district-line, oklch(0.86 0.13 195 / 0.55));
+		background: hsl(var(--background));
+		border: 1.5px solid var(--district-line, hsl(var(--accent) / 0.55));
 		border-radius: 8px;
 		cursor: grab;
 		pointer-events: auto;
@@ -2206,7 +2209,7 @@
 		padding: 0 4px;
 		cursor: text;
 	}
-	.district-name:focus { background: oklch(0.20 0.028 220 / 0.6); border-radius: 4px; }
+	.district-name:focus { background: hsl(var(--card) / 0.6); border-radius: 4px; }
 
 	.district-action {
 		display: inline-flex;
@@ -2221,8 +2224,8 @@
 		cursor: pointer;
 		transition: background 100ms ease, color 100ms ease;
 	}
-	.district-action:hover { background: oklch(0.86 0.13 195 / 0.15); color: var(--aqua); }
-	.district-action-delete:hover { background: oklch(0.66 0.18 25 / 0.18); color: oklch(0.78 0.16 25); }
+	.district-action:hover { background: hsl(var(--accent) / 0.15); color: var(--aqua); }
+	.district-action-delete:hover { background: hsl(var(--destructive) / 0.18); color: hsl(var(--destructive)); }
 
 	.district-resize-handle {
 		position: absolute;
@@ -2232,7 +2235,7 @@
 		height: 18px;
 		cursor: nwse-resize;
 		pointer-events: auto;
-		background: linear-gradient(135deg, transparent 50%, var(--district-line, oklch(0.86 0.13 195 / 0.55)) 50%);
+		background: linear-gradient(135deg, transparent 50%, var(--district-line, hsl(var(--accent) / 0.55)) 50%);
 		border-bottom-right-radius: 14px;
 		opacity: 0.7;
 	}
@@ -2268,15 +2271,15 @@
 	.ctx-item:hover { background: #1e293b; }
 	a.ctx-item { text-decoration: none; }
 	.ctx-item.ctx-item-primary {
-		background: oklch(0.45 0.12 195 / 0.18);
-		color: oklch(0.92 0.10 195);
+		background: hsl(var(--accent) / 0.18);
+		color: hsl(var(--accent));
 		font-weight: 600;
 	}
-	.ctx-item.ctx-item-primary:hover { background: oklch(0.55 0.14 195 / 0.28); }
-	.ctx-item-warn { color: oklch(0.85 0.10 25); }
+	.ctx-item.ctx-item-primary:hover { background: hsl(var(--accent) / 0.28); }
+	.ctx-item-warn { color: hsl(var(--destructive)); }
 	.ctx-item-warn:hover {
-		background: oklch(0.66 0.18 25 / 0.18);
-		color: oklch(0.92 0.10 25);
+		background: hsl(var(--destructive) / 0.18);
+		color: hsl(var(--destructive));
 	}
 	.ctx-item-active { background: #1e293b; }
 	.ctx-item-active::after {
@@ -2308,7 +2311,7 @@
 		letter-spacing: 0;
 		font-size: 12px;
 		font-weight: 600;
-		color: oklch(0.86 0.13 195);
+		color: hsl(var(--accent));
 		margin-bottom: 2px;
 	}
 	.token-menu form {
@@ -2334,8 +2337,8 @@
 		position: relative;
 		overflow: hidden; /* clip the haze and any 3D rotation overflow */
 		box-shadow:
-			0 1px 0 oklch(1 0 0 / 0.04) inset,
-			0 6px 20px -8px oklch(0.05 0 0 / 0.6);
+			0 1px 0 hsl(0 0% 100% / 0.04) inset,
+			0 6px 20px -8px hsl(0 0% 0% / 0.6);
 		transition: transform 120ms ease, border-color 120ms ease, box-shadow 200ms ease;
 		perspective: 1400px;
 		padding: 0;
@@ -2371,7 +2374,7 @@
 		display: flex;
 		flex-direction: column;
 		transform: rotateY(180deg);
-		background: linear-gradient(180deg, oklch(0.18 0.025 220) 0%, oklch(0.20 0.028 220) 100%);
+		background: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--card)) 100%);
 	}
 	/* Flip button — top-left, muted, escalates to aqua on hover/active */
 	.card-flip-btn {
@@ -2385,8 +2388,8 @@
 		align-items: center;
 		justify-content: center;
 		border-radius: 6px;
-		border: 1px solid oklch(0.86 0.13 195 / 0.15);
-		background: oklch(0.18 0.025 220 / 0.7);
+		border: 1px solid hsl(var(--accent) / 0.15);
+		background: hsl(var(--background) / 0.7);
 		color: var(--ink-4);
 		cursor: pointer;
 		opacity: 0.55;
@@ -2395,8 +2398,8 @@
 	.card-flip-btn:hover {
 		opacity: 1;
 		color: var(--aqua);
-		border-color: oklch(0.86 0.13 195 / 0.5);
-		background: oklch(0.20 0.028 220 / 0.9);
+		border-color: hsl(var(--accent) / 0.5);
+		background: hsl(var(--card) / 0.9);
 	}
 	.card-flip-btn.active {
 		opacity: 1;
@@ -2406,11 +2409,11 @@
 	}
 	.property-card:active { cursor: grabbing; }
 	.property-card:hover {
-		border-color: oklch(0.86 0.13 195 / 0.45) !important;
+		border-color: hsl(var(--accent) / 0.45) !important;
 		box-shadow:
-			0 1px 0 oklch(1 0 0 / 0.06) inset,
-			0 8px 28px -6px oklch(0.86 0.13 195 / 0.18),
-			0 0 0 1px oklch(0.86 0.13 195 / 0.12);
+			0 1px 0 hsl(0 0% 100% / 0.06) inset,
+			0 8px 28px -6px hsl(var(--accent) / 0.18),
+			0 0 0 1px hsl(var(--accent) / 0.12);
 	}
 	/* Soft aquamarine haze in the bottom-right of every card */
 	.property-card::before {
@@ -2420,7 +2423,7 @@
 		width: 360px;
 		height: 360px;
 		border-radius: 50%;
-		background: radial-gradient(circle, oklch(0.86 0.13 195 / 0.18) 0%, oklch(0.86 0.13 195 / 0) 60%);
+		background: radial-gradient(circle, hsl(var(--accent) / 0.18) 0%, hsl(var(--accent) / 0) 60%);
 		pointer-events: none;
 		z-index: 0;
 		transition: opacity 200ms ease;
@@ -2436,7 +2439,7 @@
 		gap: 6px;
 		padding: 16px 14px 12px;
 		text-align: center;
-		background: linear-gradient(180deg, oklch(0.20 0.028 220 / 0.85), oklch(0.18 0.025 220 / 0.6));
+		background: linear-gradient(180deg, hsl(var(--card) / 0.85), hsl(var(--background) / 0.6));
 		border-bottom: 1px solid var(--line-soft);
 		position: relative;
 	}
@@ -2455,7 +2458,7 @@
 		font-family: 'Fredoka', system-ui, sans-serif;
 		font-weight: 600;
 		letter-spacing: 0.02em;
-		text-shadow: 0 0 24px oklch(0.86 0.13 195 / 0.25);
+		text-shadow: 0 0 24px hsl(var(--accent) / 0.25);
 		font-size: 18px;
 		line-height: 1.15;
 		text-align: center;
@@ -2471,7 +2474,7 @@
 	.banner-rule {
 		width: 60%;
 		height: 1px;
-		background: linear-gradient(90deg, transparent, oklch(0.86 0.13 195 / 0.45), transparent);
+		background: linear-gradient(90deg, transparent, hsl(var(--accent) / 0.45), transparent);
 		margin: 4px 0 2px;
 	}
 	.banner-sub {
@@ -2498,21 +2501,21 @@
 		justify-content: center;
 		border-radius: 50%;
 		background:
-			radial-gradient(circle at 30% 25%, oklch(0.86 0.13 195 / 0.45) 0%, oklch(0.55 0.11 210 / 0.30) 60%),
-			oklch(0.20 0.028 220);
+			radial-gradient(circle at 30% 25%, hsl(var(--accent) / 0.45) 0%, hsl(var(--accent) / 0.3) 60%),
+			hsl(var(--card));
 		color: var(--aqua);
 		box-shadow:
-			0 0 0 2px oklch(0.86 0.13 195 / 0.4) inset,
-			0 0 0 4px oklch(0.86 0.13 195 / 0.15),
-			0 0 28px -4px oklch(0.86 0.13 195 / 0.55);
+			0 0 0 2px hsl(var(--accent) / 0.4) inset,
+			0 0 0 4px hsl(var(--accent) / 0.15),
+			0 0 28px -4px hsl(var(--accent) / 0.55);
 	}
 	.hero-frame-sm {
 		width: 44px;
 		height: 44px;
 		box-shadow:
-			0 0 0 1px oklch(0.86 0.13 195 / 0.4) inset,
-			0 0 0 3px oklch(0.86 0.13 195 / 0.12),
-			0 0 16px -4px oklch(0.86 0.13 195 / 0.4);
+			0 0 0 1px hsl(var(--accent) / 0.4) inset,
+			0 0 0 3px hsl(var(--accent) / 0.12),
+			0 0 16px -4px hsl(var(--accent) / 0.4);
 	}
 	/* Edge-to-edge map banner — no padding, no margin, no rounded corners.
 	   The card's own border-radius + overflow:hidden clips the top corners. */
@@ -2536,10 +2539,10 @@
 		padding: 2px 8px;
 		border-radius: 999px;
 		background: var(--aqua);
-		color: oklch(0.16 0.025 220);
+		color: hsl(var(--background));
 		font-size: 10px;
 		font-weight: 700;
-		box-shadow: 0 2px 8px oklch(0.86 0.13 195 / 0.5);
+		box-shadow: 0 2px 8px hsl(var(--accent) / 0.5);
 	}
 
 	/* RESIDENT PANEL (single-unit "owner" card) — grows to absorb extra vertical
@@ -2550,7 +2553,7 @@
 		display: flex;
 		gap: 12px;
 		align-items: center;
-		background: oklch(0.18 0.025 220 / 0.6);
+		background: hsl(var(--background) / 0.6);
 		border: 1px solid var(--line-soft);
 		border-radius: 12px;
 		flex: 1 1 auto;
@@ -2593,7 +2596,7 @@
 		justify-content: center;
 		padding: 6px 0;
 		border-radius: 8px;
-		background: oklch(0.18 0.025 220 / 0.5);
+		background: hsl(var(--background) / 0.5);
 		border: 1px solid var(--line-soft);
 	}
 
@@ -2603,13 +2606,13 @@
 		padding: 8px 14px;
 		text-align: center;
 		background:
-			radial-gradient(ellipse at center, oklch(0.86 0.13 195 / 0.18), oklch(0.86 0.13 195 / 0)),
-			oklch(0.18 0.025 220 / 0.7);
-		border: 2px solid oklch(0.86 0.13 195 / 0.4);
+			radial-gradient(ellipse at center, hsl(var(--accent) / 0.18), hsl(var(--accent) / 0)),
+			hsl(var(--background) / 0.7);
+		border: 2px solid hsl(var(--accent) / 0.4);
 		border-radius: 10px;
 		box-shadow:
-			0 0 0 1px oklch(0.86 0.13 195 / 0.2) inset,
-			0 0 24px -6px oklch(0.86 0.13 195 / 0.4);
+			0 0 0 1px hsl(var(--accent) / 0.2) inset,
+			0 0 24px -6px hsl(var(--accent) / 0.4);
 		position: relative;
 	}
 	.rent-badge::before, .rent-badge::after {
@@ -2644,7 +2647,7 @@
 		font-size: 20px;
 		font-weight: 600;
 		color: var(--aqua);
-		text-shadow: 0 0 18px oklch(0.86 0.13 195 / 0.5);
+		text-shadow: 0 0 18px hsl(var(--accent) / 0.5);
 		letter-spacing: -0.01em;
 	}
 	.rent-stamp {
@@ -2658,7 +2661,7 @@
 
 	.card-iconwell {
 		/* Legacy class kept for any straggler usage; no longer applied to header */
-		background: linear-gradient(160deg, oklch(0.86 0.13 195 / 0.25), oklch(0.55 0.11 210 / 0.25));
+		background: linear-gradient(160deg, hsl(var(--accent) / 0.25), hsl(var(--accent) / 0.25));
 		color: var(--aqua);
 	}
 
@@ -2667,7 +2670,7 @@
 		padding: 8px 12px 6px 36px; /* leave room for the flip button */
 		text-align: left;
 		border-bottom: 1px solid var(--line-soft);
-		background: linear-gradient(180deg, oklch(0.20 0.028 220 / 0.85), oklch(0.18 0.025 220 / 0.6));
+		background: linear-gradient(180deg, hsl(var(--card) / 0.85), hsl(var(--background) / 0.6));
 	}
 	.back-banner .banner-sub {
 		text-align: left;
@@ -2742,15 +2745,15 @@
 		height: 24px;
 		border-radius: 6px;
 		border: 1px solid var(--line-soft);
-		background: oklch(0.20 0.028 220 / 0.6);
+		background: hsl(var(--card) / 0.6);
 		color: var(--ink-3);
 		cursor: pointer;
 		transition: background 100ms ease, color 100ms ease, border-color 100ms ease;
 	}
 	.copy-btn:hover:not(:disabled) {
-		background: oklch(0.86 0.13 195 / 0.12);
+		background: hsl(var(--accent) / 0.12);
 		color: var(--aqua);
-		border-color: oklch(0.86 0.13 195 / 0.3);
+		border-color: hsl(var(--accent) / 0.3);
 	}
 	.copy-btn:disabled {
 		opacity: 0.35;
@@ -2772,7 +2775,7 @@
 		padding: 6px 8px;
 		border-radius: 6px;
 		border: 1px solid var(--line-soft);
-		background: oklch(0.20 0.028 220 / 0.5);
+		background: hsl(var(--card) / 0.5);
 		color: var(--ink-3);
 		font-family: inherit;
 		font-size: 12px;
@@ -2782,8 +2785,8 @@
 		transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
 	}
 	.assignment-picker:hover {
-		background: oklch(0.20 0.028 220 / 0.8);
-		border-color: oklch(0.86 0.13 195 / 0.3);
+		background: hsl(var(--card) / 0.8);
+		border-color: hsl(var(--accent) / 0.3);
 		color: var(--ink);
 	}
 	.assignment-picker svg { color: var(--ink-4); }
@@ -2800,7 +2803,7 @@
 		padding: 5px 10px;
 		border-radius: 6px;
 		border: 1px solid var(--line-soft);
-		background: oklch(0.20 0.028 220 / 0.6);
+		background: hsl(var(--card) / 0.6);
 		color: var(--ink-2);
 		font-family: inherit;
 		font-size: 10px;
@@ -2811,30 +2814,30 @@
 		transition: background 100ms ease, color 100ms ease, border-color 100ms ease;
 	}
 	.back-action-btn:hover {
-		background: oklch(0.86 0.13 195 / 0.12);
+		background: hsl(var(--accent) / 0.12);
 		color: var(--aqua);
-		border-color: oklch(0.86 0.13 195 / 0.3);
+		border-color: hsl(var(--accent) / 0.3);
 	}
 	.back-action-btn.back-action-warn:hover {
-		background: oklch(0.66 0.18 25 / 0.12);
-		color: oklch(0.78 0.16 25);
-		border-color: oklch(0.66 0.18 25 / 0.3);
+		background: hsl(var(--destructive) / 0.12);
+		color: hsl(var(--destructive));
+		border-color: hsl(var(--destructive) / 0.3);
 	}
 	.tenant-chip {
-		background: oklch(0.86 0.13 195 / 0.08);
+		background: hsl(var(--accent) / 0.08);
 		color: var(--aqua);
-		border: 1px solid oklch(0.86 0.13 195 / 0.25);
+		border: 1px solid hsl(var(--accent) / 0.25);
 	}
-	.tenant-chip[data-slug='kubeira-family']    { color: oklch(0.78 0.16 25); background: oklch(0.78 0.16 25 / 0.08); border-color: oklch(0.78 0.16 25 / 0.3); }
-	.tenant-chip[data-slug='kubeira-holdings']  { color: oklch(0.78 0.13 165); background: oklch(0.78 0.13 165 / 0.08); border-color: oklch(0.78 0.13 165 / 0.3); }
-	.tenant-chip[data-slug='kubeira-it-park']   { color: var(--aqua); background: oklch(0.86 0.13 195 / 0.08); border-color: oklch(0.86 0.13 195 / 0.3); }
-	.tenant-chip[data-slug='vishwara-holdings'] { color: oklch(0.80 0.16 75); background: oklch(0.80 0.16 75 / 0.08); border-color: oklch(0.80 0.16 75 / 0.3); }
-	.tenant-chip[data-slug='kubeira-family'] .aqua-dot { background: oklch(0.78 0.16 25); box-shadow: 0 0 0 3px oklch(0.78 0.16 25 / 0.18); animation-name: pulse-rose; }
-	.tenant-chip[data-slug='kubeira-holdings'] .aqua-dot { background: oklch(0.78 0.13 165); box-shadow: 0 0 0 3px oklch(0.78 0.13 165 / 0.18); animation-name: pulse-good; }
-	.tenant-chip[data-slug='vishwara-holdings'] .aqua-dot { background: oklch(0.80 0.16 75); box-shadow: 0 0 0 3px oklch(0.80 0.16 75 / 0.18); animation-name: pulse-warm; }
-	@keyframes pulse-rose { 0%,100%{box-shadow:0 0 0 3px oklch(0.78 0.16 25 / 0.18);} 50%{box-shadow:0 0 0 7px oklch(0.78 0.16 25 / 0);} }
-	@keyframes pulse-good { 0%,100%{box-shadow:0 0 0 3px oklch(0.78 0.13 165 / 0.18);} 50%{box-shadow:0 0 0 7px oklch(0.78 0.13 165 / 0);} }
-	@keyframes pulse-warm { 0%,100%{box-shadow:0 0 0 3px oklch(0.80 0.16 75 / 0.18);} 50%{box-shadow:0 0 0 7px oklch(0.80 0.16 75 / 0);} }
+	.tenant-chip[data-slug='kubeira-family']    { color: hsl(var(--destructive)); background: hsl(var(--destructive) / 0.08); border-color: hsl(var(--destructive) / 0.3); }
+	.tenant-chip[data-slug='kubeira-holdings']  { color: hsl(var(--success)); background: hsl(var(--success) / 0.08); border-color: hsl(var(--success) / 0.3); }
+	.tenant-chip[data-slug='kubeira-it-park']   { color: var(--aqua); background: hsl(var(--accent) / 0.08); border-color: hsl(var(--accent) / 0.3); }
+	.tenant-chip[data-slug='vishwara-holdings'] { color: hsl(var(--warning)); background: hsl(var(--warning) / 0.08); border-color: hsl(var(--warning) / 0.3); }
+	.tenant-chip[data-slug='kubeira-family'] .aqua-dot { background: hsl(var(--destructive)); box-shadow: 0 0 0 3px hsl(var(--destructive) / 0.18); animation-name: pulse-rose; }
+	.tenant-chip[data-slug='kubeira-holdings'] .aqua-dot { background: hsl(var(--success)); box-shadow: 0 0 0 3px hsl(var(--success) / 0.18); animation-name: pulse-good; }
+	.tenant-chip[data-slug='vishwara-holdings'] .aqua-dot { background: hsl(var(--warning)); box-shadow: 0 0 0 3px hsl(var(--warning) / 0.18); animation-name: pulse-warm; }
+	@keyframes pulse-rose { 0%,100%{box-shadow:0 0 0 3px hsl(var(--destructive) / 0.18);} 50%{box-shadow:0 0 0 7px hsl(var(--destructive) / 0);} }
+	@keyframes pulse-good { 0%,100%{box-shadow:0 0 0 3px hsl(var(--success) / 0.18);} 50%{box-shadow:0 0 0 7px hsl(var(--success) / 0);} }
+	@keyframes pulse-warm { 0%,100%{box-shadow:0 0 0 3px hsl(var(--warning) / 0.18);} 50%{box-shadow:0 0 0 7px hsl(var(--warning) / 0);} }
 	/* Don't force position: relative on .flip-inner — it must stay absolute to fill the card */
 	.property-card > .card-flip-btn { z-index: 5; }
 
@@ -2846,7 +2849,7 @@
 		margin: 8px 12px 12px;
 		margin-top: auto;
 		padding: 6px;
-		background: oklch(0.22 0.028 220 / 0.55);
+		background: hsl(var(--card) / 0.55);
 		border: 1px solid var(--line-soft);
 		border-radius: 14px;
 		display: flex;
@@ -2867,8 +2870,8 @@
 		padding: 0 12px;
 		border: 1px solid transparent;
 		border-radius: 8px;
-		background: linear-gradient(180deg, oklch(0.86 0.13 195) 0%, oklch(0.55 0.11 210) 100%);
-		color: oklch(0.16 0.025 220);
+		background: linear-gradient(180deg, hsl(var(--accent)) 0%, hsl(var(--accent) / 0.55) 100%);
+		color: hsl(var(--background));
 		font-family: 'Fredoka', system-ui, sans-serif;
 		font-size: 11px;
 		font-weight: 600;
@@ -2891,17 +2894,17 @@
 		margin-top: 6px;
 		padding: 8px 12px;
 		border-color: var(--aqua);
-		box-shadow: 0 6px 16px -4px oklch(0.86 0.13 195 / 0.5);
+		box-shadow: 0 6px 16px -4px hsl(var(--accent) / 0.5);
 	}
 	.card-open-btn:hover {
 		filter: brightness(1.1);
-		box-shadow: 0 10px 24px -4px oklch(0.86 0.13 195 / 0.6);
+		box-shadow: 0 10px 24px -4px hsl(var(--accent) / 0.6);
 	}
 	/* Hide the button entirely when card is flipped */
 	.flip-inner.flipped .card-open-btn { display: none; }
 	/* Single-unit "showcase" cards get a stronger halo */
 	.property-card.card-single::before {
-		background: radial-gradient(circle, oklch(0.86 0.13 195 / 0.28) 0%, oklch(0.86 0.13 195 / 0) 60%);
+		background: radial-gradient(circle, hsl(var(--accent) / 0.28) 0%, hsl(var(--accent) / 0) 60%);
 		width: 460px;
 		height: 460px;
 	}
@@ -2922,7 +2925,7 @@
 	.utility-strip {
 		border-top: 1px solid var(--line-soft);
 		border-bottom: 1px solid var(--line-soft);
-		background: oklch(0.13 0.025 220 / 0.55);
+		background: hsl(var(--background) / 0.55);
 	}
 	.utility-chip {
 		display: inline-flex;
@@ -2931,13 +2934,13 @@
 		flex: 1;
 		padding: 4px 6px;
 		border-radius: 6px;
-		background: oklch(0.20 0.025 220 / 0.7);
+		background: hsl(var(--card) / 0.7);
 		border: 1px solid var(--line-soft);
 		transition: background 100ms ease, border-color 100ms ease;
 	}
 	.property-card:hover .utility-chip {
-		background: oklch(0.24 0.030 220 / 0.85);
-		border-color: oklch(0.86 0.13 195 / 0.18);
+		background: hsl(var(--card) / 0.85);
+		border-color: hsl(var(--accent) / 0.18);
 	}
 
 	:global(.dark) .unit-token.occupied {
@@ -3010,11 +3013,11 @@
 	}
 	.mobile-card:active {
 		transform: scale(0.99);
-		border-color: oklch(0.86 0.13 195 / 0.5);
+		border-color: hsl(var(--accent) / 0.5);
 	}
 	.mobile-card-banner {
 		width: 100%;
-		background: oklch(0.18 0.025 220);
+		background: hsl(var(--background));
 		min-height: 110px;
 	}
 	.mobile-card-icon {
@@ -3148,8 +3151,8 @@
 		height: 40px;
 		margin-bottom: 12px;
 		border-radius: 10px;
-		background: oklch(0.66 0.18 25 / 0.18);
-		color: oklch(0.85 0.10 25);
+		background: hsl(var(--destructive) / 0.18);
+		color: hsl(var(--destructive));
 	}
 	.confirm-title {
 		margin: 0;
@@ -3188,9 +3191,9 @@
 		color: #f8fafc;
 	}
 	.confirm-destructive {
-		background: oklch(0.66 0.18 25);
+		background: hsl(var(--destructive));
 		color: white;
-		border: 1px solid oklch(0.66 0.18 25);
+		border: 1px solid hsl(var(--destructive));
 	}
 	.confirm-destructive:hover {
 		filter: brightness(1.06);

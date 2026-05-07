@@ -249,11 +249,11 @@
 		width: 420px;
 		display: flex;
 		flex-direction: column;
-		background: oklch(0.18 0.025 220 / 0.96);
+		background: hsl(var(--background) / 0.96);
 		backdrop-filter: blur(10px);
-		border-left: 1px solid oklch(0.32 0.030 220);
-		box-shadow: -16px 0 48px -16px oklch(0.05 0 0 / 0.5);
-		color: oklch(0.97 0.012 200);
+		border-left: 1px solid hsl(var(--border));
+		box-shadow: -16px 0 48px -16px hsl(0 0% 0% / 0.5);
+		color: hsl(var(--foreground));
 		z-index: 14;
 		overflow: hidden;
 	}
@@ -262,7 +262,7 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 12px 14px;
-		border-bottom: 1px solid oklch(0.275 0.028 220);
+		border-bottom: 1px solid hsl(var(--border));
 	}
 	.editor-title {
 		display: flex;
@@ -273,12 +273,12 @@
 	.editor-title-main {
 		font-size: 13px;
 		font-weight: 600;
-		color: oklch(0.86 0.13 195);
+		color: hsl(var(--accent));
 	}
 	.editor-title-sub {
 		margin-top: 2px;
 		font-size: 11px;
-		color: oklch(0.78 0.018 200);
+		color: hsl(var(--foreground) / 0.85);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -292,21 +292,21 @@
 		border-radius: 8px;
 		border: 1px solid transparent;
 		background: transparent;
-		color: oklch(0.78 0.018 200);
+		color: hsl(var(--foreground) / 0.85);
 		cursor: pointer;
 	}
 	.editor-close:hover {
-		background: oklch(0.215 0.028 220);
-		color: oklch(0.97 0.012 200);
+		background: hsl(var(--card));
+		color: hsl(var(--foreground));
 	}
 
 	.editor-error {
 		margin: 8px 14px 0;
 		padding: 7px 10px;
-		background: oklch(0.66 0.18 25 / 0.15);
-		border: 1px solid oklch(0.66 0.18 25 / 0.4);
+		background: hsl(var(--destructive) / 0.15);
+		border: 1px solid hsl(var(--destructive) / 0.4);
 		border-radius: 8px;
-		color: oklch(0.85 0.10 25);
+		color: hsl(var(--destructive));
 		font-size: 12px;
 	}
 
@@ -331,38 +331,38 @@
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
-		color: oklch(0.58 0.020 200);
+		color: hsl(var(--muted-foreground));
 	}
 	.field input,
 	.field select {
 		padding: 7px 10px;
-		background: oklch(0.215 0.028 220);
-		border: 1px solid oklch(0.32 0.030 220);
+		background: hsl(var(--card));
+		border: 1px solid hsl(var(--border));
 		border-radius: 8px;
-		color: oklch(0.97 0.012 200);
+		color: hsl(var(--foreground));
 		font-size: 12.5px;
 		font-family: inherit;
 		outline: none;
 	}
 	.field input:focus,
 	.field select:focus {
-		border-color: oklch(0.86 0.13 195 / 0.6);
+		border-color: hsl(var(--accent) / 0.6);
 	}
 
 	.hint {
 		margin: 0;
 		padding: 8px 10px;
 		font-size: 11px;
-		color: oklch(0.58 0.020 200);
-		background: oklch(0.215 0.028 220 / 0.4);
-		border: 1px dashed oklch(0.32 0.030 220);
+		color: hsl(var(--muted-foreground));
+		background: hsl(var(--card) / 0.4);
+		border: 1px dashed hsl(var(--border));
 		border-radius: 8px;
 	}
 
 	.util-block {
 		padding: 10px 12px;
-		background: oklch(0.215 0.028 220 / 0.5);
-		border: 1px solid oklch(0.32 0.030 220);
+		background: hsl(var(--card) / 0.5);
+		border: 1px solid hsl(var(--border));
 		border-radius: 10px;
 	}
 	.util-head {
@@ -374,14 +374,14 @@
 	.util-title {
 		font-size: 12.5px;
 		font-weight: 600;
-		color: oklch(0.97 0.012 200);
+		color: hsl(var(--foreground));
 	}
 	.util-head select {
 		padding: 5px 8px;
-		background: oklch(0.18 0.025 220);
-		border: 1px solid oklch(0.32 0.030 220);
+		background: hsl(var(--background));
+		border: 1px solid hsl(var(--border));
 		border-radius: 6px;
-		color: oklch(0.97 0.012 200);
+		color: hsl(var(--foreground));
 		font-size: 12px;
 		font-family: inherit;
 	}
@@ -397,7 +397,7 @@
 		justify-content: flex-end;
 		gap: 8px;
 		padding-top: 10px;
-		border-top: 1px solid oklch(0.275 0.028 220);
+		border-top: 1px solid hsl(var(--border));
 	}
 	.editor-footer button {
 		display: inline-flex;
@@ -412,17 +412,17 @@
 	}
 	.editor-footer .ghost {
 		background: transparent;
-		color: oklch(0.78 0.018 200);
-		border: 1px solid oklch(0.32 0.030 220);
+		color: hsl(var(--foreground) / 0.85);
+		border: 1px solid hsl(var(--border));
 	}
 	.editor-footer .ghost:hover:not(:disabled) {
-		background: oklch(0.215 0.028 220);
-		color: oklch(0.97 0.012 200);
+		background: hsl(var(--card));
+		color: hsl(var(--foreground));
 	}
 	.editor-footer .primary {
-		background: oklch(0.86 0.13 195);
-		color: oklch(0.16 0.025 220);
-		border: 1px solid oklch(0.86 0.13 195);
+		background: hsl(var(--accent));
+		color: hsl(var(--background));
+		border: 1px solid hsl(var(--accent));
 	}
 	.editor-footer .primary:hover:not(:disabled) {
 		filter: brightness(1.08);

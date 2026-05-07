@@ -239,7 +239,7 @@
 		position: relative;
 		width: 100%;
 		overflow: hidden;
-		background: oklch(0.18 0.025 220);
+		background: hsl(var(--background));
 	}
 	.property-map :global(.maplibregl-ctrl-attrib),
 	.property-map :global(.maplibregl-ctrl-logo) {
