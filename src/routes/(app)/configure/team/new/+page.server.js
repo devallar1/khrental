@@ -45,6 +45,6 @@ export const actions = {
 			return fail(500, { error: 'Failed to create team member', name, email, role, notes });
 		}
 
-		throw redirect(303, '/team');
+		throw redirect(303, '/configure/team');
 	}
 };

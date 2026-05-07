@@ -7,7 +7,6 @@
 	let sidebarOpen = $state(false);              // mobile slide-in drawer
 	let sidebarCollapsed = $state(false);          // desktop narrow-bar mode
 	let invoicesOpen = $state(false);
-	let agreementsOpen = $state(false);
 
 	const COLLAPSED_KEY = 'kh_sidebar_collapsed';
 	$effect(() => {
@@ -42,7 +41,6 @@
 	// Auto-expand sections based on current route
 	$effect(() => {
 		if ($page.url.pathname.includes('/invoices')) invoicesOpen = true;
-		if ($page.url.pathname.includes('/agreements')) agreementsOpen = true;
 	});
 
 	const isActive = (path) => {
@@ -69,15 +67,13 @@
 		{ path: '/manager', label: "Manager's Ledger", icon: Crown },
 		{ path: '/properties', label: 'Properties', icon: Building2 },
 		{ path: '/tenants', label: 'Tenants', icon: Users },
+		{ path: '/agreements', label: 'Agreements', icon: FileText },
 	];
 
 	const bottomNavItems = [
 		{ path: '/maintenance', label: 'Maintenance', icon: Wrench },
 		{ path: '/cameras', label: 'Cameras', icon: Camera },
-		{ path: '/team', label: 'Team', icon: UsersRound },
-		{ path: '/settings', label: 'Settings', icon: Settings },
-		{ path: '/tenant-admin', label: 'Organizations', icon: ShieldCheck },
-		{ path: '/admin-dashboard', label: 'Admin Dashboard', icon: LayoutDashboard },
+		{ path: '/configure', label: 'Configure', icon: Settings },
 		{ path: '/design', label: 'Design lab', icon: Palette },
 	];
 </script>
@@ -152,40 +148,6 @@
 							{#if !compact}{item.label}{/if}
 						</a>
 					{/each}
-
-					<!-- Agreements: accordion when expanded; direct link to /agreements when compact -->
-					{#if compact}
-						<a
-							href="/agreements"
-							class={`flex items-center justify-center rounded-xl p-2 transition ${isActive('/agreements') ? 'bg-white text-slate-950' : 'text-slate-200 hover:bg-white/10 hover:text-white'}`}
-							title="Agreements"
-						>
-							<FileText class="h-4 w-4" />
-						</a>
-					{:else}
-						<div>
-							<button
-								onclick={() => (agreementsOpen = !agreementsOpen)}
-								class="flex items-center justify-between w-full rounded-2xl px-3 py-2.5 text-sm font-medium transition {isActive('/agreements') || agreementsOpen ? 'bg-white/12 text-white' : 'text-slate-200 hover:bg-white/10 hover:text-white'}"
-							>
-								<span class="flex items-center">
-									<FileText class="h-4 w-4 mr-2.5" />
-									Agreements
-								</span>
-								{#if agreementsOpen}
-									<ChevronUp class="w-4 h-4" />
-								{:else}
-									<ChevronDown class="w-4 h-4" />
-								{/if}
-							</button>
-							{#if agreementsOpen}
-								<div class="mt-2 ml-3 space-y-1 border-l border-white/15 pl-3 py-1">
-									<a href="/agreements" class={subNavClass('/agreements')}>All Agreements</a>
-									<a href="/agreements/templates" class={subNavClass('/agreements/templates')}>Templates</a>
-								</div>
-							{/if}
-						</div>
-					{/if}
 
 					<!-- Invoices: accordion when expanded; direct link to /invoices when compact -->
 					{#if compact}

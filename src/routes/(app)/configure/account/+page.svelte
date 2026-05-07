@@ -87,7 +87,7 @@
 
 	<!-- Document Management -->
 	<div class="mt-6">
-		<a href="/settings/documents" class="block rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:border-slate-300 hover:shadow transition group">
+		<a href="/configure/documents" class="block rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:border-slate-300 hover:shadow transition group">
 			<div class="flex items-center gap-3 mb-2">
 				<div class="rounded-xl bg-teal-500 p-2.5 text-white">
 					<FileText class="h-5 w-5" />

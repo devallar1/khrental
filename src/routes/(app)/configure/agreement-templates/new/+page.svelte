@@ -15,7 +15,7 @@
 	<!-- Header -->
 	<div class="mb-6">
 		<a
-			href="/agreements/templates"
+			href="/configure/agreement-templates"
 			class="inline-flex items-center gap-1.5 text-sm text-slate-500 transition hover:text-slate-700"
 		>
 			<ArrowLeft class="h-4 w-4" />
@@ -98,7 +98,7 @@
 		<!-- Actions -->
 		<div class="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-6">
 			<a
-				href="/agreements/templates"
+				href="/configure/agreement-templates"
 				class="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:text-slate-900"
 			>
 				Cancel

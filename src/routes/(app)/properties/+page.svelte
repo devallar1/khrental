@@ -48,7 +48,7 @@
 		</div>
 		<div class="flex items-center gap-2">
 			<a
-				href="/properties/bank-profiles"
+				href="/configure/bank-profiles"
 				class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
 			>
 				<Wallet class="h-4 w-4" />

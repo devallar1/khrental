@@ -10,7 +10,7 @@
 
 <div>
 	<div class="mb-8">
-		<a href="/team" class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition mb-4">
+		<a href="/configure/team" class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition mb-4">
 			<ArrowLeft class="h-4 w-4" />
 			Back to Team
 		</a>
@@ -85,7 +85,7 @@
 				>
 					Add Member
 				</button>
-				<a href="/team" class="rounded-2xl px-5 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition">
+				<a href="/configure/team" class="rounded-2xl px-5 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition">
 					Cancel
 				</a>
 			</div>

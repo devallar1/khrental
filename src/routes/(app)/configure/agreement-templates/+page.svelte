@@ -34,7 +34,7 @@
 				<p class="mt-1 text-sm text-slate-500">{data.templates.length} template{data.templates.length !== 1 ? 's' : ''}</p>
 			</div>
 			<a
-				href="/agreements/templates/new"
+				href="/configure/agreement-templates/new"
 				class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
 			>
 				<Plus class="h-4 w-4" />
@@ -81,7 +81,7 @@
 			<h3 class="mt-4 text-sm font-medium text-slate-900">No templates yet</h3>
 			<p class="mt-1 text-sm text-slate-500">Create a template to use when drafting agreements.</p>
 			<a
-				href="/agreements/templates/new"
+				href="/configure/agreement-templates/new"
 				class="mt-4 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
 			>
 				<Plus class="h-4 w-4" />

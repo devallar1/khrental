@@ -435,7 +435,7 @@
 				{#if filteredBankProfiles.length === 0}
 					<div class="bank-empty">
 						No bank profiles for this org yet.
-						<a href="/properties/bank-profiles" target="_blank" rel="noopener">
+						<a href="/configure/bank-profiles" target="_blank" rel="noopener">
 							Create one ↗
 						</a>
 					</div>
@@ -460,7 +460,7 @@
 							</label>
 						{/each}
 					</div>
-					<a href="/properties/bank-profiles" target="_blank" rel="noopener" class="bank-link">
+					<a href="/configure/bank-profiles" target="_blank" rel="noopener" class="bank-link">
 						<Plus class="h-3.5 w-3.5" /> Add a new profile
 					</a>
 				{/if}

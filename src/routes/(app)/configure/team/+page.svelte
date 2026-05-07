@@ -26,7 +26,7 @@
 			<p class="mt-1 text-sm text-slate-500">{members.length} team member{members.length !== 1 ? 's' : ''}</p>
 		</div>
 		<a
-			href="/team/new"
+			href="/configure/team/new"
 			class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800 transition"
 		>
 			<Plus class="h-4 w-4" />
@@ -40,7 +40,7 @@
 			<h3 class="mt-4 text-sm font-medium text-slate-900">No team members</h3>
 			<p class="mt-1 text-sm text-slate-500">Get started by adding a team member.</p>
 			<a
-				href="/team/new"
+				href="/configure/team/new"
 				class="mt-4 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 transition"
 			>
 				<Plus class="h-4 w-4" />

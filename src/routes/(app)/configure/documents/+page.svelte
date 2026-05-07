@@ -53,7 +53,7 @@
 
 <div>
 	<div class="mb-8">
-		<a href="/settings" class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition mb-4">
+		<a href="/configure" class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition mb-4">
 			<ArrowLeft class="h-4 w-4" />
 			Back to Settings
 		</a>
@@ -251,7 +251,7 @@
 									</td>
 									<td class="px-6 py-3 text-right">
 										<a
-											href="/settings/documents/download/{doc.id}"
+											href="/configure/documents/download/{doc.id}"
 											target="_blank"
 											rel="noopener noreferrer"
 											class="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition"
