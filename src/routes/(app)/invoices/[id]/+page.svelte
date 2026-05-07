@@ -1,6 +1,23 @@
 <script>
 	import { enhance } from '$app/forms';
-	import { ArrowLeft, Receipt, Calendar, User, Building2, CreditCard, FileText, RefreshCw, Printer, Copy, Check, Lock, Unlock, Pencil, History, AlertTriangle } from 'lucide-svelte';
+	import {
+		ArrowLeft,
+		Receipt,
+		Calendar,
+		User,
+		Building2,
+		CreditCard,
+		FileText,
+		RefreshCw,
+		Printer,
+		Copy,
+		Check,
+		Lock,
+		Unlock,
+		Pencil,
+		History,
+		AlertTriangle
+	} from 'lucide-svelte';
 	import { formatCurrency } from '$lib/format/money.js';
 	import { resolveInvoiceSenderName } from '$lib/format/invoiceSender.js';
 
@@ -14,7 +31,7 @@
 
 	let syncLoading = $state(false);
 	let syncResult = $state(null);
-	let copyState = $state('idle'); // 'idle' | 'copied' | 'error'
+	let copyState = $state('idle');
 	let lockSubmitting = $state(false);
 
 	function onLockSubmit() {
@@ -28,16 +45,13 @@
 	async function syncToErpNext() {
 		syncLoading = true;
 		syncResult = null;
-
 		try {
 			const res = await fetch('/api/erpnext/sync-invoice', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ invoiceId: invoice.id })
 			});
-
 			const json = await res.json();
-
 			if (json.success) {
 				syncResult = { type: 'success', message: `Synced as ${json.erpnextInvoice}` };
 			} else {
@@ -107,10 +121,14 @@
 		try {
 			await navigator.clipboard.writeText(buildInvoiceText());
 			copyState = 'copied';
-			setTimeout(() => { copyState = 'idle'; }, 2000);
+			setTimeout(() => {
+				copyState = 'idle';
+			}, 2000);
 		} catch {
 			copyState = 'error';
-			setTimeout(() => { copyState = 'idle'; }, 2000);
+			setTimeout(() => {
+				copyState = 'idle';
+			}, 2000);
 		}
 	}
 
@@ -127,8 +145,8 @@
 	});
 
 	const formatDate = (dateStr) => {
-		if (!dateStr) return '--';
-		return new Date(dateStr).toLocaleDateString('en-US', {
+		if (!dateStr) return '—';
+		return new Date(dateStr).toLocaleDateString('en-GB', {
 			year: 'numeric',
 			month: 'long',
 			day: 'numeric'
@@ -136,8 +154,8 @@
 	};
 
 	const formatDateTime = (dateStr) => {
-		if (!dateStr) return '--';
-		return new Date(dateStr).toLocaleString('en-US', {
+		if (!dateStr) return '—';
+		return new Date(dateStr).toLocaleString('en-GB', {
 			year: 'numeric',
 			month: 'short',
 			day: 'numeric',
@@ -147,55 +165,60 @@
 	};
 
 	const statusBadgeClass = (status) => {
-		const base = 'inline-flex items-center rounded-full px-3 py-1 text-sm font-medium capitalize';
 		switch (status) {
 			case 'paid':
-				return `${base} bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20`;
+				return 'inline-flex items-center rounded-full bg-success/15 px-3 py-1 text-sm font-medium capitalize text-success';
 			case 'locked':
 			case 'pending':
-				return `${base} bg-amber-50 text-amber-700 ring-1 ring-amber-600/20`;
+				return 'inline-flex items-center rounded-full bg-warning/20 px-3 py-1 text-sm font-medium capitalize text-warning-foreground dark:bg-warning/15 dark:text-warning';
 			case 'overdue':
-				return `${base} bg-red-50 text-red-700 ring-1 ring-red-600/20`;
+				return 'inline-flex items-center rounded-full bg-destructive/15 px-3 py-1 text-sm font-medium capitalize text-destructive';
 			case 'draft':
-				return `${base} bg-blue-50 text-blue-700 ring-1 ring-blue-600/20`;
+				return 'inline-flex items-center rounded-full bg-primary/15 px-3 py-1 text-sm font-medium capitalize text-primary';
 			case 'cancelled':
-				return `${base} bg-slate-50 text-slate-600 ring-1 ring-slate-500/20`;
+				return 'inline-flex items-center rounded-full bg-muted px-3 py-1 text-sm font-medium capitalize text-muted-foreground';
 			default:
-				return `${base} bg-slate-50 text-slate-600 ring-1 ring-slate-500/20`;
+				return 'inline-flex items-center rounded-full bg-muted px-3 py-1 text-sm font-medium capitalize text-muted-foreground';
 		}
 	};
 
 	const auditLabel = (action) => {
 		switch (action) {
-			case 'created': return 'Created (draft)';
-			case 'edited':  return 'Edited';
-			case 'locked':  return 'Locked';
-			case 'unlocked':return 'Unlocked';
-			case 'deleted': return 'Deleted';
-			default:        return action;
+			case 'created':
+				return 'Created (draft)';
+			case 'edited':
+				return 'Edited';
+			case 'locked':
+				return 'Locked';
+			case 'unlocked':
+				return 'Unlocked';
+			case 'deleted':
+				return 'Deleted';
+			default:
+				return action;
 		}
 	};
 </script>
 
 <svelte:head>
-	<title>Invoice - {invoice.billingperiod || 'Detail'} - KH Rentals</title>
+	<title>Invoice — {invoice.billingperiod || 'Detail'} — KH Rentals</title>
 </svelte:head>
 
-<div>
-	<!-- Back button and header -->
-	<div class="mb-6 flex flex-wrap items-center gap-3">
+<div class="space-y-6">
+	<!-- Back + actions row -->
+	<div class="flex flex-wrap items-center gap-3">
 		<a
 			href="/invoices"
-			class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+			class="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
 		>
 			<ArrowLeft class="h-4 w-4" />
-			Back to Invoices
+			Back to invoices
 		</a>
 
 		{#if isDraft}
 			<a
 				href="/invoices/{invoice.id}/edit"
-				class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+				class="inline-flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-primary to-accent px-3 py-1.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 			>
 				<Pencil class="h-3.5 w-3.5" />
 				Edit
@@ -204,7 +227,7 @@
 				<button
 					type="submit"
 					disabled={lockSubmitting}
-					class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
+					class="inline-flex items-center gap-1.5 rounded-2xl bg-success px-3 py-1.5 text-sm font-semibold text-success-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:opacity-90 disabled:opacity-50"
 				>
 					<Lock class="h-3.5 w-3.5" />
 					{lockSubmitting ? 'Locking…' : 'Lock invoice'}
@@ -215,7 +238,7 @@
 				href="/invoices/{invoice.id}/print"
 				target="_blank"
 				rel="noopener noreferrer"
-				class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+				class="inline-flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-primary to-accent px-3 py-1.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 			>
 				<Printer class="h-3.5 w-3.5" />
 				Print / PDF
@@ -223,14 +246,14 @@
 
 			<button
 				onclick={copyAsText}
-				class="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50"
+				class="inline-flex items-center gap-1.5 rounded-2xl border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:bg-secondary"
 			>
 				{#if copyState === 'copied'}
-					<Check class="h-3.5 w-3.5 text-emerald-600" />
-					<span class="text-emerald-700">Copied</span>
+					<Check class="h-3.5 w-3.5 text-success" />
+					<span class="text-success">Copied</span>
 				{:else if copyState === 'error'}
 					<Copy class="h-3.5 w-3.5" />
-					<span class="text-red-600">Copy failed</span>
+					<span class="text-destructive">Copy failed</span>
 				{:else}
 					<Copy class="h-3.5 w-3.5" />
 					Copy as text
@@ -242,7 +265,7 @@
 					<button
 						type="submit"
 						disabled={lockSubmitting}
-						class="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-amber-700 shadow-sm ring-1 ring-amber-200 transition hover:bg-amber-50 disabled:opacity-50"
+						class="inline-flex items-center gap-1.5 rounded-2xl border border-warning/30 bg-card px-3 py-1.5 text-sm font-medium text-warning-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:bg-warning/10 dark:text-warning disabled:opacity-50"
 					>
 						<Unlock class="h-3.5 w-3.5" />
 						{lockSubmitting ? 'Unlocking…' : 'Unlock to edit'}
@@ -255,13 +278,13 @@
 			<button
 				onclick={syncToErpNext}
 				disabled={syncLoading}
-				class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+				class="inline-flex items-center gap-1.5 rounded-2xl bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				<RefreshCw class="h-3.5 w-3.5 {syncLoading ? 'animate-spin' : ''}" />
-				{syncLoading ? 'Syncing...' : 'Sync to ERPNext'}
+				{syncLoading ? 'Syncing…' : 'Sync to ERPNext'}
 			</button>
 			{#if syncResult}
-				<span class="text-sm {syncResult.type === 'success' ? 'text-emerald-600' : 'text-red-600'}">
+				<span class="text-sm {syncResult.type === 'success' ? 'text-success' : 'text-destructive'}">
 					{syncResult.message}
 				</span>
 			{/if}
@@ -269,117 +292,122 @@
 	</div>
 
 	{#if isDraft}
-		<div class="mb-6 flex items-start gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
-			<AlertTriangle class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
-			<div class="text-sm text-blue-900">
+		<div class="flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/10 p-4">
+			<AlertTriangle class="mt-0.5 h-5 w-5 flex-shrink-0 text-primary" />
+			<div class="text-sm">
 				<p class="font-semibold">Draft invoice</p>
-				<p class="mt-0.5 text-blue-800">
+				<p class="mt-0.5 text-muted-foreground">
 					This invoice is editable and cannot be printed. Lock it when you're satisfied —
-					locked invoices can be printed and shared, and any later edits are recorded in the audit log.
+					locked invoices can be printed and shared, and any later edits are recorded in the
+					audit log.
 				</p>
 			</div>
 		</div>
 	{/if}
 
-	<div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+	<!-- Header -->
+	<header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">
-				Invoice: {invoice.billingperiod || '--'}
+			<p class="kicker">Invoice</p>
+			<h1 class="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+				{invoice.billingperiod || '—'}
 			</h1>
-			<p class="mt-1 text-sm text-slate-500">
+			<p class="mt-0.5 text-xs text-muted-foreground">
 				Created {formatDateTime(invoice.createdat)}
 			</p>
 		</div>
 		<span class={statusBadgeClass(invoice.status)}>
 			{invoice.status || 'unknown'}
 		</span>
-	</div>
+	</header>
 
-	<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+	<div class="grid gap-6 lg:grid-cols-3">
 		<!-- Main content -->
-		<div class="lg:col-span-2 space-y-6">
-			<!-- Rentee and Property -->
-			<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-				<h2 class="text-lg font-semibold text-slate-900">Details</h2>
-				<div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+		<div class="space-y-6 lg:col-span-2">
+			<!-- Tenant + property + dates -->
+			<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
+				<h2 class="font-display text-base font-semibold">Details</h2>
+				<dl class="mt-4 grid gap-4 sm:grid-cols-2">
 					<div class="flex items-start gap-3">
-						<div class="rounded-xl bg-blue-50 p-2.5">
-							<User class="h-5 w-5 text-blue-600" />
+						<div class="rounded-xl bg-primary/15 p-2.5 text-primary">
+							<User class="h-5 w-5" />
 						</div>
 						<div>
-							<p class="text-xs font-medium uppercase tracking-wider text-slate-400">Tenant</p>
-							<p class="mt-0.5 text-sm font-medium text-slate-900">{invoice.tenant_name || '--'}</p>
-							<p class="text-xs text-slate-500">{invoice.tenant_email || ''}</p>
+							<dt class="kicker">Tenant</dt>
+							<dd class="mt-0.5 text-sm font-medium">{invoice.tenant_name || '—'}</dd>
+							{#if invoice.tenant_email}
+								<p class="text-xs text-muted-foreground">{invoice.tenant_email}</p>
+							{/if}
 							{#if invoice.tenant_phone}
-								<p class="text-xs text-slate-500">{invoice.tenant_phone}</p>
+								<p class="font-mono text-xs text-muted-foreground">{invoice.tenant_phone}</p>
 							{/if}
 						</div>
 					</div>
 					<div class="flex items-start gap-3">
-						<div class="rounded-xl bg-violet-50 p-2.5">
-							<Building2 class="h-5 w-5 text-violet-600" />
+						<div class="rounded-xl bg-accent/15 p-2.5 text-accent">
+							<Building2 class="h-5 w-5" />
 						</div>
 						<div>
-							<p class="text-xs font-medium uppercase tracking-wider text-slate-400">Property</p>
-							<p class="mt-0.5 text-sm font-medium text-slate-900">{invoice.property_name || '--'}</p>
+							<dt class="kicker">Property</dt>
+							<dd class="mt-0.5 text-sm font-medium">{invoice.property_name || '—'}</dd>
 							{#if invoice.property_address}
-								<p class="text-xs text-slate-500">{invoice.property_address}</p>
+								<p class="text-xs text-muted-foreground">{invoice.property_address}</p>
 							{/if}
 						</div>
 					</div>
 					<div class="flex items-start gap-3">
-						<div class="rounded-xl bg-amber-50 p-2.5">
-							<Calendar class="h-5 w-5 text-amber-600" />
+						<div class="rounded-xl bg-warning/20 p-2.5 text-warning-foreground dark:bg-warning/15 dark:text-warning">
+							<Calendar class="h-5 w-5" />
 						</div>
 						<div>
-							<p class="text-xs font-medium uppercase tracking-wider text-slate-400">Due Date</p>
-							<p class="mt-0.5 text-sm font-medium text-slate-900">{formatDate(invoice.duedate)}</p>
+							<dt class="kicker">Due date</dt>
+							<dd class="mt-0.5 text-sm font-medium">{formatDate(invoice.duedate)}</dd>
 						</div>
 					</div>
 					<div class="flex items-start gap-3">
-						<div class="rounded-xl bg-emerald-50 p-2.5">
-							<Receipt class="h-5 w-5 text-emerald-600" />
+						<div class="rounded-xl bg-success/15 p-2.5 text-success">
+							<Receipt class="h-5 w-5" />
 						</div>
 						<div>
-							<p class="text-xs font-medium uppercase tracking-wider text-slate-400">Billing Period</p>
-							<p class="mt-0.5 text-sm font-medium text-slate-900">{invoice.billingperiod || '--'}</p>
+							<dt class="kicker">Billing period</dt>
+							<dd class="mt-0.5 text-sm font-medium">{invoice.billingperiod || '—'}</dd>
 						</div>
 					</div>
-				</div>
-			</div>
+				</dl>
+			</section>
 
-			<!-- Components breakdown -->
-			<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-				<h2 class="text-lg font-semibold text-slate-900">Line Items</h2>
+			<!-- Line items -->
+			<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
+				<h2 class="font-display text-base font-semibold">Line items</h2>
 				{#if components().length > 0}
-					<div class="mt-4 overflow-hidden rounded-xl border border-slate-100">
-						<table class="min-w-full divide-y divide-slate-100">
-							<thead class="bg-slate-50">
+					<div class="mt-4 overflow-hidden rounded-xl border border-border">
+						<table class="min-w-full divide-y divide-border">
+							<thead class="bg-secondary/50">
 								<tr>
-									<th class="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-										Description
-									</th>
-									<th class="px-4 py-2.5 text-right text-xs font-medium uppercase tracking-wider text-slate-500">
-										Amount
-									</th>
+									<th class="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+										>Description</th
+									>
+									<th class="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+										>Amount</th
+									>
 								</tr>
 							</thead>
-							<tbody class="divide-y divide-slate-50">
+							<tbody class="divide-y divide-border">
 								{#each components() as comp}
 									<tr>
-										<td class="px-4 py-3 text-sm text-slate-700">
-											{comp.description || comp.name || '--'}
+										<td class="px-4 py-3 text-sm">
+											{comp.description || comp.name || '—'}
 										</td>
-										<td class="px-4 py-3 text-right text-sm font-medium text-slate-900">
+										<td class="px-4 py-3 text-right font-mono text-sm font-medium">
 											{formatCurrency(comp.amount, invoice.currency)}
 										</td>
 									</tr>
 								{/each}
 							</tbody>
-							<tfoot class="bg-slate-50">
+							<tfoot class="bg-secondary/50">
 								<tr>
-									<td class="px-4 py-3 text-sm font-semibold text-slate-900">Total</td>
-									<td class="px-4 py-3 text-right text-sm font-bold text-slate-900">
+									<td class="px-4 py-3 text-sm font-semibold">Total</td>
+									<td class="px-4 py-3 text-right font-mono text-base font-bold">
 										{formatCurrency(invoice.totalamount, invoice.currency)}
 									</td>
 								</tr>
@@ -387,106 +415,112 @@
 						</table>
 					</div>
 				{:else}
-					<div class="mt-4 rounded-xl border border-dashed border-slate-200 p-6 text-center">
-						<p class="text-sm text-slate-500">No line items recorded.</p>
-						<p class="mt-1 text-lg font-bold text-slate-900">Total: {formatCurrency(invoice.totalamount, invoice.currency)}</p>
+					<div class="mt-4 rounded-xl border border-dashed border-border p-6 text-center">
+						<p class="text-sm text-muted-foreground">No line items recorded.</p>
+						<p class="mt-1 font-mono text-lg font-bold">
+							Total: {formatCurrency(invoice.totalamount, invoice.currency)}
+						</p>
 					</div>
 				{/if}
-			</div>
+			</section>
 
 			<!-- Notes -->
 			{#if invoice.notes}
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+				<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
 					<div class="flex items-center gap-2">
-						<FileText class="h-5 w-5 text-slate-400" />
-						<h2 class="text-lg font-semibold text-slate-900">Notes</h2>
+						<FileText class="h-4 w-4 text-muted-foreground" />
+						<h2 class="font-display text-base font-semibold">Notes</h2>
 					</div>
-					<p class="mt-3 whitespace-pre-wrap text-sm text-slate-600">{invoice.notes}</p>
-				</div>
+					<p class="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">{invoice.notes}</p>
+				</section>
 			{/if}
 
 			<!-- Audit log -->
 			{#if auditLog.length > 0}
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+				<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
 					<div class="flex items-center gap-2">
-						<History class="h-5 w-5 text-slate-400" />
-						<h2 class="text-lg font-semibold text-slate-900">Audit log</h2>
+						<History class="h-4 w-4 text-muted-foreground" />
+						<h2 class="font-display text-base font-semibold">Audit log</h2>
 					</div>
-					<ul class="mt-4 divide-y divide-slate-100">
+					<ul class="mt-4 divide-y divide-border">
 						{#each auditLog as entry}
 							<li class="flex items-start justify-between py-3 first:pt-0 last:pb-0">
 								<div>
-									<p class="text-sm font-medium text-slate-900">{auditLabel(entry.action)}</p>
-									<p class="text-xs text-slate-500">
+									<p class="text-sm font-medium">{auditLabel(entry.action)}</p>
+									<p class="text-xs text-muted-foreground">
 										{entry.user_name || entry.user_email || 'system'}
 									</p>
 								</div>
-								<p class="whitespace-nowrap text-xs text-slate-500">{formatDateTime(entry.created_at)}</p>
+								<p class="whitespace-nowrap text-xs text-muted-foreground">
+									{formatDateTime(entry.created_at)}
+								</p>
 							</li>
 						{/each}
 					</ul>
-				</div>
+				</section>
 			{/if}
 		</div>
 
 		<!-- Sidebar -->
 		<div class="space-y-6">
 			<!-- Amount card -->
-			<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-				<p class="text-xs font-medium uppercase tracking-wider text-slate-400">Total Amount</p>
-				<p class="mt-2 text-3xl font-bold text-slate-900">{formatCurrency(invoice.totalamount, invoice.currency)}</p>
+			<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
+				<p class="kicker">Total amount</p>
+				<p class="mt-2 font-mono text-3xl font-bold tracking-tight">
+					{formatCurrency(invoice.totalamount, invoice.currency)}
+				</p>
 				<div class="mt-3">
 					<span class={statusBadgeClass(invoice.status)}>
 						{invoice.status || 'unknown'}
 					</span>
 				</div>
-			</div>
+			</section>
 
 			<!-- Payment info -->
 			{#if invoice.status === 'paid' || invoice.paymentdate || invoice.paymentproofurl}
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+				<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
 					<div class="flex items-center gap-2">
-						<CreditCard class="h-5 w-5 text-emerald-600" />
-						<h2 class="text-lg font-semibold text-slate-900">Payment</h2>
+						<CreditCard class="h-4 w-4 text-success" />
+						<h2 class="font-display text-base font-semibold">Payment</h2>
 					</div>
 					{#if invoice.paymentdate}
 						<div class="mt-3">
-							<p class="text-xs font-medium uppercase tracking-wider text-slate-400">Payment Date</p>
-							<p class="mt-0.5 text-sm font-medium text-slate-900">{formatDateTime(invoice.paymentdate)}</p>
+							<p class="kicker">Payment date</p>
+							<p class="mt-0.5 text-sm font-medium">{formatDateTime(invoice.paymentdate)}</p>
 						</div>
 					{/if}
 					{#if invoice.paymentproofurl}
 						<div class="mt-3">
-							<p class="text-xs font-medium uppercase tracking-wider text-slate-400">Proof of Payment</p>
+							<p class="kicker">Proof of payment</p>
 							<a
 								href={invoice.paymentproofurl}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="mt-0.5 inline-block text-sm font-medium text-blue-600 hover:text-blue-800"
+								class="mt-0.5 inline-block text-sm font-medium text-primary transition-colors hover:underline"
 							>
 								View proof
 							</a>
 						</div>
 					{/if}
-				</div>
+				</section>
 			{/if}
 
 			<!-- Timestamps -->
-			<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-				<h2 class="text-sm font-semibold text-slate-900">Timestamps</h2>
-				<div class="mt-3 space-y-2 text-xs text-slate-500">
+			<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
+				<h2 class="font-display text-sm font-semibold">Timestamps</h2>
+				<dl class="mt-3 space-y-2 text-xs text-muted-foreground">
 					<div class="flex justify-between">
-						<span>Created</span>
-						<span>{formatDateTime(invoice.createdat)}</span>
+						<dt>Created</dt>
+						<dd>{formatDateTime(invoice.createdat)}</dd>
 					</div>
 					{#if invoice.updatedat}
 						<div class="flex justify-between">
-							<span>Updated</span>
-							<span>{formatDateTime(invoice.updatedat)}</span>
+							<dt>Updated</dt>
+							<dd>{formatDateTime(invoice.updatedat)}</dd>
 						</div>
 					{/if}
-				</div>
-			</div>
+				</dl>
+			</section>
 		</div>
 	</div>
 </div>

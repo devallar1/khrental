@@ -1,5 +1,5 @@
 <script>
-	import { ArrowLeft, FileText, User, Building2, Calendar, DollarSign } from 'lucide-svelte';
+	import { ArrowLeft, FileText, User, Building2, Calendar } from 'lucide-svelte';
 	import { formatCurrency } from '$lib/format/money.js';
 
 	let { data } = $props();
@@ -7,182 +7,189 @@
 	const a = $derived(data.agreement);
 
 	const statusBadgeClass = (status) => {
-		const base = 'inline-flex items-center rounded-full px-3 py-1 text-sm font-medium';
 		switch (status) {
 			case 'active':
 			case 'signed':
-				return `${base} bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20`;
+				return 'inline-flex items-center rounded-full bg-success/15 px-3 py-1 text-sm font-medium capitalize text-success';
 			case 'draft':
-				return `${base} bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/20`;
+				return 'inline-flex items-center rounded-full bg-primary/15 px-3 py-1 text-sm font-medium capitalize text-primary';
 			case 'cancelled':
-				return `${base} bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20`;
+				return 'inline-flex items-center rounded-full bg-destructive/15 px-3 py-1 text-sm font-medium capitalize text-destructive';
 			case 'pending':
-				return `${base} bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20`;
+				return 'inline-flex items-center rounded-full bg-warning/20 px-3 py-1 text-sm font-medium capitalize text-warning-foreground dark:bg-warning/15 dark:text-warning';
 			default:
-				return `${base} bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-600/20`;
+				return 'inline-flex items-center rounded-full bg-muted px-3 py-1 text-sm font-medium capitalize text-muted-foreground';
 		}
 	};
 
 	const formatDate = (dateStr) => {
-		if (!dateStr) return '-';
-		return new Date(dateStr).toLocaleDateString('en-US', {
+		if (!dateStr) return '—';
+		return new Date(dateStr).toLocaleDateString('en-GB', {
 			year: 'numeric',
 			month: 'long',
 			day: 'numeric'
 		});
 	};
-
 </script>
 
 <svelte:head>
-	<title>{a.title || 'Agreement'} - KH Rentals</title>
+	<title>{a.title || 'Agreement'} — KH Rentals</title>
 </svelte:head>
 
-<div>
+<div class="space-y-6">
 	<!-- Header -->
-	<div class="mb-6">
+	<header>
 		<a
 			href="/agreements"
-			class="inline-flex items-center gap-1.5 text-sm text-slate-500 transition hover:text-slate-700"
+			class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
 		>
 			<ArrowLeft class="h-4 w-4" />
-			Back to Agreements
+			Back to agreements
 		</a>
 
-		<div class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+		<div class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
 			<div>
-				<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">{a.title || 'Untitled Agreement'}</h1>
-				<p class="mt-1 text-sm text-slate-500">Created {formatDate(a.createdat)}</p>
+				<p class="kicker">Agreement</p>
+				<h1 class="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+					{a.title || 'Untitled agreement'}
+				</h1>
+				<p class="mt-0.5 text-xs text-muted-foreground">Created {formatDate(a.createdat)}</p>
 			</div>
 			<span class={statusBadgeClass(a.status)}>
 				{a.status || 'draft'}
 			</span>
 		</div>
-	</div>
+	</header>
 
-	<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+	<div class="grid gap-6 lg:grid-cols-3">
 		<!-- Main content -->
 		<div class="space-y-6 lg:col-span-2">
 			<!-- Agreement Details -->
-			<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-				<h2 class="flex items-center gap-2 text-lg font-semibold text-slate-900">
-					<FileText class="h-5 w-5 text-slate-400" />
-					Agreement Details
+			<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
+				<h2 class="flex items-center gap-2 font-display text-base font-semibold">
+					<FileText class="h-4 w-4 text-muted-foreground" />
+					Agreement details
 				</h2>
 
-				<dl class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+				<dl class="mt-4 grid gap-4 sm:grid-cols-2">
 					<div>
-						<dt class="text-sm font-medium text-slate-500">Start Date</dt>
-						<dd class="mt-1 text-sm text-slate-900">{formatDate(a.startdate)}</dd>
+						<dt class="kicker mb-1">Start date</dt>
+						<dd class="text-sm">{formatDate(a.startdate)}</dd>
 					</div>
 					<div>
-						<dt class="text-sm font-medium text-slate-500">End Date</dt>
-						<dd class="mt-1 text-sm text-slate-900">{formatDate(a.enddate)}</dd>
+						<dt class="kicker mb-1">End date</dt>
+						<dd class="text-sm">{formatDate(a.enddate)}</dd>
 					</div>
 					<div>
-						<dt class="text-sm font-medium text-slate-500">Monthly Rent</dt>
-						<dd class="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(a.rentamount, a.currency)}</dd>
+						<dt class="kicker mb-1">Monthly rent</dt>
+						<dd class="font-mono text-sm font-semibold">
+							{formatCurrency(a.rentamount, a.currency)}
+						</dd>
 					</div>
 					<div>
-						<dt class="text-sm font-medium text-slate-500">Security Deposit</dt>
-						<dd class="mt-1 text-sm text-slate-900">{formatCurrency(a.depositamount, a.currency)}</dd>
+						<dt class="kicker mb-1">Security deposit</dt>
+						<dd class="font-mono text-sm">{formatCurrency(a.depositamount, a.currency)}</dd>
 					</div>
 				</dl>
 
 				{#if a.template_name}
-					<div class="mt-4 border-t border-slate-100 pt-4">
-						<dt class="text-sm font-medium text-slate-500">Template</dt>
-						<dd class="mt-1 text-sm text-slate-900">
+					<div class="mt-4 border-t border-border pt-4">
+						<dt class="kicker mb-1">Template</dt>
+						<dd class="text-sm">
 							{a.template_name}
-							<span class="text-slate-400">v{a.template_version || '1.0'} / {a.template_language || 'English'}</span>
+							<span class="text-muted-foreground"
+								>v{a.template_version || '1.0'} / {a.template_language || 'English'}</span
+							>
 						</dd>
 					</div>
 				{/if}
-			</div>
+			</section>
 
 			<!-- Content -->
 			{#if a.content}
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-					<h2 class="text-lg font-semibold text-slate-900">Content</h2>
-					<div class="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{a.content}</div>
-				</div>
+				<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
+					<h2 class="font-display text-base font-semibold">Content</h2>
+					<div class="mt-4 whitespace-pre-wrap text-sm leading-relaxed">{a.content}</div>
+				</section>
 			{/if}
 
 			<!-- Notes -->
 			{#if a.notes}
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-					<h2 class="text-lg font-semibold text-slate-900">Notes</h2>
-					<div class="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{a.notes}</div>
-				</div>
+				<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
+					<h2 class="font-display text-base font-semibold">Notes</h2>
+					<div class="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+						{a.notes}
+					</div>
+				</section>
 			{/if}
 		</div>
 
 		<!-- Sidebar -->
 		<div class="space-y-6">
-			<!-- Tenant Info -->
-			<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-				<h2 class="flex items-center gap-2 text-lg font-semibold text-slate-900">
-					<User class="h-5 w-5 text-slate-400" />
+			<!-- Tenant -->
+			<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
+				<h2 class="flex items-center gap-2 font-display text-base font-semibold">
+					<User class="h-4 w-4 text-muted-foreground" />
 					Tenant
 				</h2>
 				{#if a.tenant_name}
 					<div class="mt-4 space-y-2">
-						<p class="text-sm font-medium text-slate-900">{a.tenant_name}</p>
+						<p class="text-sm font-medium">{a.tenant_name}</p>
 						{#if a.tenant_email}
-							<p class="text-sm text-slate-500">{a.tenant_email}</p>
+							<p class="text-sm text-muted-foreground">{a.tenant_email}</p>
 						{/if}
 						{#if a.tenant_phone}
-							<p class="text-sm text-slate-500">{a.tenant_phone}</p>
+							<p class="font-mono text-sm text-muted-foreground">{a.tenant_phone}</p>
 						{/if}
 					</div>
 				{:else}
-					<p class="mt-4 text-sm text-slate-400">No tenant assigned</p>
+					<p class="mt-4 text-sm text-muted-foreground">No tenant assigned</p>
 				{/if}
-			</div>
+			</section>
 
-			<!-- Property Info -->
-			<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-				<h2 class="flex items-center gap-2 text-lg font-semibold text-slate-900">
-					<Building2 class="h-5 w-5 text-slate-400" />
+			<!-- Property -->
+			<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
+				<h2 class="flex items-center gap-2 font-display text-base font-semibold">
+					<Building2 class="h-4 w-4 text-muted-foreground" />
 					Property
 				</h2>
 				{#if a.property_name}
 					<div class="mt-4 space-y-2">
-						<p class="text-sm font-medium text-slate-900">{a.property_name}</p>
+						<p class="text-sm font-medium">{a.property_name}</p>
 						{#if a.property_address}
-							<p class="text-sm text-slate-500">{a.property_address}</p>
+							<p class="text-sm text-muted-foreground">{a.property_address}</p>
 						{/if}
 						{#if a.property_city}
-							<p class="text-sm text-slate-500">{a.property_city}</p>
+							<p class="text-sm text-muted-foreground">{a.property_city}</p>
 						{/if}
 						{#if a.unit_number}
-							<p class="text-sm text-slate-500">Unit: {a.unit_number}</p>
+							<p class="text-sm text-muted-foreground">Unit {a.unit_number}</p>
 						{/if}
 					</div>
 				{:else}
-					<p class="mt-4 text-sm text-slate-400">No property assigned</p>
+					<p class="mt-4 text-sm text-muted-foreground">No property assigned</p>
 				{/if}
-			</div>
+			</section>
 
 			<!-- Timestamps -->
-			<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-				<h2 class="flex items-center gap-2 text-lg font-semibold text-slate-900">
-					<Calendar class="h-5 w-5 text-slate-400" />
+			<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
+				<h2 class="flex items-center gap-2 font-display text-base font-semibold">
+					<Calendar class="h-4 w-4 text-muted-foreground" />
 					Timestamps
 				</h2>
-				<div class="mt-4 space-y-2">
+				<dl class="mt-4 space-y-2">
 					<div>
-						<dt class="text-xs font-medium text-slate-400">Created</dt>
-						<dd class="text-sm text-slate-600">{formatDate(a.createdat)}</dd>
+						<dt class="kicker">Created</dt>
+						<dd class="text-sm text-muted-foreground">{formatDate(a.createdat)}</dd>
 					</div>
 					{#if a.updatedat}
 						<div>
-							<dt class="text-xs font-medium text-slate-400">Last Updated</dt>
-							<dd class="text-sm text-slate-600">{formatDate(a.updatedat)}</dd>
+							<dt class="kicker">Last updated</dt>
+							<dd class="text-sm text-muted-foreground">{formatDate(a.updatedat)}</dd>
 						</div>
 					{/if}
-				</div>
-			</div>
+				</dl>
+			</section>
 		</div>
 	</div>
 </div>
