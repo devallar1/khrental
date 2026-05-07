@@ -53,59 +53,59 @@
 
 <div>
 	<div class="mb-8">
-		<a href="/configure" class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition mb-4">
+		<a href="/configure" class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition mb-4">
 			<ArrowLeft class="h-4 w-4" />
 			Back to Settings
 		</a>
-		<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Document Management</h1>
-		<p class="mt-1 text-sm text-slate-500">Upload, search, and manage documents via Paperless-ngx</p>
+		<h1 class="text-2xl font-bold text-foreground sm:text-3xl">Document Management</h1>
+		<p class="mt-1 text-sm text-muted-foreground">Upload, search, and manage documents via Paperless-ngx</p>
 	</div>
 
 	<!-- Connection Status -->
-	<div class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-		<h2 class="text-lg font-semibold text-slate-900 mb-3">Paperless-ngx Status</h2>
+	<div class="mb-6 rounded-2xl border border-border bg-card p-6 shadow-sm">
+		<h2 class="text-lg font-semibold text-foreground mb-3">Paperless-ngx Status</h2>
 		<div class="flex flex-wrap gap-4">
 			<div class="flex items-center gap-2">
 				{#if configured}
 					<CheckCircle class="h-5 w-5 text-emerald-500" />
-					<span class="text-sm text-slate-700">Configured</span>
+					<span class="text-sm text-foreground">Configured</span>
 				{:else}
 					<XCircle class="h-5 w-5 text-red-500" />
-					<span class="text-sm text-slate-700">Not configured</span>
+					<span class="text-sm text-foreground">Not configured</span>
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
 				{#if accessible}
 					<CheckCircle class="h-5 w-5 text-emerald-500" />
-					<span class="text-sm text-slate-700">Accessible</span>
+					<span class="text-sm text-foreground">Accessible</span>
 				{:else}
 					<XCircle class="h-5 w-5 text-red-500" />
-					<span class="text-sm text-slate-700">Not accessible</span>
+					<span class="text-sm text-foreground">Not accessible</span>
 				{/if}
 			</div>
 			{#if accessible}
 				<div class="flex items-center gap-2">
 					<FileText class="h-5 w-5 text-blue-500" />
-					<span class="text-sm text-slate-700">{totalDocuments} document{totalDocuments !== 1 ? 's' : ''}</span>
+					<span class="text-sm text-foreground">{totalDocuments} document{totalDocuments !== 1 ? 's' : ''}</span>
 				</div>
 			{/if}
 		</div>
 		{#if !configured}
-			<p class="mt-3 text-sm text-slate-500">
-				Set <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono">PAPERLESS_URL</code> and
-				<code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono">PAPERLESS_TOKEN</code> environment variables to connect.
+			<p class="mt-3 text-sm text-muted-foreground">
+				Set <code class="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">PAPERLESS_URL</code> and
+				<code class="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">PAPERLESS_TOKEN</code> environment variables to connect.
 			</p>
 		{/if}
 	</div>
 
 	{#if configured && accessible}
 		<!-- Upload Form -->
-		<div class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+		<div class="mb-6 rounded-2xl border border-border bg-card p-6 shadow-sm">
 			<div class="flex items-center gap-3 mb-4">
 				<div class="rounded-xl bg-blue-500 p-2.5 text-white">
 					<Upload class="h-5 w-5" />
 				</div>
-				<h2 class="text-lg font-semibold text-slate-900">Upload Document</h2>
+				<h2 class="text-lg font-semibold text-foreground">Upload Document</h2>
 			</div>
 
 			{#if form?.success}
@@ -137,28 +137,28 @@
 			>
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					<div class="sm:col-span-2">
-						<label for="file" class="block text-sm font-medium text-slate-700 mb-1">File</label>
+						<label for="file" class="block text-sm font-medium text-foreground mb-1">File</label>
 						<input
 							type="file"
 							id="file"
 							name="file"
 							required
 							accept=".pdf,.png,.jpg,.jpeg,.tiff,.txt,.doc,.docx"
-							class="block w-full text-sm text-slate-500 file:mr-4 file:rounded-xl file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-800 file:transition file:cursor-pointer"
+							class="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-xl file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-800 file:transition file:cursor-pointer"
 						/>
 					</div>
 					<div>
-						<label for="title" class="block text-sm font-medium text-slate-700 mb-1">Title (optional)</label>
+						<label for="title" class="block text-sm font-medium text-foreground mb-1">Title (optional)</label>
 						<input
 							type="text"
 							id="title"
 							name="title"
 							placeholder="Leave blank to use filename"
-							class="block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+							class="block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
 						/>
 					</div>
 					<div>
-						<label class="block text-sm font-medium text-slate-700 mb-1">Tags</label>
+						<label class="block text-sm font-medium text-foreground mb-1">Tags</label>
 						<div class="flex flex-wrap gap-2 rounded-xl border border-slate-300 p-2 min-h-[42px]">
 							{#each tags as tag}
 								<label class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium cursor-pointer hover:opacity-80 transition" style="background-color: {tag.color || '#f1f5f9'}; color: {tag.text_color || '#334155'}">
@@ -167,7 +167,7 @@
 								</label>
 							{/each}
 							{#if tags.length === 0}
-								<span class="text-xs text-slate-400">No tags available</span>
+								<span class="text-xs text-muted-foreground">No tags available</span>
 							{/if}
 						</div>
 					</div>
@@ -192,21 +192,21 @@
 		</div>
 
 		<!-- Documents List -->
-		<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+		<div class="rounded-2xl border border-border bg-card p-6 shadow-sm">
 			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
 				<div class="flex items-center gap-3">
 					<div class="rounded-xl bg-violet-500 p-2.5 text-white">
 						<FileText class="h-5 w-5" />
 					</div>
-					<h2 class="text-lg font-semibold text-slate-900">Recent Documents</h2>
+					<h2 class="text-lg font-semibold text-foreground">Recent Documents</h2>
 				</div>
 				<div class="relative">
-					<Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+					<Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 					<input
 						type="text"
 						placeholder="Filter documents..."
 						bind:value={searchQuery}
-						class="rounded-xl border border-slate-300 pl-9 pr-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none w-full sm:w-64"
+						class="rounded-xl border border-slate-300 pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none w-full sm:w-64"
 					/>
 				</div>
 			</div>
@@ -216,22 +216,22 @@
 					<table class="w-full text-sm">
 						<thead>
 							<tr class="border-b border-slate-100">
-								<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Title</th>
-								<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Date</th>
-								<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Tags</th>
-								<th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wide text-slate-400">Actions</th>
+								<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Title</th>
+								<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Date</th>
+								<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Tags</th>
+								<th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Actions</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-slate-50">
 							{#each filteredDocuments() as doc}
-								<tr class="hover:bg-slate-50 transition">
+								<tr class="hover:bg-secondary/50 transition">
 									<td class="px-6 py-3">
 										<div class="flex items-center gap-2">
-											<FileText class="h-4 w-4 text-slate-400 flex-shrink-0" />
-											<span class="font-medium text-slate-900 truncate max-w-xs">{doc.title || 'Untitled'}</span>
+											<FileText class="h-4 w-4 text-muted-foreground flex-shrink-0" />
+											<span class="font-medium text-foreground truncate max-w-xs">{doc.title || 'Untitled'}</span>
 										</div>
 									</td>
-									<td class="px-6 py-3 text-slate-500 whitespace-nowrap">
+									<td class="px-6 py-3 text-muted-foreground whitespace-nowrap">
 										{formatDate(doc.created)}
 									</td>
 									<td class="px-6 py-3">
@@ -245,7 +245,7 @@
 												</span>
 											{/each}
 											{#if (doc.tags || []).length > 4}
-												<span class="text-xs text-slate-400">+{doc.tags.length - 4} more</span>
+												<span class="text-xs text-muted-foreground">+{doc.tags.length - 4} more</span>
 											{/if}
 										</div>
 									</td>
@@ -254,7 +254,7 @@
 											href="/configure/documents/download/{doc.id}"
 											target="_blank"
 											rel="noopener noreferrer"
-											class="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition"
+											class="inline-flex items-center gap-1 rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-slate-200 transition"
 										>
 											<Download class="h-3.5 w-3.5" />
 											Download
@@ -267,8 +267,8 @@
 				</div>
 			{:else}
 				<div class="text-center py-12">
-					<FileText class="h-12 w-12 text-slate-300 mx-auto mb-3" />
-					<p class="text-sm text-slate-500">
+					<FileText class="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+					<p class="text-sm text-muted-foreground">
 						{searchQuery ? 'No documents match your filter.' : 'No documents found.'}
 					</p>
 				</div>

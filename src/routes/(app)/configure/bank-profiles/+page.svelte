@@ -67,17 +67,17 @@
 		<div class="flex items-center gap-3">
 			<a
 				href="/properties"
-				class="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+				class="rounded-xl border border-border p-2 text-muted-foreground transition hover:bg-secondary/50 hover:text-foreground"
 				aria-label="Back to properties"
 			>
 				<ArrowLeft class="h-4 w-4" />
 			</a>
 			<div>
-				<h1 class="flex items-center gap-2 text-2xl font-bold text-slate-900">
-					<Wallet class="h-5 w-5 text-slate-500" />
+				<h1 class="flex items-center gap-2 text-2xl font-bold text-foreground">
+					<Wallet class="h-5 w-5 text-muted-foreground" />
 					Bank profiles
 				</h1>
-				<p class="mt-0.5 text-sm text-slate-500">
+				<p class="mt-0.5 text-sm text-muted-foreground">
 					Account details that get stamped on rentee invoices. Each unit can route to a different profile.
 				</p>
 			</div>
@@ -95,7 +95,7 @@
 			<button
 				type="button"
 				onclick={back}
-				class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+				class="inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition hover:bg-secondary/50"
 			>
 				<X class="h-4 w-4" />
 				Cancel
@@ -110,14 +110,14 @@
 	{/if}
 
 	{#if mode === 'list'}
-		<label class="mb-3 inline-flex items-center gap-2 text-xs text-slate-500">
+		<label class="mb-3 inline-flex items-center gap-2 text-xs text-muted-foreground">
 			<input type="checkbox" bind:checked={showArchived} class="accent-slate-900" />
 			Show archived
 		</label>
 
-		<div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+		<div class="rounded-2xl border border-border bg-card shadow-sm">
 			{#if filtered.length === 0}
-				<div class="p-8 text-center text-sm text-slate-500">
+				<div class="p-8 text-center text-sm text-muted-foreground">
 					No bank profiles yet. Add one to start invoicing.
 				</div>
 			{:else}
@@ -126,24 +126,24 @@
 						<li class="flex items-center justify-between gap-3 p-4 {p.active ? '' : 'opacity-55'}">
 							<div class="min-w-0 flex-1">
 								<div class="flex items-center gap-2">
-									<span class="text-sm font-semibold text-slate-900">{p.label}</span>
-									<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">{p.tenant_name}</span>
+									<span class="text-sm font-semibold text-foreground">{p.label}</span>
+									<span class="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{p.tenant_name}</span>
 									{#if !p.active}
-										<span class="rounded bg-slate-200 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-600">archived</span>
+										<span class="rounded bg-slate-200 px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground">archived</span>
 									{/if}
 								</div>
-								<div class="mt-1 grid grid-cols-1 gap-x-4 gap-y-0.5 text-xs text-slate-500 sm:grid-cols-2">
-									<span><span class="text-slate-400">Holder:</span> {p.account_holder_name}</span>
-									<span><span class="text-slate-400">A/C:</span> <span class="font-mono">{p.account_number}</span></span>
-									<span><span class="text-slate-400">Bank:</span> {p.bank_name}</span>
-									{#if p.branch}<span><span class="text-slate-400">Branch:</span> {p.branch}</span>{/if}
+								<div class="mt-1 grid grid-cols-1 gap-x-4 gap-y-0.5 text-xs text-muted-foreground sm:grid-cols-2">
+									<span><span class="text-muted-foreground">Holder:</span> {p.account_holder_name}</span>
+									<span><span class="text-muted-foreground">A/C:</span> <span class="font-mono">{p.account_number}</span></span>
+									<span><span class="text-muted-foreground">Bank:</span> {p.bank_name}</span>
+									{#if p.branch}<span><span class="text-muted-foreground">Branch:</span> {p.branch}</span>{/if}
 								</div>
 							</div>
 							<div class="flex items-center gap-1.5">
 								<button
 									type="button"
 									onclick={() => openEdit(p.id)}
-									class="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+									class="rounded-xl border border-border p-2 text-muted-foreground transition hover:bg-secondary/50 hover:text-foreground"
 									title="Edit"
 								>
 									<Pencil class="h-3.5 w-3.5" />
@@ -153,7 +153,7 @@
 										<input type="hidden" name="id" value={p.id} />
 										<button
 											type="submit"
-											class="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"
+											class="rounded-xl border border-border p-2 text-muted-foreground transition hover:bg-rose-50 hover:text-rose-700"
 											title="Archive"
 											onclick={(e) => { if (!confirm(`Archive "${p.label}"?`)) e.preventDefault(); }}
 										>
@@ -165,7 +165,7 @@
 										<input type="hidden" name="id" value={p.id} />
 										<button
 											type="submit"
-											class="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
+											class="rounded-xl border border-border p-2 text-muted-foreground transition hover:bg-emerald-50 hover:text-emerald-700"
 											title="Restore"
 										>
 											<RotateCcw class="h-3.5 w-3.5" />
@@ -184,7 +184,7 @@
 			method="POST"
 			action={p ? '?/update' : '?/create'}
 			use:enhance={onMutate}
-			class="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+			class="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm"
 		>
 			{#if p}
 				<input type="hidden" name="id" value={p.id} />
@@ -192,11 +192,11 @@
 
 			{#if !p}
 				<label class="block">
-					<span class="block text-xs font-medium uppercase tracking-wide text-slate-500">Org *</span>
+					<span class="block text-xs font-medium uppercase tracking-wide text-muted-foreground">Org *</span>
 					<select
 						name="tenant_id"
 						required
-						class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+						class="mt-1 w-full rounded-xl border border-border px-3 py-2 text-sm"
 					>
 						<option value="">— select —</option>
 						{#each tenants as t}
@@ -205,78 +205,78 @@
 					</select>
 				</label>
 			{:else}
-				<div class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+				<div class="rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
 					<span class="font-semibold uppercase tracking-wide">Org:</span> {p.tenant_name}
 				</div>
 			{/if}
 
 			<label class="block">
-				<span class="block text-xs font-medium uppercase tracking-wide text-slate-500">Label *</span>
+				<span class="block text-xs font-medium uppercase tracking-wide text-muted-foreground">Label *</span>
 				<input
 					type="text"
 					name="label"
 					required
 					value={p?.label ?? ''}
 					placeholder="Kubeira Family · Commercial Bank Malabe"
-					class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+					class="mt-1 w-full rounded-xl border border-border px-3 py-2 text-sm"
 				/>
 			</label>
 
 			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 				<label class="block">
-					<span class="block text-xs font-medium uppercase tracking-wide text-slate-500">Account holder *</span>
+					<span class="block text-xs font-medium uppercase tracking-wide text-muted-foreground">Account holder *</span>
 					<input
 						type="text"
 						name="account_holder_name"
 						required
 						value={p?.account_holder_name ?? ''}
 						placeholder="T. Jeeva Madhumathi Fernando"
-						class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+						class="mt-1 w-full rounded-xl border border-border px-3 py-2 text-sm"
 					/>
 				</label>
 				<label class="block">
-					<span class="block text-xs font-medium uppercase tracking-wide text-slate-500">Account number *</span>
+					<span class="block text-xs font-medium uppercase tracking-wide text-muted-foreground">Account number *</span>
 					<input
 						type="text"
 						name="account_number"
 						required
 						value={p?.account_number ?? ''}
 						placeholder="8860034973"
-						class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-sm"
+						class="mt-1 w-full rounded-xl border border-border px-3 py-2 font-mono text-sm"
 					/>
 				</label>
 			</div>
 
 			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 				<label class="block">
-					<span class="block text-xs font-medium uppercase tracking-wide text-slate-500">Bank *</span>
+					<span class="block text-xs font-medium uppercase tracking-wide text-muted-foreground">Bank *</span>
 					<input
 						type="text"
 						name="bank_name"
 						required
 						value={p?.bank_name ?? ''}
 						placeholder="Commercial Bank"
-						class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+						class="mt-1 w-full rounded-xl border border-border px-3 py-2 text-sm"
 					/>
 				</label>
 				<label class="block">
-					<span class="block text-xs font-medium uppercase tracking-wide text-slate-500">Branch</span>
+					<span class="block text-xs font-medium uppercase tracking-wide text-muted-foreground">Branch</span>
 					<input
 						type="text"
 						name="branch"
 						value={p?.branch ?? ''}
 						placeholder="Malabe"
-						class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+						class="mt-1 w-full rounded-xl border border-border px-3 py-2 text-sm"
 					/>
 				</label>
 			</div>
 
 			<label class="block">
-				<span class="block text-xs font-medium uppercase tracking-wide text-slate-500">Notes</span>
+				<span class="block text-xs font-medium uppercase tracking-wide text-muted-foreground">Notes</span>
 				<textarea
 					name="notes"
 					rows="2"
-					class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+					class="mt-1 w-full rounded-xl border border-border px-3 py-2 text-sm"
 					placeholder="Internal notes, references, etc."
 				>{p?.notes ?? ''}</textarea>
 			</label>
@@ -285,7 +285,7 @@
 				<button
 					type="button"
 					onclick={back}
-					class="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+					class="rounded-2xl border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-secondary/50"
 				>
 					Cancel
 				</button>

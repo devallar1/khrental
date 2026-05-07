@@ -26,8 +26,8 @@
 <div>
 	<div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Organizations</h1>
-			<p class="mt-1 text-sm text-slate-500">Manage all orgs and memberships</p>
+			<h1 class="text-2xl font-bold text-foreground sm:text-3xl">Organizations</h1>
+			<p class="mt-1 text-sm text-muted-foreground">Manage all orgs and memberships</p>
 		</div>
 		<button
 			onclick={() => (showForm = !showForm)}
@@ -40,8 +40,8 @@
 
 	<!-- Create form -->
 	{#if showForm}
-		<div class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-			<h2 class="text-lg font-semibold text-slate-900 mb-4">Create New Organization</h2>
+		<div class="mb-6 rounded-2xl border border-border bg-card p-6 shadow-sm">
+			<h2 class="text-lg font-semibold text-foreground mb-4">Create New Organization</h2>
 
 			{#if form?.error}
 				<div class="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -51,19 +51,19 @@
 
 			<form method="POST" action="?/createTenant" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
 				<div>
-					<label for="name" class="block text-sm font-medium text-slate-700 mb-1.5">Name</label>
+					<label for="name" class="block text-sm font-medium text-foreground mb-1.5">Name</label>
 					<input
 						type="text"
 						id="name"
 						name="name"
 						value={form?.name || ''}
 						required
-						class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-foreground placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
 						placeholder="Organization name"
 					/>
 				</div>
 				<div>
-					<label for="slug" class="block text-sm font-medium text-slate-700 mb-1.5">Slug</label>
+					<label for="slug" class="block text-sm font-medium text-foreground mb-1.5">Slug</label>
 					<input
 						type="text"
 						id="slug"
@@ -71,16 +71,16 @@
 						value={form?.slug || ''}
 						required
 						pattern="[a-z0-9-]+"
-						class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-mono text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-mono text-foreground placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
 						placeholder="org-slug"
 					/>
 				</div>
 				<div>
-					<label for="plan" class="block text-sm font-medium text-slate-700 mb-1.5">Plan</label>
+					<label for="plan" class="block text-sm font-medium text-foreground mb-1.5">Plan</label>
 					<select
 						id="plan"
 						name="plan"
-						class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
 					>
 						<option value="free" selected={form?.plan === 'free' || !form?.plan}>Free</option>
 						<option value="starter" selected={form?.plan === 'starter'}>Starter</option>
@@ -98,7 +98,7 @@
 					<button
 						type="button"
 						onclick={() => (showForm = false)}
-						class="rounded-2xl px-5 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition"
+						class="rounded-2xl px-5 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground transition"
 					>
 						Cancel
 					</button>
@@ -114,50 +114,50 @@
 	{/if}
 
 	<!-- Orgs list -->
-	<div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+	<div class="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
 		<div class="px-5 py-4 border-b border-slate-100">
-			<h2 class="text-base font-semibold text-slate-900">All Organizations ({orgs.length})</h2>
+			<h2 class="text-base font-semibold text-foreground">All Organizations ({orgs.length})</h2>
 		</div>
 		{#if orgs.length === 0}
 			<div class="p-12 text-center">
 				<Building2 class="mx-auto h-12 w-12 text-slate-300" />
-				<p class="mt-4 text-sm text-slate-500">No organizations yet</p>
+				<p class="mt-4 text-sm text-muted-foreground">No organizations yet</p>
 			</div>
 		{:else}
 			<div class="overflow-x-auto">
 				<table class="min-w-full divide-y divide-slate-200">
-					<thead class="bg-slate-50">
+					<thead class="bg-secondary/50">
 						<tr>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Name</th>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Slug</th>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Plan</th>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Status</th>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Members</th>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Created</th>
+							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Name</th>
+							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Slug</th>
+							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Plan</th>
+							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
+							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Members</th>
+							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Created</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-slate-100 bg-white">
+					<tbody class="divide-y divide-slate-100 bg-card">
 						{#each orgs as o}
-							<tr class="hover:bg-slate-50 transition">
-								<td class="px-4 py-3 text-sm font-medium text-slate-900">{o.name}</td>
-								<td class="px-4 py-3 text-sm font-mono text-slate-600">{o.slug}</td>
+							<tr class="hover:bg-secondary/50 transition">
+								<td class="px-4 py-3 text-sm font-medium text-foreground">{o.name}</td>
+								<td class="px-4 py-3 text-sm font-mono text-muted-foreground">{o.slug}</td>
 								<td class="px-4 py-3">
 									<span class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium capitalize text-blue-700">
 										{o.plan || 'free'}
 									</span>
 								</td>
 								<td class="px-4 py-3">
-									<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize {o.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}">
+									<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize {o.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-muted text-muted-foreground'}">
 										{o.status}
 									</span>
 								</td>
 								<td class="px-4 py-3">
-									<span class="inline-flex items-center gap-1 text-sm text-slate-600">
+									<span class="inline-flex items-center gap-1 text-sm text-muted-foreground">
 										<Users class="h-3.5 w-3.5" />
 										{o.member_count}
 									</span>
 								</td>
-								<td class="px-4 py-3 text-sm text-slate-500">{formatDate(o.createdat)}</td>
+								<td class="px-4 py-3 text-sm text-muted-foreground">{formatDate(o.createdat)}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -168,31 +168,31 @@
 
 	<!-- Recent memberships -->
 	{#if memberships.length > 0}
-		<div class="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+		<div class="mt-6 rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
 			<div class="px-5 py-4 border-b border-slate-100">
-				<h2 class="text-base font-semibold text-slate-900">Recent Memberships</h2>
+				<h2 class="text-base font-semibold text-foreground">Recent Memberships</h2>
 			</div>
 			<div class="overflow-x-auto">
 				<table class="min-w-full divide-y divide-slate-200">
-					<thead class="bg-slate-50">
+					<thead class="bg-secondary/50">
 						<tr>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">User</th>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Email</th>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Role</th>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Granted</th>
+							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">User</th>
+							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Email</th>
+							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Role</th>
+							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Granted</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-slate-100 bg-white">
+					<tbody class="divide-y divide-slate-100 bg-card">
 						{#each memberships as m}
-							<tr class="hover:bg-slate-50 transition">
-								<td class="px-4 py-3 text-sm font-medium text-slate-900">{m.user_name || '-'}</td>
-								<td class="px-4 py-3 text-sm text-slate-600">{m.user_email || '-'}</td>
+							<tr class="hover:bg-secondary/50 transition">
+								<td class="px-4 py-3 text-sm font-medium text-foreground">{m.user_name || '-'}</td>
+								<td class="px-4 py-3 text-sm text-muted-foreground">{m.user_email || '-'}</td>
 								<td class="px-4 py-3">
 									<span class="inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium capitalize text-violet-700">
 										{m.role}
 									</span>
 								</td>
-								<td class="px-4 py-3 text-sm text-slate-500">{formatDate(m.createdat)}</td>
+								<td class="px-4 py-3 text-sm text-muted-foreground">{formatDate(m.createdat)}</td>
 							</tr>
 						{/each}
 					</tbody>
