@@ -2,15 +2,759 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * UI design tokens.
+ *
+ * Theme system:
+ *   :root           — OCEAN theme defaults (blue/aqua, current). Active when
+ *                     no [data-theme] is set or [data-theme="ocean"].
+ *   .dark           — OCEAN dark mode overrides.
+ *   [data-theme="forest"]      — FOREST theme (emerald/teal) overrides.
+ *   [data-theme="forest"].dark — FOREST dark overrides.
+ *   [data-theme="sunset"]      — SUNSET theme (orange/rose) overrides.
+ *   [data-theme="sunset"].dark — SUNSET dark overrides.
+ *
+ * Themes change the brand-defining tokens (primary, accent, ring, glow,
+ * sidebar gradient) plus subtle bg/card hue tints. Status tokens
+ * (destructive, success, warning) stay consistent across themes.
+ *
+ * ── OCEAN (default) ────────────────────────────────────────────────────
+ */
 :root {
-	--border: 220 13% 91%;
-	--background: 0 0% 100%;
-	--foreground: 224 71% 4%;
+	/* Font families — promoted to CSS vars so themes can swap them. */
+	--font-sans: 'Inter Tight', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont,
+		'Segoe UI', Roboto, sans-serif;
+	--font-display: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+	--font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+	--font-blackletter: 'Pirata One', 'UnifrakturMaguntia', 'Old English Text MT', serif;
+
+	--background: 216 33% 97%;
+	--foreground: 222 47% 11%;
+	--card: 0 0% 100%;
+	--card-foreground: 222 47% 11%;
+	--popover: 0 0% 100%;
+	--popover-foreground: 222 47% 11%;
+	--primary: 224 64% 33%;            /* blue-900 — direct match to sidebar's `to-blue-900` stop */
+	--primary-foreground: 0 0% 100%;
+	--secondary: 210 30% 94%;
+	--secondary-foreground: 222 34% 19%;
+	--muted: 210 24% 92%;
+	--muted-foreground: 215 16% 40%;
+	--accent: 195 82% 48%;             /* cyan accent — keeps primary→accent gradients alive */
+	--accent-foreground: 222 47% 11%;
+	--destructive: 0 74% 54%;
+	--destructive-foreground: 0 0% 100%;
+	--warning: 35 90% 55%;
+	--warning-foreground: 30 50% 12%;
+	--success: 152 65% 38%;
+	--success-foreground: 0 0% 100%;
+	--border: 214 29% 88%;
+	--input: 214 29% 88%;
+	--ring: 224 64% 40%;
+	--glow: 222 47% 4%;                /* slate-950 — sidebar's darkest stop, used as drop-shadow tint */
+	/* Sidebar gradient — original dark navy chrome, classic dark-rail-on-light-body pattern. */
+	--sidebar-from: 222 47% 4%;        /* slate-950 */
+	--sidebar-via: 204 80% 16%;        /* sky-950 */
+	--sidebar-to: 224 64% 33%;         /* blue-900 */
+	--radius: 1rem;
 }
 
-body {
-	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-	margin: 0;
-	min-height: 100vh;
-	background-color: #f8fafc;
+.dark {
+	--background: 220 30% 8%;
+	--foreground: 200 12% 96%;
+	--card: 220 28% 12%;
+	--card-foreground: 200 12% 96%;
+	--popover: 220 28% 12%;
+	--popover-foreground: 200 12% 96%;
+	--primary: 220 90% 64%;            /* bright blue, same family as blue-900 — readable on dark */
+	--primary-foreground: 220 30% 8%;
+	--secondary: 220 20% 16%;
+	--secondary-foreground: 200 12% 96%;
+	--muted: 220 20% 16%;
+	--muted-foreground: 200 6% 58%;
+	--accent: 195 70% 72%;
+	--accent-foreground: 220 30% 8%;
+	--destructive: 8 75% 60%;
+	--destructive-foreground: 0 0% 100%;
+	--warning: 65 70% 65%;
+	--warning-foreground: 220 30% 8%;
+	--success: 152 55% 55%;
+	--success-foreground: 220 30% 8%;
+	--border: 220 20% 22%;
+	--input: 220 20% 22%;
+	--ring: 220 90% 64%;
+	--glow: 220 90% 64%;               /* emissive halo on dark — slate-950 would be invisible here */
+	/*
+	 * Sidebar gradient — runs in darkness, with chromatic depth at the floor.
+	 * Top + via match --background (220 30% 8%); the `to` stop drops the hue into
+	 * manager-aqua territory and bumps saturation so the bottom of the rail picks
+	 * up the brand color, like a cyan undercurrent under the dark canvas.
+	 */
+	--sidebar-from: 220 30% 7%;        /* a hair below body */
+	--sidebar-via: 220 35% 9%;         /* a hair above body — barely-there breath */
+	--sidebar-to: 195 75% 11%;         /* manager-aqua undercurrent at the floor */
+}
+
+/*
+ * ── EDITORIAL ──────────────────────────────────────────────────────────
+ * Canonical brand: white / dark gray / black achromatic palette with cyan
+ * as the only chromatic accent. Bodoni Moda for display, Libre Baskerville
+ * for body, UnifrakturMaguntia for blackletter accents. Pattern flips from
+ * dots to a 33° diamond/X grid (overridden on body below @layer base).
+ */
+[data-theme='editorial'] {
+	--font-sans: 'Libre Baskerville', Baskerville, 'Times New Roman', Georgia, serif;
+	--font-display: 'Bodoni Moda', Bodoni, Didot, 'Times New Roman', serif;
+
+	--background: 0 0% 99%;
+	--foreground: 0 0% 12%;
+	--card: 0 0% 100%;
+	--card-foreground: 0 0% 12%;
+	--popover: 0 0% 100%;
+	--popover-foreground: 0 0% 12%;
+	--primary: 185 75% 38%;
+	--primary-foreground: 0 0% 100%;
+	--secondary: 0 0% 95%;
+	--secondary-foreground: 0 0% 18%;
+	--muted: 0 0% 94%;
+	--muted-foreground: 0 0% 40%;
+	--accent: 185 90% 48%;
+	--accent-foreground: 0 0% 12%;
+	--destructive: 0 74% 50%;
+	--destructive-foreground: 0 0% 100%;
+	--border: 0 0% 88%;
+	--input: 0 0% 88%;
+	--ring: 185 75% 45%;
+	--glow: 0 0% 5%;
+	/* Sidebar — near-black to dark gray with a cyan undercurrent at the floor. */
+	--sidebar-from: 0 0% 6%;
+	--sidebar-via: 0 0% 12%;
+	--sidebar-to: 185 65% 20%;
+}
+
+[data-theme='editorial'].dark {
+	--background: 0 0% 8%;
+	--foreground: 0 0% 96%;
+	--card: 0 0% 12%;
+	--card-foreground: 0 0% 96%;
+	--popover: 0 0% 12%;
+	--popover-foreground: 0 0% 96%;
+	--primary: 185 85% 65%;
+	--primary-foreground: 0 0% 8%;
+	--secondary: 0 0% 16%;
+	--secondary-foreground: 0 0% 96%;
+	--muted: 0 0% 16%;
+	--muted-foreground: 0 0% 60%;
+	--accent: 185 95% 75%;
+	--accent-foreground: 0 0% 8%;
+	--destructive: 0 70% 60%;
+	--destructive-foreground: 0 0% 100%;
+	--border: 0 0% 22%;
+	--input: 0 0% 22%;
+	--ring: 185 85% 65%;
+	--glow: 185 85% 65%;
+	--sidebar-from: 0 0% 6%;
+	--sidebar-via: 0 0% 9%;
+	--sidebar-to: 185 75% 14%;
+}
+
+/*
+ * Editorial pattern — ruby grill in the body's left gutter only.
+ * Drawn via a body::before pseudo-element (the multi-layer
+ * background-image + background-size + no-repeat approach was unreliable
+ * across the gradient stack). The pseudo-element is absolute-positioned,
+ * stretches to body's full height, and width tracks --sidebar-w.
+ *
+ * As the body scrolls, the pseudo scrolls with it; the fixed sidebar
+ * stays put, so the pattern moves under the frosted glass.
+ */
+[data-theme='editorial'] body {
+	background-image: none;
+}
+
+[data-theme='editorial'] body::before {
+	content: '';
+	position: fixed;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	width: var(--sidebar-w, 18rem);
+	background-image: repeating-linear-gradient(
+			65deg,
+			hsl(var(--foreground) / 0.2) 0,
+			hsl(var(--foreground) / 0.2) 1px,
+			transparent 1px,
+			transparent 28px
+		),
+		repeating-linear-gradient(
+			-65deg,
+			hsl(var(--foreground) / 0.2) 0,
+			hsl(var(--foreground) / 0.2) 1px,
+			transparent 1px,
+			transparent 28px
+		);
+	pointer-events: none;
+	z-index: 1;
+	transition: width 200ms ease-out;
+}
+
+/*
+ * Editorial sidebar — frosted glass.
+ * Light mode: opaque enough (0.55/0.50/0.55) to keep slate-200/white text
+ * legible on the white body, transparent enough that the gutter pattern
+ * reads through the frost.
+ *
+ * Dark mode: more transparent (0.30/0.25/0.40) — body is already dark so
+ * white text reads regardless, and lower opacity lets the pattern show
+ * through more clearly.
+ *
+ * backdrop-filter: blur smears whatever's behind into a soft frost.
+ */
+[data-theme='editorial'] .sidebar-gradient {
+	/* Editorial LIGHT mode default — white-frosted glass panel.
+	   Pattern reads through as soft texture; dark sidebar text reads crisp. */
+	background-image: linear-gradient(
+		180deg,
+		hsl(0 0% 100% / 0.55) 0%,
+		hsl(0 0% 100% / 0.5) 50%,
+		hsl(185 80% 92% / 0.6) 100%
+	);
+	backdrop-filter: blur(4px) saturate(140%);
+	-webkit-backdrop-filter: blur(4px) saturate(140%);
+}
+
+[data-theme='editorial'].dark .sidebar-gradient {
+	background-image: linear-gradient(
+		180deg,
+		hsl(0 0% 8% / 0.15) 0%,
+		hsl(0 0% 12% / 0.12) 50%,
+		hsl(185 60% 14% / 0.25) 100%
+	);
+}
+
+/*
+ * Editorial light mode — sidebar text/border tokens flip dark.
+ * The frosted-glass sidebar over a near-white body needs dark text for
+ * legibility. These overrides catch the hardcoded white/slate/sky utility
+ * classes used in (app)/+layout.svelte without refactoring the markup.
+ * Editorial dark mode keeps white text — it's already correct there.
+ */
+[data-theme='editorial']:not(.dark) .sidebar-gradient .text-white {
+	color: hsl(var(--foreground));
+}
+[data-theme='editorial']:not(.dark) .sidebar-gradient .text-slate-200 {
+	color: hsl(var(--foreground) / 0.82);
+}
+[data-theme='editorial']:not(.dark) .sidebar-gradient .text-sky-200 {
+	color: hsl(var(--primary));
+}
+[data-theme='editorial']:not(.dark) .sidebar-gradient .text-sky-300\/80 {
+	color: hsl(var(--primary) / 0.8);
+}
+
+/* Hover state colors — bg-white/10 and hover:text-white become dark-on-light. */
+[data-theme='editorial']:not(.dark) .sidebar-gradient .hover\:text-white:hover {
+	color: hsl(var(--foreground));
+}
+[data-theme='editorial']:not(.dark) .sidebar-gradient .hover\:bg-white\/10:hover {
+	background-color: hsl(var(--foreground) / 0.08);
+}
+
+/* Dividers + the user-block tint. */
+[data-theme='editorial']:not(.dark) .sidebar-gradient .border-white\/10,
+[data-theme='editorial']:not(.dark) .sidebar-gradient .border-white\/15,
+[data-theme='editorial']:not(.dark) .sidebar-gradient .border-white\/20 {
+	border-color: hsl(var(--foreground) / 0.14);
+}
+[data-theme='editorial']:not(.dark) .sidebar-gradient .bg-white\/5 {
+	background-color: hsl(var(--foreground) / 0.04);
+}
+
+/* Active nav 'bg-white/12' subtle highlight (used on accordion buttons). */
+[data-theme='editorial']:not(.dark) .sidebar-gradient .bg-white\/12 {
+	background-color: hsl(var(--foreground) / 0.1);
+}
+
+/*
+ * ── SUNSET ─────────────────────────────────────────────────────────────
+ * Orange/rose identity. Replace these values when you have the spec.
+ */
+[data-theme='sunset'] {
+	--background: 25 30% 97%;
+	--foreground: 18 47% 11%;
+	--card: 0 0% 100%;
+	--card-foreground: 18 47% 11%;
+	--popover: 0 0% 100%;
+	--popover-foreground: 18 47% 11%;
+	--primary: 18 75% 42%;
+	--primary-foreground: 0 0% 100%;
+	--secondary: 25 30% 94%;
+	--secondary-foreground: 18 34% 18%;
+	--muted: 25 24% 92%;
+	--muted-foreground: 18 16% 38%;
+	--accent: 8 80% 52%;
+	--accent-foreground: 0 0% 100%;
+	--border: 25 29% 88%;
+	--input: 25 29% 88%;
+	--ring: 18 75% 50%;
+	--glow: 18 50% 6%;
+	--sidebar-from: 18 47% 6%;
+	--sidebar-via: 12 70% 14%;
+	--sidebar-to: 18 75% 28%;
+}
+
+[data-theme='sunset'].dark {
+	--background: 18 25% 7%;
+	--foreground: 25 12% 96%;
+	--card: 18 22% 11%;
+	--card-foreground: 25 12% 96%;
+	--popover: 18 22% 11%;
+	--popover-foreground: 25 12% 96%;
+	--primary: 18 90% 65%;
+	--primary-foreground: 18 47% 11%;
+	--secondary: 18 18% 16%;
+	--secondary-foreground: 25 12% 96%;
+	--muted: 18 18% 16%;
+	--muted-foreground: 25 6% 58%;
+	--accent: 8 85% 70%;
+	--accent-foreground: 18 47% 11%;
+	--border: 18 18% 22%;
+	--input: 18 18% 22%;
+	--ring: 18 90% 65%;
+	--glow: 18 90% 65%;
+	--sidebar-from: 18 25% 7%;
+	--sidebar-via: 18 30% 9%;
+	--sidebar-to: 8 75% 11%;
+}
+
+@layer base {
+	html,
+	body {
+		min-height: 100vh;
+	}
+
+	body {
+		margin: 0;
+		background-color: hsl(var(--background));
+		background-image: radial-gradient(
+			circle,
+			hsl(var(--foreground) / 0.07) 1px,
+			transparent 1px
+		);
+		background-size: 24px 24px;
+		color: hsl(var(--foreground));
+		font-family: var(--font-sans);
+		font-feature-settings: 'cv11', 'ss01';
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		text-rendering: optimizeLegibility;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		color: hsl(var(--foreground));
+		letter-spacing: -0.02em;
+	}
+}
+
+@layer components {
+	.font-display {
+		font-family: var(--font-display);
+		font-feature-settings: 'zero', 'ss02';
+	}
+
+	.font-mono {
+		font-family: var(--font-mono);
+		font-feature-settings: 'zero', 'ss02', 'tnum';
+	}
+
+	.font-blackletter {
+		font-family: var(--font-blackletter);
+	}
+
+	/* Uppercase tiny label, often placed above headings. */
+	.kicker {
+		@apply font-display text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground;
+	}
+
+	/*
+	 * Glow / shadow utilities — different physics per mode.
+	 *
+	 * Light mode: ambient occlusion. Tight, low-alpha shadows with small offsets;
+	 * reads as the element sitting on a surface, not radiating light.
+	 *
+	 * Dark mode: emissive halo. Wide, higher-alpha shadows tinted with the bright
+	 * primary; reads as the element glowing outward.
+	 */
+	/*
+	 * Light mode — AO with rest/hover behavior.
+	 * Rest: tight, slightly weighty shadow — element pressed firm on the surface.
+	 * Hover: lower alpha, bigger blur, more offset — AO loosens, like the element lifted.
+	 */
+	.glow-primary {
+		box-shadow:
+			0 2px 4px hsl(var(--glow) / 0.14),
+			0 6px 14px hsl(var(--glow) / 0.12);
+	}
+	.glow-primary:hover {
+		box-shadow:
+			0 6px 12px hsl(var(--glow) / 0.06),
+			0 16px 36px hsl(var(--glow) / 0.08);
+	}
+
+	.glow-primary-strong {
+		box-shadow:
+			0 3px 6px hsl(var(--glow) / 0.18),
+			0 10px 24px hsl(var(--glow) / 0.16);
+	}
+	.glow-primary-strong:hover {
+		box-shadow:
+			0 8px 16px hsl(var(--glow) / 0.08),
+			0 22px 48px hsl(var(--glow) / 0.10);
+	}
+
+	.glow-primary-xl {
+		box-shadow:
+			0 4px 8px hsl(var(--glow) / 0.22),
+			0 14px 32px hsl(var(--glow) / 0.20);
+	}
+	.glow-primary-xl:hover {
+		box-shadow:
+			0 12px 24px hsl(var(--glow) / 0.10),
+			0 32px 70px hsl(var(--glow) / 0.13);
+	}
+
+	/*
+	 * Dark mode — emissive halo. Stays static (no rest/hover variation at the
+	 * utility level); component-level hover changes (like translate) provide
+	 * feedback. Per user instruction: rest/hover AO behaviour is light-mode only.
+	 */
+	.dark .glow-primary {
+		box-shadow:
+			0 4px 16px hsl(var(--glow) / 0.18),
+			0 16px 56px hsl(var(--glow) / 0.32);
+	}
+	.dark .glow-primary:hover {
+		box-shadow:
+			0 4px 16px hsl(var(--glow) / 0.18),
+			0 16px 56px hsl(var(--glow) / 0.32);
+	}
+
+	.dark .glow-primary-strong {
+		box-shadow:
+			0 8px 24px hsl(var(--glow) / 0.28),
+			0 28px 96px hsl(var(--glow) / 0.55);
+	}
+	.dark .glow-primary-strong:hover {
+		box-shadow:
+			0 8px 24px hsl(var(--glow) / 0.28),
+			0 28px 96px hsl(var(--glow) / 0.55);
+	}
+
+	.dark .glow-primary-xl {
+		box-shadow:
+			0 12px 36px hsl(var(--glow) / 0.4),
+			0 40px 140px hsl(var(--glow) / 0.7);
+	}
+	.dark .glow-primary-xl:hover {
+		box-shadow:
+			0 12px 36px hsl(var(--glow) / 0.4),
+			0 40px 140px hsl(var(--glow) / 0.7);
+	}
+
+	/*
+	 * Low-key dot pattern. Applied globally on body; available as a utility for
+	 * scoping to specific surfaces (empty states, hero cards, etc.).
+	 */
+	.bg-dots {
+		background-image: radial-gradient(
+			circle,
+			hsl(var(--foreground) / 0.07) 1px,
+			transparent 1px
+		);
+		background-size: 24px 24px;
+	}
+
+	.bg-dots-tight {
+		background-image: radial-gradient(
+			circle,
+			hsl(var(--foreground) / 0.07) 1px,
+			transparent 1px
+		);
+		background-size: 16px 16px;
+	}
+
+	/*
+	 * Ruby grill — vertical crosshatch at ±65°. Editorial-flavoured pattern
+	 * for letterhead-style gutters, page borders, empty states, dividers.
+	 */
+	.bg-ruby {
+		background-image: repeating-linear-gradient(
+				65deg,
+				hsl(var(--foreground) / 0.07) 0,
+				hsl(var(--foreground) / 0.07) 1px,
+				transparent 1px,
+				transparent 28px
+			),
+			repeating-linear-gradient(
+				-65deg,
+				hsl(var(--foreground) / 0.07) 0,
+				hsl(var(--foreground) / 0.07) 1px,
+				transparent 1px,
+				transparent 28px
+			);
+	}
+
+	.bg-ruby-tight {
+		background-image: repeating-linear-gradient(
+				65deg,
+				hsl(var(--foreground) / 0.07) 0,
+				hsl(var(--foreground) / 0.07) 1px,
+				transparent 1px,
+				transparent 18px
+			),
+			repeating-linear-gradient(
+				-65deg,
+				hsl(var(--foreground) / 0.07) 0,
+				hsl(var(--foreground) / 0.07) 1px,
+				transparent 1px,
+				transparent 18px
+			);
+	}
+
+	/* Sidebar brand gradient — adapts per mode via --sidebar-* tokens. */
+	.sidebar-gradient {
+		background-image: linear-gradient(
+			to bottom,
+			hsl(var(--sidebar-from)),
+			hsl(var(--sidebar-via)),
+			hsl(var(--sidebar-to))
+		);
+	}
+
+	/*
+	 * Manager idioms — ported from the manager's ledger view.
+	 * Retokenized so they live in the unified design language: OKLCH aqua → hsl(var(--accent)),
+	 * panel/ink → hsl(var(--card))/hsl(var(--foreground)), etc. Adapt automatically per mode.
+	 */
+
+	/* Unit token — small pill representing a unit's occupancy state. */
+	.unit-token {
+		width: 44px;
+		height: 52px;
+		border-radius: 10px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		font-weight: 600;
+		font-size: 14px;
+		appearance: none;
+		padding: 0;
+		cursor: pointer;
+		transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+			box-shadow 200ms ease, filter 200ms ease;
+	}
+	.unit-token-occupied {
+		background: linear-gradient(160deg, hsl(var(--accent)) 0%, hsl(var(--primary)) 100%);
+		color: hsl(var(--primary-foreground));
+		border: none;
+		box-shadow:
+			0 0 0 1px hsl(var(--accent) / 0.4) inset,
+			0 4px 14px -4px hsl(var(--accent) / 0.55);
+	}
+	.unit-token-vacant {
+		background: hsl(var(--muted));
+		color: hsl(var(--muted-foreground));
+		border: 1px solid hsl(var(--border));
+	}
+	.unit-token:hover {
+		transform: translateY(-1px) scale(1.05);
+		filter: brightness(1.08);
+		z-index: 1;
+	}
+	.unit-token-occupied:hover {
+		box-shadow:
+			0 0 0 1px hsl(var(--accent) / 0.6) inset,
+			0 6px 20px -4px hsl(var(--accent) / 0.7);
+	}
+	.unit-token:focus-visible {
+		outline: 2px solid hsl(var(--ring));
+		outline-offset: 2px;
+	}
+	.unit-token-xl {
+		width: 80px;
+		height: 96px;
+		border-radius: 16px;
+		font-size: 20px;
+	}
+
+	/* Rent badge — Monopoly title-deed footer with corner brackets. */
+	.rent-badge {
+		padding: 10px 18px;
+		text-align: center;
+		background:
+			radial-gradient(ellipse at center, hsl(var(--accent) / 0.18), transparent),
+			hsl(var(--card));
+		border: 2px solid hsl(var(--accent) / 0.4);
+		border-radius: 10px;
+		box-shadow:
+			0 0 0 1px hsl(var(--accent) / 0.2) inset,
+			0 0 24px -6px hsl(var(--accent) / 0.4);
+		position: relative;
+		display: inline-block;
+	}
+	.rent-badge::before,
+	.rent-badge::after {
+		content: '';
+		position: absolute;
+		width: 10px;
+		height: 10px;
+		border: 2px solid hsl(var(--accent));
+	}
+	.rent-badge::before {
+		top: -2px;
+		left: -2px;
+		border-right: none;
+		border-bottom: none;
+		border-top-left-radius: 8px;
+	}
+	.rent-badge::after {
+		bottom: -2px;
+		right: -2px;
+		border-left: none;
+		border-top: none;
+		border-bottom-right-radius: 8px;
+	}
+	.rent-badge-sm {
+		padding: 6px 14px;
+	}
+	.rent-label {
+		font-size: 9px;
+		text-transform: uppercase;
+		letter-spacing: 0.18em;
+		color: hsl(var(--muted-foreground));
+		margin: 0;
+	}
+	.rent-amount {
+		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-size: 20px;
+		font-weight: 600;
+		color: hsl(var(--accent));
+		text-shadow: 0 0 18px hsl(var(--accent) / 0.5);
+		margin: 0;
+		font-feature-settings: 'zero', 'ss02', 'tnum';
+	}
+	.rent-amount-sm {
+		font-size: 14px;
+	}
+
+	/* Property card — 320×384px with 3D flip + aqua haze. */
+	.property-card {
+		width: 320px;
+		min-height: 384px;
+		display: flex;
+		background: hsl(var(--card));
+		color: hsl(var(--foreground));
+		border: 1px solid hsl(var(--border));
+		border-radius: var(--radius);
+		position: relative;
+		overflow: hidden;
+		appearance: none;
+		padding: 0;
+		cursor: pointer;
+		text-align: left;
+		perspective: 1400px;
+		transition: border-color 200ms ease, box-shadow 200ms ease;
+	}
+	.property-card:hover {
+		border-color: hsl(var(--accent) / 0.45);
+		box-shadow:
+			0 1px 0 hsl(0 0% 100% / 0.06) inset,
+			0 8px 28px -6px hsl(var(--accent) / 0.18),
+			0 0 0 1px hsl(var(--accent) / 0.12);
+	}
+	.property-card::before {
+		content: '';
+		position: absolute;
+		inset: auto -90px -180px auto;
+		width: 360px;
+		height: 360px;
+		border-radius: 50%;
+		background: radial-gradient(
+			circle,
+			hsl(var(--accent) / 0.18) 0%,
+			transparent 60%
+		);
+		pointer-events: none;
+		z-index: 0;
+	}
+	.flip-inner {
+		position: relative;
+		flex: 1 1 auto;
+		display: flex;
+		flex-direction: column;
+		transform-style: preserve-3d;
+		transition: transform 700ms cubic-bezier(0.4, 0.05, 0.2, 1);
+	}
+	.flip-inner.flipped {
+		transform: rotateY(180deg);
+	}
+	.card-face {
+		backface-visibility: hidden;
+		-webkit-backface-visibility: hidden;
+		border-radius: inherit;
+	}
+	.card-front {
+		position: relative;
+		flex: 1 1 auto;
+		display: flex;
+		flex-direction: column;
+		padding: 14px;
+		z-index: 1;
+	}
+	.card-back {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		padding: 14px;
+		transform: rotateY(180deg);
+		background: linear-gradient(
+			180deg,
+			hsl(var(--card)) 0%,
+			hsl(var(--secondary)) 100%
+		);
+	}
+
+	/* Icon rail button — 40×40 icon button with hover + active glow states. */
+	.rail-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		border-radius: 10px;
+		border: 1px solid transparent;
+		background: hsl(var(--card));
+		color: hsl(var(--muted-foreground));
+		cursor: pointer;
+		transition: background 200ms ease, color 200ms ease,
+			border-color 200ms ease, box-shadow 200ms ease;
+	}
+	.rail-btn:hover {
+		background: hsl(var(--secondary));
+		color: hsl(var(--accent));
+		border-color: hsl(var(--accent) / 0.3);
+	}
+	.rail-btn-active {
+		background: hsl(var(--accent) / 0.15);
+		color: hsl(var(--accent));
+		border-color: hsl(var(--accent) / 0.5);
+		box-shadow: 0 0 16px -4px hsl(var(--accent) / 0.4);
+	}
 }

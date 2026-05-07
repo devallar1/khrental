@@ -1,6 +1,7 @@
 <script>
 	import { page } from '$app/stores';
-	import { Menu, X, Home, Building2, Users, FileText, Receipt, Wrench, Camera, UsersRound, Settings, ShieldCheck, LayoutDashboard, ChevronDown, ChevronUp, Crown, LogOut, PanelLeftClose, PanelLeft } from 'lucide-svelte';
+	import { Menu, X, Home, Building2, Users, FileText, Receipt, Wrench, Camera, UsersRound, Settings, ShieldCheck, LayoutDashboard, ChevronDown, ChevronUp, Crown, LogOut, PanelLeftClose, PanelLeft, Palette } from 'lucide-svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 
 	let { children, data } = $props();
 	let sidebarOpen = $state(false);              // mobile slide-in drawer
@@ -19,6 +20,15 @@
 		sidebarCollapsed = !sidebarCollapsed;
 		try { localStorage.setItem(COLLAPSED_KEY, sidebarCollapsed ? '1' : '0'); } catch {}
 	}
+
+	// Publish sidebar width as a CSS var on <html> so the body can size its
+	// left-gutter pattern (Editorial theme) and so the main content can
+	// padding-left to clear the now-fixed sidebar.
+	$effect(() => {
+		if (typeof document === 'undefined') return;
+		const w = sidebarCollapsed ? '4rem' : '18rem';
+		document.documentElement.style.setProperty('--sidebar-w', w);
+	});
 
 	const user = $derived(data.user);
 	const org = $derived(data.org);
@@ -68,10 +78,11 @@
 		{ path: '/settings', label: 'Settings', icon: Settings },
 		{ path: '/tenant-admin', label: 'Organizations', icon: ShieldCheck },
 		{ path: '/admin-dashboard', label: 'Admin Dashboard', icon: LayoutDashboard },
+		{ path: '/design', label: 'Design lab', icon: Palette },
 	];
 </script>
 
-<div class="flex min-h-screen bg-transparent">
+<div class="min-h-screen bg-transparent">
 	<!-- Mobile menu button -->
 	<div class="lg:hidden fixed top-0 left-0 z-50 m-2 sm:m-4">
 		<button
@@ -226,7 +237,8 @@
 				</nav>
 			</div>
 
-			<div class="border-t border-white/10 {compact ? 'p-2' : 'p-3'}">
+			<div class="border-t border-white/10 {compact ? 'p-2' : 'p-3'} space-y-1">
+				<ThemeToggle {compact} />
 				<form method="POST" action="/logout">
 					<button
 						type="submit"
@@ -244,7 +256,7 @@
 	{/snippet}
 
 	<!-- Mobile sidebar -->
-	<div class="fixed inset-y-0 left-0 z-50 w-72 bg-gradient-to-b from-slate-950 via-sky-950 to-blue-900 text-white transform {sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:hidden overflow-hidden">
+	<div class="sidebar-gradient fixed inset-y-0 left-0 z-50 w-72 text-white transform {sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:hidden overflow-hidden">
 		<div class="absolute top-0 right-0 p-1 sm:p-2">
 			<button onclick={() => (sidebarOpen = false)} class="rounded-2xl p-1.5 text-white hover:bg-white/10">
 				<X class="h-5 w-5 sm:h-6 sm:w-6" />
@@ -255,9 +267,9 @@
 		</div>
 	</div>
 
-	<!-- Desktop sidebar — width animates between 288px (full) and 64px (compact). -->
+	<!-- Desktop sidebar — fixed-position floating rail; width animates between 288px and 64px. -->
 	<div
-		class="relative hidden h-screen flex-shrink-0 overflow-hidden bg-gradient-to-b from-slate-950 via-sky-950 to-blue-900 text-white shadow-2xl shadow-sky-950/10 transition-[width] duration-200 ease-out lg:block {sidebarCollapsed ? 'w-16' : 'w-72'}"
+		class="sidebar-gradient fixed inset-y-0 left-0 z-30 hidden overflow-hidden text-white shadow-2xl shadow-sky-950/10 transition-[width] duration-200 ease-out lg:block dark:border-r dark:border-white/10 {sidebarCollapsed ? 'w-16' : 'w-72'}"
 	>
 		{@render sidebarContent(sidebarCollapsed)}
 		<!-- Collapse / expand toggle. Pinned to the inner edge of the sidebar. -->
@@ -276,8 +288,8 @@
 		</button>
 	</div>
 
-	<!-- Main content -->
-	<div class="flex-1 overflow-auto w-full lg:w-auto">
+	<!-- Main content — padded left on lg to clear the fixed sidebar. -->
+	<div class="w-full transition-[padding-left] duration-200 ease-out {sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-72'}">
 		<div class="mt-10 p-3 sm:p-4 md:p-6 lg:mt-0 lg:p-8">
 			{@render children()}
 		</div>
