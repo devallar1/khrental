@@ -1,5 +1,5 @@
 <script>
-	import { Receipt, Search, Plus, ChevronRight } from 'lucide-svelte';
+	import { Receipt, Search, Plus, ChevronRight, Inbox } from 'lucide-svelte';
 	import { formatCurrency } from '$lib/format/money.js';
 
 	let { data } = $props();
@@ -31,73 +31,80 @@
 	});
 
 	const formatDate = (dateStr) => {
-		if (!dateStr) return '--';
-		return new Date(dateStr).toLocaleDateString('en-US', {
+		if (!dateStr) return '—';
+		return new Date(dateStr).toLocaleDateString('en-GB', {
 			year: 'numeric',
 			month: 'short',
-			day: 'numeric'
+			day: '2-digit'
 		});
 	};
 
 	const statusBadgeClass = (status) => {
-		const base = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize';
 		switch (status) {
 			case 'paid':
-				return `${base} bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20`;
+				return 'inline-flex rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-medium capitalize text-success';
 			case 'pending':
-				return `${base} bg-amber-50 text-amber-700 ring-1 ring-amber-600/20`;
+				return 'inline-flex rounded-full bg-warning/20 px-2.5 py-0.5 text-xs font-medium capitalize text-warning-foreground dark:bg-warning/15 dark:text-warning';
 			case 'overdue':
-				return `${base} bg-red-50 text-red-700 ring-1 ring-red-600/20`;
+				return 'inline-flex rounded-full bg-destructive/15 px-2.5 py-0.5 text-xs font-medium capitalize text-destructive';
 			case 'cancelled':
-				return `${base} bg-slate-50 text-slate-600 ring-1 ring-slate-500/20`;
+				return 'inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium capitalize text-muted-foreground';
 			default:
-				return `${base} bg-slate-50 text-slate-600 ring-1 ring-slate-500/20`;
+				return 'inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium capitalize text-muted-foreground';
 		}
 	};
 </script>
 
 <svelte:head>
-	<title>Invoices - KH Rentals</title>
+	<title>Invoices — KH Rentals</title>
 </svelte:head>
 
-<div>
+<div class="space-y-6">
 	<!-- Header -->
-	<div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+	<header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Invoices</h1>
-			<p class="mt-1 text-sm text-slate-500">
-				{data.invoices?.length || 0} total invoice{data.invoices?.length === 1 ? '' : 's'}
+			<p class="kicker">Invoices</p>
+			<h1 class="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+				All invoices
+			</h1>
+			<p class="mt-1 text-sm text-muted-foreground">
+				{data.invoices?.length || 0}
+				{data.invoices?.length === 1 ? 'invoice' : 'invoices'}
 			</p>
 		</div>
 		<a
 			href="/invoices/generate"
-			class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+			class="inline-flex items-center gap-2 self-start rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 		>
 			<Plus class="h-4 w-4" />
-			Generate Invoice
+			Generate invoice
 		</a>
-	</div>
+	</header>
 
 	<!-- Filters -->
-	<div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+	<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
 		<div class="relative flex-1">
-			<Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+			<Search
+				class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+			/>
 			<input
 				type="text"
 				bind:value={searchQuery}
-				placeholder="Search by rentee, property, or billing period..."
-				class="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+				placeholder="Search by tenant, property, or billing period…"
+				class="w-full rounded-2xl border border-input bg-background py-2.5 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 			/>
 		</div>
-		<div class="flex gap-1.5 overflow-x-auto">
+		<div class="flex flex-wrap gap-2">
 			{#each statusOptions as opt}
 				<button
 					onclick={() => (statusFilter = opt)}
-					class="whitespace-nowrap rounded-2xl px-3 py-2 text-sm font-medium transition {statusFilter === opt
-						? 'bg-slate-900 text-white shadow-sm'
-						: 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'}"
+					class={`rounded-2xl px-3.5 py-1.5 text-sm font-medium capitalize transition-all duration-200 ease-smooth ${
+						statusFilter === opt
+							? 'bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-sm'
+							: 'border border-border bg-card text-foreground hover:-translate-y-0.5 hover:bg-secondary'
+					}`}
 				>
-					{opt === 'all' ? 'All' : opt.charAt(0).toUpperCase() + opt.slice(1)}
+					{opt === 'all' ? 'All' : opt}
 				</button>
 			{/each}
 		</div>
@@ -105,57 +112,82 @@
 
 	<!-- Table -->
 	{#if filtered().length === 0}
-		<div class="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
-			<Receipt class="mx-auto h-12 w-12 text-slate-300" />
-			<h3 class="mt-4 text-sm font-medium text-slate-900">No invoices found</h3>
-			<p class="mt-1 text-sm text-slate-500">
+		<div
+			class="flex flex-col items-center rounded-2xl border border-dashed border-border bg-card py-12 text-center"
+		>
+			<div class="rounded-2xl bg-secondary p-4 text-muted-foreground">
+				{#if searchQuery || statusFilter !== 'all'}
+					<Inbox class="h-6 w-6" />
+				{:else}
+					<Receipt class="h-6 w-6" />
+				{/if}
+			</div>
+			<p class="mt-4 font-display text-lg font-semibold">
+				{searchQuery || statusFilter !== 'all' ? 'No invoices found' : 'No invoices yet'}
+			</p>
+			<p class="mt-1 max-w-sm text-sm text-muted-foreground">
 				{#if searchQuery || statusFilter !== 'all'}
 					Try adjusting your search or filter.
 				{:else}
 					Get started by generating your first invoice.
 				{/if}
 			</p>
+			{#if !searchQuery && statusFilter === 'all'}
+				<a
+					href="/invoices/generate"
+					class="mt-4 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
+				>
+					<Plus class="h-4 w-4" />
+					Generate invoice
+				</a>
+			{/if}
 		</div>
 	{:else}
-		<div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+		<div class="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
 			<div class="overflow-x-auto">
-				<table class="min-w-full divide-y divide-slate-200">
-					<thead class="bg-slate-50">
+				<table class="min-w-full divide-y divide-border">
+					<thead class="bg-secondary/50">
 						<tr>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-								Billing Period
-							</th>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-								Rentee
-							</th>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-								Property
-							</th>
-							<th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-500">
-								Amount
-							</th>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-								Status
-							</th>
-							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-								Due Date
-							</th>
+							<th
+								class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+								>Billing Period</th
+							>
+							<th
+								class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+								>Tenant</th
+							>
+							<th
+								class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+								>Property</th
+							>
+							<th
+								class="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+								>Amount</th
+							>
+							<th
+								class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+								>Status</th
+							>
+							<th
+								class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+								>Due</th
+							>
 							<th class="px-4 py-3"></th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-slate-100">
+					<tbody class="divide-y divide-border">
 						{#each filtered() as invoice}
-							<tr class="transition hover:bg-slate-50">
-								<td class="whitespace-nowrap px-4 py-3.5 text-sm font-medium text-slate-900">
-									{invoice.billingperiod || '--'}
+							<tr class="transition-colors hover:bg-secondary/40">
+								<td class="whitespace-nowrap px-4 py-3.5 text-sm font-medium">
+									{invoice.billingperiod || '—'}
 								</td>
-								<td class="whitespace-nowrap px-4 py-3.5 text-sm text-slate-600">
-									{invoice.tenant_name || invoice.tenant_email || '--'}
+								<td class="whitespace-nowrap px-4 py-3.5 text-sm text-muted-foreground">
+									{invoice.tenant_name || invoice.tenant_email || '—'}
 								</td>
-								<td class="whitespace-nowrap px-4 py-3.5 text-sm text-slate-600">
-									{invoice.property_name || '--'}
+								<td class="whitespace-nowrap px-4 py-3.5 text-sm text-muted-foreground">
+									{invoice.property_name || '—'}
 								</td>
-								<td class="whitespace-nowrap px-4 py-3.5 text-right text-sm font-medium text-slate-900">
+								<td class="whitespace-nowrap px-4 py-3.5 text-right font-mono text-sm">
 									{formatCurrency(invoice.totalamount, invoice.currency)}
 								</td>
 								<td class="whitespace-nowrap px-4 py-3.5">
@@ -163,13 +195,13 @@
 										{invoice.status || 'unknown'}
 									</span>
 								</td>
-								<td class="whitespace-nowrap px-4 py-3.5 text-sm text-slate-600">
+								<td class="whitespace-nowrap px-4 py-3.5 text-sm text-muted-foreground">
 									{formatDate(invoice.duedate)}
 								</td>
 								<td class="whitespace-nowrap px-4 py-3.5 text-right">
 									<a
 										href="/invoices/{invoice.id}"
-										class="inline-flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900"
+										class="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
 									>
 										View
 										<ChevronRight class="h-4 w-4" />

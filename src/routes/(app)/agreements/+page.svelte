@@ -1,5 +1,5 @@
 <script>
-	import { Search, Plus, FileText } from 'lucide-svelte';
+	import { Search, Plus, FileText, Inbox } from 'lucide-svelte';
 	import { formatCurrency } from '$lib/format/money.js';
 
 	let { data } = $props();
@@ -10,28 +10,27 @@
 	const statusOptions = ['all', 'draft', 'active', 'signed', 'cancelled'];
 
 	const statusBadgeClass = (status) => {
-		const base = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium';
 		switch (status) {
 			case 'active':
 			case 'signed':
-				return `${base} bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20`;
+				return 'inline-flex rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-medium text-success';
 			case 'draft':
-				return `${base} bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/20`;
+				return 'inline-flex rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary';
 			case 'cancelled':
-				return `${base} bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20`;
+				return 'inline-flex rounded-full bg-destructive/15 px-2.5 py-0.5 text-xs font-medium text-destructive';
 			case 'pending':
-				return `${base} bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20`;
+				return 'inline-flex rounded-full bg-warning/20 px-2.5 py-0.5 text-xs font-medium text-warning-foreground dark:bg-warning/15 dark:text-warning';
 			default:
-				return `${base} bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-600/20`;
+				return 'inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground';
 		}
 	};
 
 	const formatDate = (dateStr) => {
-		if (!dateStr) return '-';
-		return new Date(dateStr).toLocaleDateString('en-US', {
+		if (!dateStr) return '—';
+		return new Date(dateStr).toLocaleDateString('en-GB', {
 			year: 'numeric',
 			month: 'short',
-			day: 'numeric'
+			day: '2-digit'
 		});
 	};
 
@@ -49,92 +48,120 @@
 </script>
 
 <svelte:head>
-	<title>Agreements - KH Rentals</title>
+	<title>Agreements — KH Rentals</title>
 </svelte:head>
 
-<div>
+<div class="space-y-6">
 	<!-- Header -->
-	<div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+	<header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Agreements</h1>
-			<p class="mt-1 text-sm text-slate-500">{filtered.length} agreement{filtered.length !== 1 ? 's' : ''}</p>
+			<p class="kicker">Agreements</p>
+			<h1 class="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+				All agreements
+			</h1>
+			<p class="mt-1 text-sm text-muted-foreground">
+				{filtered.length}
+				{filtered.length === 1 ? 'agreement' : 'agreements'}
+			</p>
 		</div>
 		<a
 			href="/agreements/new"
-			class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+			class="inline-flex items-center gap-2 self-start rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 		>
 			<Plus class="h-4 w-4" />
-			New Agreement
+			New agreement
 		</a>
-	</div>
+	</header>
 
 	<!-- Filters -->
-	<div class="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-		<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-			<!-- Search -->
-			<div class="relative flex-1">
-				<Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-				<input
-					type="text"
-					placeholder="Search agreements..."
-					bind:value={searchQuery}
-					class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-300"
-				/>
-			</div>
-
-			<!-- Status filter -->
-			<div class="flex gap-1.5 overflow-x-auto">
-				{#each statusOptions as status}
-					<button
-						onclick={() => (statusFilter = status)}
-						class="whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition {statusFilter === status
-							? 'bg-slate-900 text-white'
-							: 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
-					>
-						{status.charAt(0).toUpperCase() + status.slice(1)}
-					</button>
-				{/each}
-			</div>
+	<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+		<div class="relative flex-1">
+			<Search
+				class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+			/>
+			<input
+				type="text"
+				placeholder="Search agreements…"
+				bind:value={searchQuery}
+				class="w-full rounded-2xl border border-input bg-background py-2.5 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
+			/>
+		</div>
+		<div class="flex flex-wrap gap-2">
+			{#each statusOptions as status}
+				<button
+					onclick={() => (statusFilter = status)}
+					class={`rounded-2xl px-3.5 py-1.5 text-sm font-medium capitalize transition-all duration-200 ease-smooth ${
+						statusFilter === status
+							? 'bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-sm'
+							: 'border border-border bg-card text-foreground hover:-translate-y-0.5 hover:bg-secondary'
+					}`}
+				>
+					{status === 'all' ? 'All' : status}
+				</button>
+			{/each}
 		</div>
 	</div>
 
 	<!-- Table -->
 	{#if filtered.length > 0}
-		<div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+		<div class="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
 			<div class="overflow-x-auto">
-				<table class="w-full text-left text-sm">
-					<thead>
-						<tr class="border-b border-slate-100 bg-slate-50">
-							<th class="px-4 py-3 font-medium text-slate-500">Title</th>
-							<th class="px-4 py-3 font-medium text-slate-500">Tenant</th>
-							<th class="px-4 py-3 font-medium text-slate-500">Property</th>
-							<th class="px-4 py-3 font-medium text-slate-500">Status</th>
-							<th class="px-4 py-3 font-medium text-slate-500 text-right">Rent</th>
-							<th class="px-4 py-3 font-medium text-slate-500">Start</th>
-							<th class="px-4 py-3 font-medium text-slate-500">End</th>
+				<table class="min-w-full divide-y divide-border">
+					<thead class="bg-secondary/50">
+						<tr>
+							<th
+								class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+								>Title</th
+							>
+							<th
+								class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+								>Tenant</th
+							>
+							<th
+								class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+								>Property</th
+							>
+							<th
+								class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+								>Status</th
+							>
+							<th
+								class="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+								>Rent</th
+							>
+							<th
+								class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+								>Start</th
+							>
+							<th
+								class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+								>End</th
+							>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-slate-100">
+					<tbody class="divide-y divide-border">
 						{#each filtered as agreement}
-							<tr class="transition hover:bg-slate-50">
-								<td class="px-4 py-3">
+							<tr class="transition-colors hover:bg-secondary/40">
+								<td class="px-4 py-3 text-sm">
 									<a
 										href="/agreements/{agreement.id}"
-										class="font-medium text-slate-900 hover:text-blue-600"
+										class="font-medium text-foreground transition-colors hover:text-primary"
 									>
 										{agreement.title || 'Untitled'}
 									</a>
 								</td>
-								<td class="px-4 py-3 text-slate-600">{agreement.tenant_name || '-'}</td>
-								<td class="px-4 py-3 text-slate-600">{agreement.property_name || '-'}</td>
+								<td class="px-4 py-3 text-sm text-muted-foreground">{agreement.tenant_name || '—'}</td>
+								<td class="px-4 py-3 text-sm text-muted-foreground">{agreement.property_name || '—'}</td>
 								<td class="px-4 py-3">
-									<span class={statusBadgeClass(agreement.status)}>
+									<span class="{statusBadgeClass(agreement.status)} capitalize">
 										{agreement.status || 'draft'}
 									</span>
 								</td>
-								<td class="px-4 py-3 text-right text-slate-600">{formatCurrency(agreement.rentamount, agreement.currency)}</td>
-								<td class="px-4 py-3 text-slate-600">{formatDate(agreement.startdate)}</td>
-								<td class="px-4 py-3 text-slate-600">{formatDate(agreement.enddate)}</td>
+								<td class="px-4 py-3 text-right font-mono text-sm">
+									{formatCurrency(agreement.rentamount, agreement.currency)}
+								</td>
+								<td class="px-4 py-3 text-sm text-muted-foreground">{formatDate(agreement.startdate)}</td>
+								<td class="px-4 py-3 text-sm text-muted-foreground">{formatDate(agreement.enddate)}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -142,10 +169,20 @@
 			</div>
 		</div>
 	{:else}
-		<div class="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
-			<FileText class="mx-auto h-12 w-12 text-slate-300" />
-			<h3 class="mt-4 text-sm font-medium text-slate-900">No agreements found</h3>
-			<p class="mt-1 text-sm text-slate-500">
+		<div
+			class="flex flex-col items-center rounded-2xl border border-dashed border-border bg-card py-12 text-center"
+		>
+			<div class="rounded-2xl bg-secondary p-4 text-muted-foreground">
+				{#if searchQuery || statusFilter !== 'all'}
+					<Inbox class="h-6 w-6" />
+				{:else}
+					<FileText class="h-6 w-6" />
+				{/if}
+			</div>
+			<p class="mt-4 font-display text-lg font-semibold">
+				{searchQuery || statusFilter !== 'all' ? 'No agreements found' : 'No agreements yet'}
+			</p>
+			<p class="mt-1 max-w-sm text-sm text-muted-foreground">
 				{searchQuery || statusFilter !== 'all'
 					? 'Try adjusting your search or filters.'
 					: 'Get started by creating a new agreement.'}
@@ -153,10 +190,10 @@
 			{#if !searchQuery && statusFilter === 'all'}
 				<a
 					href="/agreements/new"
-					class="mt-4 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+					class="mt-4 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 				>
 					<Plus class="h-4 w-4" />
-					New Agreement
+					New agreement
 				</a>
 			{/if}
 		</div>

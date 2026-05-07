@@ -1,5 +1,5 @@
 <script>
-	import { Search, Plus, Users, Mail, Phone, MapPin } from 'lucide-svelte';
+	import { Search, Plus, Users, Mail, Phone, MapPin, Inbox } from 'lucide-svelte';
 
 	let { data } = $props();
 
@@ -40,48 +40,54 @@
 
 	const getPropertyNames = (ids) => {
 		if (!ids || !Array.isArray(ids) || ids.length === 0) return [];
-		return ids
-			.map((id) => data.propertiesMap[id])
-			.filter(Boolean);
+		return ids.map((id) => data.propertiesMap[id]).filter(Boolean);
 	};
 </script>
 
 <svelte:head>
-	<title>Tenants - KH Rentals</title>
+	<title>Tenants — KH Rentals</title>
 </svelte:head>
 
-<div>
+<div class="space-y-6">
 	<!-- Header -->
-	<div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+	<header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Tenants</h1>
-			<p class="mt-1 text-sm text-slate-500">{data.tenants.length} total tenants</p>
+			<p class="kicker">Tenants</p>
+			<h1 class="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+				All tenants
+			</h1>
+			<p class="mt-1 text-sm text-muted-foreground">
+				{data.tenants.length}
+				{data.tenants.length === 1 ? 'tenant' : 'tenants'} on file
+			</p>
 		</div>
 		<a
 			href="/tenants/new"
-			class="inline-flex items-center gap-2 rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700"
+			class="inline-flex items-center gap-2 self-start rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 		>
 			<Plus class="h-4 w-4" />
-			Add Tenant
+			Add tenant
 		</a>
-	</div>
+	</header>
 
 	<!-- Filters -->
-	<div class="mb-6 flex flex-col gap-3 sm:flex-row">
+	<div class="flex flex-col gap-3 sm:flex-row">
 		<div class="relative flex-1">
-			<Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+			<Search
+				class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+			/>
 			<input
 				type="text"
-				placeholder="Search by name or email..."
+				placeholder="Search by name or email…"
 				bind:value={searchQuery}
-				class="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
+				class="w-full rounded-2xl border border-input bg-background py-2.5 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 			/>
 		</div>
 		<select
 			bind:value={statusFilter}
-			class="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
+			class="rounded-2xl border border-input bg-background px-4 py-2.5 text-sm text-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 		>
-			<option value="all">All Status</option>
+			<option value="all">All status</option>
 			<option value="active">Active</option>
 			<option value="inactive">Inactive</option>
 		</select>
@@ -89,49 +95,59 @@
 
 	<!-- Grid -->
 	{#if filtered().length > 0}
-		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{#each filtered() as tenant}
 				<a
 					href="/tenants/{tenant.id}"
-					class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md"
+					class="group rounded-2xl border border-border bg-card p-5 glow-primary transition-all duration-400 ease-smooth hover:-translate-y-1"
 				>
-					<div class="flex items-start justify-between">
-						<div class="flex items-center gap-3">
-							<div class="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 text-sm font-semibold text-sky-700">
+					<div class="flex items-start justify-between gap-3">
+						<div class="flex min-w-0 items-center gap-3">
+							<div
+								class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary"
+							>
 								{(tenant.name || '?').charAt(0).toUpperCase()}
 							</div>
-							<div>
-								<h3 class="font-semibold text-slate-900 group-hover:text-sky-700">
+							<div class="min-w-0">
+								<h3 class="truncate font-display text-base font-semibold text-foreground group-hover:text-primary">
 									{tenant.name || 'Unnamed'}
 								</h3>
 								{#if tenant.email}
-									<p class="flex items-center gap-1 text-xs text-slate-500">
-										<Mail class="h-3 w-3" />
-										{tenant.email}
+									<p class="flex items-center gap-1 truncate text-xs text-muted-foreground">
+										<Mail class="h-3 w-3 flex-shrink-0" />
+										<span class="truncate">{tenant.email}</span>
 									</p>
 								{/if}
 							</div>
 						</div>
-						<span
-							class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {tenant.active
-								? 'bg-emerald-50 text-emerald-700'
-								: 'bg-slate-100 text-slate-600'}"
-						>
-							{tenant.active ? 'Active' : 'Inactive'}
-						</span>
+						{#if tenant.active}
+							<span
+								class="flex-shrink-0 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success"
+							>
+								Active
+							</span>
+						{:else}
+							<span
+								class="flex-shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+							>
+								Inactive
+							</span>
+						{/if}
 					</div>
 
 					{#if getPhone(tenant.contact_details)}
-						<p class="mt-3 flex items-center gap-1.5 text-sm text-slate-600">
-							<Phone class="h-3.5 w-3.5 text-slate-400" />
-							{getPhone(tenant.contact_details)}
+						<p class="mt-3 flex items-center gap-1.5 text-sm">
+							<Phone class="h-3.5 w-3.5 text-muted-foreground" />
+							<span class="font-mono text-xs">{getPhone(tenant.contact_details)}</span>
 						</p>
 					{/if}
 
 					{#if getPropertyNames(tenant.associated_property_ids).length > 0}
 						<div class="mt-3 flex flex-wrap gap-1.5">
 							{#each getPropertyNames(tenant.associated_property_ids) as propName}
-								<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+								<span
+									class="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+								>
 									<MapPin class="h-3 w-3" />
 									{propName}
 								</span>
@@ -143,23 +159,33 @@
 		</div>
 	{:else}
 		<!-- Empty state -->
-		<div class="rounded-2xl border border-slate-200 bg-white py-16 text-center">
-			<Users class="mx-auto h-12 w-12 text-slate-300" />
-			<h3 class="mt-4 text-lg font-semibold text-slate-900">No tenants found</h3>
-			<p class="mt-1 text-sm text-slate-500">
+		<div
+			class="flex flex-col items-center rounded-2xl border border-dashed border-border bg-card py-12 text-center"
+		>
+			<div class="rounded-2xl bg-secondary p-4 text-muted-foreground">
+				{#if searchQuery || statusFilter !== 'all'}
+					<Inbox class="h-6 w-6" />
+				{:else}
+					<Users class="h-6 w-6" />
+				{/if}
+			</div>
+			<p class="mt-4 font-display text-lg font-semibold">
+				{searchQuery || statusFilter !== 'all' ? 'No tenants found' : 'No tenants yet'}
+			</p>
+			<p class="mt-1 max-w-sm text-sm text-muted-foreground">
 				{#if searchQuery || statusFilter !== 'all'}
 					Try adjusting your search or filters.
 				{:else}
-					Get started by adding your first tenant.
+					Get started by adding the first tenant.
 				{/if}
 			</p>
 			{#if !searchQuery && statusFilter === 'all'}
 				<a
 					href="/tenants/new"
-					class="mt-4 inline-flex items-center gap-2 rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700"
+					class="mt-4 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 				>
 					<Plus class="h-4 w-4" />
-					Add Tenant
+					Add tenant
 				</a>
 			{/if}
 		</div>
