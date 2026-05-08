@@ -1014,7 +1014,7 @@
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Fredoka:wght@500;600;700&display=swap" />
 </svelte:head>
 
-<div class="dark aqua-theme">
+<div class="aqua-theme">
 <div
 	class={`-m-3 min-h-screen p-3 sm:-m-4 sm:p-4 md:-m-6 md:p-6 lg:-m-8 lg:p-8 ${selectedProperty ? '' : 'md:pr-16 lg:pr-16'}`}
 	style="background: var(--bg); color: var(--ink); font-family: 'Inter Tight', system-ui, sans-serif;"
