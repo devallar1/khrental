@@ -35,7 +35,7 @@
 			</div>
 			<a
 				href="/configure/agreement-templates/new"
-				class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+				class="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 			>
 				<Plus class="h-4 w-4" />
 				New Template
@@ -49,7 +49,7 @@
 			<div class="overflow-x-auto">
 				<table class="w-full text-left text-sm">
 					<thead>
-						<tr class="border-b border-slate-100 bg-secondary/50">
+						<tr class="border-b border-border bg-secondary/50">
 							<th class="px-4 py-3 font-medium text-muted-foreground">Name</th>
 							<th class="px-4 py-3 font-medium text-muted-foreground">Language</th>
 							<th class="px-4 py-3 font-medium text-muted-foreground">Version</th>
@@ -82,7 +82,7 @@
 			<p class="mt-1 text-sm text-muted-foreground">Create a template to use when drafting agreements.</p>
 			<a
 				href="/configure/agreement-templates/new"
-				class="mt-4 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+				class="mt-4 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 			>
 				<Plus class="h-4 w-4" />
 				New Template

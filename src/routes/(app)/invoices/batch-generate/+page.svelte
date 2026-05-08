@@ -106,7 +106,7 @@
 	];
 
 	const inputClass =
-		'w-full rounded-2xl border border-border bg-white px-4 py-2.5 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-900/10';
+		'w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring';
 	const labelClass = 'block text-sm font-medium text-foreground mb-1.5';
 </script>
 
@@ -142,9 +142,9 @@
 						<div
 							class="flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-colors
 								{step > s.num
-								? 'bg-green-100 text-green-700'
+								? 'bg-success/15 text-success'
 								: step === s.num
-									? 'bg-slate-900 text-white'
+									? 'bg-primary text-primary-foreground'
 									: 'bg-muted text-muted-foreground'}"
 						>
 							{#if step > s.num}
@@ -163,7 +163,7 @@
 					{#if i < steps.length - 1}
 						<div
 							class="mx-3 h-px w-12 sm:w-20
-								{step > s.num ? 'bg-green-300' : 'bg-secondary'}"
+								{step > s.num ? 'bg-success' : 'bg-secondary'}"
 						></div>
 					{/if}
 				</div>
@@ -172,7 +172,7 @@
 	</div>
 
 	{#if form?.error && step !== 3}
-		<div class="mb-6 rounded-2xl border border-red-200 bg-destructive/10 p-4 text-sm text-red-700">
+		<div class="mb-6 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
 			{form.error}
 		</div>
 	{/if}
@@ -226,7 +226,7 @@
 
 				{#if data.properties.length === 0}
 					<div class="mt-4 rounded-xl bg-secondary/50 p-6 text-center">
-						<Building2 class="mx-auto h-8 w-8 text-slate-300" />
+						<Building2 class="mx-auto h-8 w-8 text-muted-foreground" />
 						<p class="mt-2 text-sm text-muted-foreground">No properties found.</p>
 					</div>
 				{:else}
@@ -241,13 +241,13 @@
 								onclick={() => toggleProperty(property.id)}
 								class="flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition
 									{isSelected
-									? 'border-slate-900 bg-secondary/50'
+									? 'border-primary bg-primary/10'
 									: 'border-border bg-white hover:border-border hover:bg-secondary/50'}"
 							>
 								<div
 									class="flex h-5 w-5 shrink-0 items-center justify-center rounded border transition
 										{isSelected
-										? 'border-slate-900 bg-slate-900'
+										? 'border-primary bg-primary'
 										: 'border-border bg-white'}"
 								>
 									{#if isSelected}
@@ -263,7 +263,7 @@
 								<div class="shrink-0">
 									{#if agreementCount > 0}
 										<span
-											class="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700"
+											class="inline-flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-medium text-success"
 										>
 											<Users class="h-3 w-3" />
 											{agreementCount} active
@@ -288,7 +288,7 @@
 					type="button"
 					disabled={!canProceedToStep2}
 					onclick={() => (step = 2)}
-					class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+					class="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					Next
 					<ArrowRight class="h-4 w-4" />
@@ -362,7 +362,7 @@
 							class="peer sr-only"
 						/>
 						<div
-							class="h-6 w-11 rounded-full bg-secondary transition peer-checked:bg-slate-900"
+							class="h-6 w-11 rounded-full bg-secondary transition peer-checked:bg-primary"
 						></div>
 						<div
 							class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5"
@@ -387,7 +387,7 @@
 
 						{#if propAgreements.length === 0}
 							<div
-								class="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-700"
+								class="mt-4 rounded-xl border border-warning/30 bg-warning/15 p-3 text-sm text-warning-foreground dark:text-warning"
 							>
 								<div class="flex items-center gap-2">
 									<AlertCircle class="h-4 w-4 shrink-0" />
@@ -441,9 +441,9 @@
 				<div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
 					<div class="flex items-center gap-3">
 						<div
-							class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50"
+							class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15"
 						>
-							<Building2 class="h-5 w-5 text-blue-600" />
+							<Building2 class="h-5 w-5 text-primary" />
 						</div>
 						<div>
 							<div class="text-2xl font-bold text-foreground">
@@ -467,9 +467,9 @@
 					</div>
 					<div class="flex items-center gap-3">
 						<div
-							class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50"
+							class="flex h-10 w-10 items-center justify-center rounded-xl bg-success/15"
 						>
-							<Receipt class="h-5 w-5 text-green-600" />
+							<Receipt class="h-5 w-5 text-success" />
 						</div>
 						<div>
 							<div class="text-2xl font-bold text-foreground">
@@ -507,7 +507,7 @@
 				<button
 					type="submit"
 					disabled={submitting || selectedAgreements.length === 0}
-					class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+					class="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					<Layers class="h-4 w-4" />
 					{submitting ? 'Generating...' : `Generate ${selectedAgreements.length} Invoices`}
@@ -520,8 +520,8 @@
 	{#if step === 3 && form?.success}
 		<div class="space-y-6">
 			<!-- Overall Result -->
-			<div class="rounded-2xl border border-green-200 bg-green-50 p-6 text-center">
-				<CheckCircle2 class="mx-auto h-12 w-12 text-green-600" />
+			<div class="rounded-2xl border border-success/30 bg-success/10 p-6 text-center">
+				<CheckCircle2 class="mx-auto h-12 w-12 text-success" />
 				<h2 class="mt-3 text-xl font-bold text-foreground">Batch Generation Complete</h2>
 				<p class="mt-1 text-sm text-muted-foreground">
 					{form.summary.created} invoice{form.summary.created !== 1 ? 's' : ''} created
@@ -536,11 +536,11 @@
 					<div class="text-xs text-muted-foreground">Total Processed</div>
 				</div>
 				<div class="rounded-2xl border border-border bg-white p-4 text-center shadow-sm">
-					<div class="text-2xl font-bold text-green-600">{form.summary.created}</div>
+					<div class="text-2xl font-bold text-success">{form.summary.created}</div>
 					<div class="text-xs text-muted-foreground">Created</div>
 				</div>
 				<div class="rounded-2xl border border-border bg-white p-4 text-center shadow-sm">
-					<div class="text-2xl font-bold text-amber-600">{form.summary.skipped}</div>
+					<div class="text-2xl font-bold text-warning-foreground dark:text-warning">{form.summary.skipped}</div>
 					<div class="text-xs text-muted-foreground">Skipped</div>
 				</div>
 				<div class="rounded-2xl border border-border bg-white p-4 text-center shadow-sm">
@@ -559,16 +559,16 @@
 						<div
 							class="flex items-center justify-between rounded-xl px-4 py-3
 								{result.status === 'success'
-								? 'bg-green-50'
+								? 'bg-success/10'
 								: result.status === 'skipped'
-									? 'bg-amber-50'
+									? 'bg-warning/15'
 									: 'bg-destructive/10'}"
 						>
 							<div class="flex items-center gap-3">
 								{#if result.status === 'success'}
-									<CheckCircle2 class="h-5 w-5 shrink-0 text-green-600" />
+									<CheckCircle2 class="h-5 w-5 shrink-0 text-success" />
 								{:else if result.status === 'skipped'}
-									<AlertCircle class="h-5 w-5 shrink-0 text-amber-600" />
+									<AlertCircle class="h-5 w-5 shrink-0 text-warning-foreground dark:text-warning" />
 								{:else}
 									<XCircle class="h-5 w-5 shrink-0 text-destructive" />
 								{/if}
@@ -599,7 +599,7 @@
 									<span
 										class="text-xs font-medium
 											{result.status === 'skipped'
-											? 'text-amber-600'
+											? 'text-warning-foreground dark:text-warning'
 											: 'text-destructive'}"
 									>
 										{result.status}
@@ -631,7 +631,7 @@
 						notes = '';
 						form = null;
 					}}
-					class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+					class="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 				>
 					<Layers class="h-4 w-4" />
 					New Batch

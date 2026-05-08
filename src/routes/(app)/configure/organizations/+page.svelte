@@ -31,7 +31,7 @@
 		</div>
 		<button
 			onclick={() => (showForm = !showForm)}
-			class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800 transition"
+			class="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 		>
 			<Plus class="h-4 w-4" />
 			New Organization
@@ -44,7 +44,7 @@
 			<h2 class="text-lg font-semibold text-foreground mb-4">Create New Organization</h2>
 
 			{#if form?.error}
-				<div class="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+				<div class="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
 					{form.error}
 				</div>
 			{/if}
@@ -58,7 +58,7 @@
 						name="name"
 						value={form?.name || ''}
 						required
-						class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-foreground placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="w-full rounded-2xl border border-input bg-background px-3.5 py-2 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 						placeholder="Organization name"
 					/>
 				</div>
@@ -71,7 +71,7 @@
 						value={form?.slug || ''}
 						required
 						pattern="[a-z0-9-]+"
-						class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-mono text-foreground placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="w-full rounded-2xl border border-input bg-background px-3.5 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 						placeholder="org-slug"
 					/>
 				</div>
@@ -80,7 +80,7 @@
 					<select
 						id="plan"
 						name="plan"
-						class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="w-full rounded-2xl border border-input bg-background px-3.5 py-2 text-sm text-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 					>
 						<option value="free" selected={form?.plan === 'free' || !form?.plan}>Free</option>
 						<option value="starter" selected={form?.plan === 'starter'}>Starter</option>
@@ -91,9 +91,9 @@
 				<div class="sm:col-span-3 flex items-center gap-3">
 					<button
 						type="submit"
-						class="rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800 transition"
+						class="rounded-2xl bg-gradient-to-r from-primary to-accent px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 					>
-						Create Organization
+						Create organization
 					</button>
 					<button
 						type="button"
@@ -108,24 +108,24 @@
 	{/if}
 
 	{#if form?.success}
-		<div class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+		<div class="mb-6 rounded-2xl border border-success/30 bg-success/10 p-4 text-sm text-success">
 			Organization created successfully.
 		</div>
 	{/if}
 
 	<!-- Orgs list -->
 	<div class="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-		<div class="px-5 py-4 border-b border-slate-100">
+		<div class="px-5 py-4 border-b border-border">
 			<h2 class="text-base font-semibold text-foreground">All Organizations ({orgs.length})</h2>
 		</div>
 		{#if orgs.length === 0}
 			<div class="p-12 text-center">
-				<Building2 class="mx-auto h-12 w-12 text-slate-300" />
+				<Building2 class="mx-auto h-12 w-12 text-muted-foreground" />
 				<p class="mt-4 text-sm text-muted-foreground">No organizations yet</p>
 			</div>
 		{:else}
 			<div class="overflow-x-auto">
-				<table class="min-w-full divide-y divide-slate-200">
+				<table class="min-w-full divide-y divide-border">
 					<thead class="bg-secondary/50">
 						<tr>
 							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Name</th>
@@ -136,18 +136,18 @@
 							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Created</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-slate-100 bg-card">
+					<tbody class="divide-y divide-border bg-card">
 						{#each orgs as o}
 							<tr class="hover:bg-secondary/50 transition">
 								<td class="px-4 py-3 text-sm font-medium text-foreground">{o.name}</td>
 								<td class="px-4 py-3 text-sm font-mono text-muted-foreground">{o.slug}</td>
 								<td class="px-4 py-3">
-									<span class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium capitalize text-blue-700">
+									<span class="inline-flex rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium capitalize text-primary">
 										{o.plan || 'free'}
 									</span>
 								</td>
 								<td class="px-4 py-3">
-									<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize {o.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-muted text-muted-foreground'}">
+									<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize {o.status === 'active' ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'}">
 										{o.status}
 									</span>
 								</td>
@@ -169,11 +169,11 @@
 	<!-- Recent memberships -->
 	{#if memberships.length > 0}
 		<div class="mt-6 rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-			<div class="px-5 py-4 border-b border-slate-100">
+			<div class="px-5 py-4 border-b border-border">
 				<h2 class="text-base font-semibold text-foreground">Recent Memberships</h2>
 			</div>
 			<div class="overflow-x-auto">
-				<table class="min-w-full divide-y divide-slate-200">
+				<table class="min-w-full divide-y divide-border">
 					<thead class="bg-secondary/50">
 						<tr>
 							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">User</th>
@@ -182,13 +182,13 @@
 							<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Granted</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-slate-100 bg-card">
+					<tbody class="divide-y divide-border bg-card">
 						{#each memberships as m}
 							<tr class="hover:bg-secondary/50 transition">
 								<td class="px-4 py-3 text-sm font-medium text-foreground">{m.user_name || '-'}</td>
 								<td class="px-4 py-3 text-sm text-muted-foreground">{m.user_email || '-'}</td>
 								<td class="px-4 py-3">
-									<span class="inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium capitalize text-violet-700">
+									<span class="inline-flex rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium capitalize text-accent">
 										{m.role}
 									</span>
 								</td>

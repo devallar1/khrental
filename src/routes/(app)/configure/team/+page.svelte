@@ -7,11 +7,11 @@
 
 	const roleBadgeClass = (role) => {
 		const map = {
-			admin: 'bg-red-50 text-red-700',
-			manager: 'bg-violet-50 text-violet-700',
-			staff: 'bg-blue-50 text-blue-700'
+			admin: 'bg-destructive/15 text-destructive',
+			manager: 'bg-accent/15 text-accent',
+			staff: 'bg-primary/15 text-primary'
 		};
-		return map[role] || 'bg-slate-50 text-foreground';
+		return map[role] || 'bg-muted text-muted-foreground';
 	};
 </script>
 
@@ -27,7 +27,7 @@
 		</div>
 		<a
 			href="/configure/team/new"
-			class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800 transition"
+			class="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 		>
 			<Plus class="h-4 w-4" />
 			Add Team Member
@@ -41,7 +41,7 @@
 			<p class="mt-1 text-sm text-muted-foreground">Get started by adding a team member.</p>
 			<a
 				href="/configure/team/new"
-				class="mt-4 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 transition"
+				class="mt-4 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 			>
 				<Plus class="h-4 w-4" />
 				Add Team Member
@@ -52,7 +52,7 @@
 			{#each members as member}
 				<div class="rounded-2xl border border-border bg-card p-5 shadow-sm hover:shadow-md transition">
 					<div class="flex items-start gap-3">
-						<div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-slate-600">
+						<div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
 							{member.name?.charAt(0)?.toUpperCase() || '?'}
 						</div>
 						<div class="min-w-0 flex-1">
@@ -68,7 +68,7 @@
 							<Shield class="h-3 w-3" />
 							{member.role || member.user_type}
 						</span>
-						<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {member.active !== false ? 'bg-emerald-50 text-emerald-700' : 'bg-muted text-muted-foreground'}">
+						<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {member.active !== false ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'}">
 							{member.active !== false ? 'Active' : 'Inactive'}
 						</span>
 					</div>

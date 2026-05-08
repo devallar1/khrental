@@ -65,7 +65,7 @@
 	</div>
 
 	{#if form?.error}
-		<div class="mb-6 rounded-2xl border border-red-200 bg-destructive/10 p-4 text-sm text-red-700">
+		<div class="mb-6 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
 			{form.error}
 		</div>
 	{/if}
@@ -150,7 +150,7 @@
 				<button
 					type="button"
 					onclick={addComponent}
-					class="inline-flex items-center gap-1.5 rounded-2xl bg-slate-100 px-3 py-1.5 text-sm font-medium text-foreground transition hover:bg-slate-200"
+					class="inline-flex items-center gap-1.5 rounded-2xl border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:bg-secondary"
 				>
 					<Plus class="h-4 w-4" />
 					Add Item
@@ -191,7 +191,7 @@
 								type="button"
 								onclick={() => removeComponent(i)}
 								disabled={components.length <= 1}
-								class="rounded-xl p-2 text-muted-foreground transition hover:bg-destructive/10 hover:text-red-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground {i === 0 ? 'mt-7' : ''}"
+								class="rounded-xl p-2 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground {i === 0 ? 'mt-7' : ''}"
 							>
 								<Trash2 class="h-4 w-4" />
 							</button>
@@ -201,7 +201,7 @@
 			</div>
 
 			<!-- Total -->
-			<div class="mt-4 flex items-center justify-end gap-4 border-t border-slate-100 pt-4">
+			<div class="mt-4 flex items-center justify-end gap-4 border-t border-border pt-4">
 				<span class="text-sm font-medium text-muted-foreground">Total:</span>
 				<span class="text-xl font-bold text-foreground">{formatCurrency(totalAmount)}</span>
 			</div>
@@ -227,14 +227,14 @@
 		<div class="flex items-center justify-end gap-3">
 			<a
 				href="/invoices"
-				class="rounded-2xl px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:text-foreground"
+				class="rounded-2xl px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
 			>
 				Cancel
 			</a>
 			<button
 				type="submit"
 				disabled={submitting}
-				class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-50"
+				class="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary disabled:opacity-50"
 			>
 				<Receipt class="h-4 w-4" />
 				{submitting ? 'Creating...' : 'Generate Invoice'}

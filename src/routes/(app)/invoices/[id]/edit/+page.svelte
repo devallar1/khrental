@@ -192,7 +192,7 @@
 				<div class="rounded-2xl border border-border bg-card p-6 glow-primary">
 					<p class="kicker">Total</p>
 					<p class="mt-2 font-mono text-3xl font-bold tracking-tight">{formatCurrency(total, currency)}</p>
-					<p class="mt-1 text-xs text-slate-500">{cleanedLines.length} line item{cleanedLines.length === 1 ? '' : 's'}</p>
+					<p class="mt-1 text-xs text-muted-foreground">{cleanedLines.length} line item{cleanedLines.length === 1 ? '' : 's'}</p>
 				</div>
 
 				<div class="space-y-2">

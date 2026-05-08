@@ -67,25 +67,25 @@
 		<div class="flex flex-wrap gap-4">
 			<div class="flex items-center gap-2">
 				{#if configured}
-					<CheckCircle class="h-5 w-5 text-emerald-500" />
+					<CheckCircle class="h-5 w-5 text-success" />
 					<span class="text-sm text-foreground">Configured</span>
 				{:else}
-					<XCircle class="h-5 w-5 text-red-500" />
+					<XCircle class="h-5 w-5 text-destructive" />
 					<span class="text-sm text-foreground">Not configured</span>
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
 				{#if accessible}
-					<CheckCircle class="h-5 w-5 text-emerald-500" />
+					<CheckCircle class="h-5 w-5 text-success" />
 					<span class="text-sm text-foreground">Accessible</span>
 				{:else}
-					<XCircle class="h-5 w-5 text-red-500" />
+					<XCircle class="h-5 w-5 text-destructive" />
 					<span class="text-sm text-foreground">Not accessible</span>
 				{/if}
 			</div>
 			{#if accessible}
 				<div class="flex items-center gap-2">
-					<FileText class="h-5 w-5 text-blue-500" />
+					<FileText class="h-5 w-5 text-primary" />
 					<span class="text-sm text-foreground">{totalDocuments} document{totalDocuments !== 1 ? 's' : ''}</span>
 				</div>
 			{/if}
@@ -102,24 +102,24 @@
 		<!-- Upload Form -->
 		<div class="mb-6 rounded-2xl border border-border bg-card p-6 shadow-sm">
 			<div class="flex items-center gap-3 mb-4">
-				<div class="rounded-xl bg-blue-500 p-2.5 text-white">
+				<div class="rounded-xl bg-primary p-2.5 text-primary-foreground">
 					<Upload class="h-5 w-5" />
 				</div>
 				<h2 class="text-lg font-semibold text-foreground">Upload Document</h2>
 			</div>
 
 			{#if form?.success}
-				<div class="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 p-4">
+				<div class="mb-4 rounded-xl border border-success/30 bg-success/10 p-4">
 					<div class="flex items-center gap-2">
-						<CheckCircle class="h-5 w-5 text-emerald-600" />
-						<p class="text-sm font-medium text-emerald-800">Document uploaded successfully. It will appear in the list once processed.</p>
+						<CheckCircle class="h-5 w-5 text-success" />
+						<p class="text-sm font-medium text-success">Document uploaded successfully. It will appear in the list once processed.</p>
 					</div>
 				</div>
 			{/if}
 
 			{#if form?.error}
-				<div class="mb-4 rounded-xl bg-red-50 border border-red-200 p-4">
-					<p class="text-sm font-medium text-red-800">{form.error}</p>
+				<div class="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 p-4">
+					<p class="text-sm font-medium text-destructive">{form.error}</p>
 				</div>
 			{/if}
 
@@ -144,7 +144,7 @@
 							name="file"
 							required
 							accept=".pdf,.png,.jpg,.jpeg,.tiff,.txt,.doc,.docx"
-							class="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-xl file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-800 file:transition file:cursor-pointer"
+							class="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-xl file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:opacity-90 file:transition file:cursor-pointer"
 						/>
 					</div>
 					<div>
@@ -154,15 +154,15 @@
 							id="title"
 							name="title"
 							placeholder="Leave blank to use filename"
-							class="block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+							class="block w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring focus:outline-none"
 						/>
 					</div>
 					<div>
 						<label class="block text-sm font-medium text-foreground mb-1">Tags</label>
-						<div class="flex flex-wrap gap-2 rounded-xl border border-slate-300 p-2 min-h-[42px]">
+						<div class="flex flex-wrap gap-2 rounded-xl border border-input bg-background p-2 min-h-[42px]">
 							{#each tags as tag}
 								<label class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium cursor-pointer hover:opacity-80 transition" style="background-color: {tag.color || '#f1f5f9'}; color: {tag.text_color || '#334155'}">
-									<input type="checkbox" name="tags" value={tag.id} class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-3 w-3" />
+									<input type="checkbox" name="tags" value={tag.id} class="rounded border-input text-primary focus:ring-2 focus:ring-ring h-3 w-3" />
 									{tag.name}
 								</label>
 							{/each}
@@ -177,7 +177,7 @@
 					<button
 						type="submit"
 						disabled={uploading}
-						class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+						class="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						{#if uploading}
 							<div class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
@@ -195,7 +195,7 @@
 		<div class="rounded-2xl border border-border bg-card p-6 shadow-sm">
 			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
 				<div class="flex items-center gap-3">
-					<div class="rounded-xl bg-violet-500 p-2.5 text-white">
+					<div class="rounded-xl bg-accent p-2.5 text-accent-foreground">
 						<FileText class="h-5 w-5" />
 					</div>
 					<h2 class="text-lg font-semibold text-foreground">Recent Documents</h2>
@@ -206,7 +206,7 @@
 						type="text"
 						placeholder="Filter documents..."
 						bind:value={searchQuery}
-						class="rounded-xl border border-slate-300 pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none w-full sm:w-64"
+						class="rounded-xl border border-input bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring focus:outline-none w-full sm:w-64"
 					/>
 				</div>
 			</div>
@@ -215,7 +215,7 @@
 				<div class="overflow-x-auto -mx-6">
 					<table class="w-full text-sm">
 						<thead>
-							<tr class="border-b border-slate-100">
+							<tr class="border-b border-border">
 								<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Title</th>
 								<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Date</th>
 								<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Tags</th>
@@ -254,7 +254,7 @@
 											href="/configure/documents/download/{doc.id}"
 											target="_blank"
 											rel="noopener noreferrer"
-											class="inline-flex items-center gap-1 rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-slate-200 transition"
+											class="inline-flex items-center gap-1 rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-secondary transition"
 										>
 											<Download class="h-3.5 w-3.5" />
 											Download

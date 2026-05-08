@@ -1,5 +1,5 @@
 <script>
-	import { Settings, User, Building2, FileText } from 'lucide-svelte';
+	import { User, Building2, FileText, ChevronRight } from 'lucide-svelte';
 
 	let { data } = $props();
 
@@ -8,94 +8,108 @@
 </script>
 
 <svelte:head>
-	<title>Settings - KH Rentals</title>
+	<title>Account — KH Rentals</title>
 </svelte:head>
 
-<div>
-	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-foreground sm:text-3xl">Settings</h1>
-		<p class="mt-1 text-sm text-muted-foreground">Manage your account and workspace</p>
-	</div>
+<div class="space-y-6">
+	<header>
+		<p class="kicker">Account</p>
+		<h1 class="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+			Settings
+		</h1>
+		<p class="mt-1 text-sm text-muted-foreground">Manage your account and workspace.</p>
+	</header>
 
-	<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+	<div class="grid gap-6 lg:grid-cols-2">
 		<!-- Current User -->
-		<div class="rounded-2xl border border-border bg-card p-6 shadow-sm">
-			<div class="flex items-center gap-3 mb-4">
-				<div class="rounded-xl bg-blue-500 p-2.5 text-white">
+		<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
+			<div class="mb-4 flex items-center gap-3">
+				<div class="rounded-xl bg-primary p-2.5 text-primary-foreground">
 					<User class="h-5 w-5" />
 				</div>
-				<h2 class="text-lg font-semibold text-foreground">Your Account</h2>
+				<h2 class="font-display text-base font-semibold">Your account</h2>
 			</div>
-			<div class="space-y-3">
+			<dl class="space-y-3">
 				<div>
-					<p class="text-xs font-medium uppercase tracking-wide text-slate-400">Name</p>
-					<p class="text-sm font-medium text-foreground">{user?.name || '-'}</p>
+					<dt class="kicker">Name</dt>
+					<dd class="text-sm font-medium">{user?.name || '—'}</dd>
 				</div>
 				<div>
-					<p class="text-xs font-medium uppercase tracking-wide text-slate-400">Email</p>
-					<p class="text-sm font-medium text-foreground">{user?.email || '-'}</p>
+					<dt class="kicker">Email</dt>
+					<dd class="text-sm font-medium">{user?.email || '—'}</dd>
 				</div>
 				<div>
-					<p class="text-xs font-medium uppercase tracking-wide text-slate-400">Role</p>
-					<span class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium capitalize text-blue-700">
-						{user?.role || '-'}
-					</span>
+					<dt class="kicker">Role</dt>
+					<dd>
+						<span class="inline-flex rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium capitalize text-primary">
+							{user?.role || '—'}
+						</span>
+					</dd>
 				</div>
 				<div>
-					<p class="text-xs font-medium uppercase tracking-wide text-slate-400">User Type</p>
-					<p class="text-sm font-medium capitalize text-foreground">{user?.user_type || '-'}</p>
+					<dt class="kicker">User type</dt>
+					<dd class="text-sm font-medium capitalize">{user?.user_type || '—'}</dd>
 				</div>
-			</div>
-		</div>
+			</dl>
+		</section>
 
 		<!-- Current Org -->
-		<div class="rounded-2xl border border-border bg-card p-6 shadow-sm">
-			<div class="flex items-center gap-3 mb-4">
-				<div class="rounded-xl bg-violet-500 p-2.5 text-white">
+		<section class="rounded-2xl border border-border bg-card p-6 glow-primary">
+			<div class="mb-4 flex items-center gap-3">
+				<div class="rounded-xl bg-accent p-2.5 text-accent-foreground">
 					<Building2 class="h-5 w-5" />
 				</div>
-				<h2 class="text-lg font-semibold text-foreground">Current Organization</h2>
+				<h2 class="font-display text-base font-semibold">Current organization</h2>
 			</div>
 			{#if org}
-				<div class="space-y-3">
+				<dl class="space-y-3">
 					<div>
-						<p class="text-xs font-medium uppercase tracking-wide text-slate-400">Name</p>
-						<p class="text-sm font-medium text-foreground">{org.name}</p>
+						<dt class="kicker">Name</dt>
+						<dd class="text-sm font-medium">{org.name}</dd>
 					</div>
 					<div>
-						<p class="text-xs font-medium uppercase tracking-wide text-slate-400">Slug</p>
-						<p class="text-sm font-mono text-slate-600">{org.slug}</p>
+						<dt class="kicker">Slug</dt>
+						<dd class="font-mono text-sm text-muted-foreground">{org.slug}</dd>
 					</div>
 					<div>
-						<p class="text-xs font-medium uppercase tracking-wide text-slate-400">Plan</p>
-						<span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium capitalize text-emerald-700">
-							{org.plan || 'free'}
-						</span>
+						<dt class="kicker">Plan</dt>
+						<dd>
+							<span class="inline-flex rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-medium capitalize text-success">
+								{org.plan || 'free'}
+							</span>
+						</dd>
 					</div>
 					<div>
-						<p class="text-xs font-medium uppercase tracking-wide text-slate-400">Status</p>
-						<span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium capitalize text-emerald-700">
-							{org.status}
-						</span>
+						<dt class="kicker">Status</dt>
+						<dd>
+							<span class="inline-flex rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-medium capitalize text-success">
+								{org.status}
+							</span>
+						</dd>
 					</div>
-				</div>
+				</dl>
 			{:else}
 				<p class="text-sm text-muted-foreground">No organization</p>
 			{/if}
-		</div>
+		</section>
 	</div>
 
 	<!-- Document Management -->
-	<div class="mt-6">
-		<a href="/configure/documents" class="block rounded-2xl border border-border bg-card p-6 shadow-sm hover:border-slate-300 hover:shadow transition group">
-			<div class="flex items-center gap-3 mb-2">
-				<div class="rounded-xl bg-teal-500 p-2.5 text-white">
-					<FileText class="h-5 w-5" />
-				</div>
-				<h2 class="text-lg font-semibold text-foreground group-hover:text-foreground">Document Management</h2>
+	<a
+		href="/configure/documents"
+		class="group block rounded-2xl border border-border bg-card p-6 glow-primary transition-all duration-400 ease-smooth hover:-translate-y-1"
+	>
+		<div class="flex items-center gap-3">
+			<div class="rounded-xl bg-success p-2.5 text-success-foreground">
+				<FileText class="h-5 w-5" />
 			</div>
-			<p class="text-sm text-muted-foreground">Upload, search, and manage documents via Paperless-ngx</p>
-		</a>
-	</div>
-
+			<div class="flex-1">
+				<h2 class="font-display text-base font-semibold">Document management</h2>
+				<p class="mt-0.5 text-sm text-muted-foreground">
+					Upload, search, and manage documents via Paperless-ngx
+				</p>
+			</div>
+			<ChevronRight class="h-4 w-4 text-muted-foreground transition-transform duration-200 ease-smooth group-hover:translate-x-0.5 group-hover:text-foreground" />
+		</div>
+	</a>
 </div>

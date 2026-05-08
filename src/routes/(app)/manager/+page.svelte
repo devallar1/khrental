@@ -1083,7 +1083,7 @@
 					</button>
 				{/each}
 				{#if realm.length === 0}
-					<div class="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+					<div class="rounded-2xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
 						No properties found. Run the data import or seed properties first.
 					</div>
 				{/if}
@@ -1548,7 +1548,7 @@
 		{/if}
 
 		{#if realm.length === 0}
-			<div class="mx-auto max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+			<div class="mx-auto max-w-lg rounded-2xl border border-border bg-card p-8 text-center text-muted-foreground">
 				No properties found. Run the data import or seed properties first.
 			</div>
 		{/if}
@@ -1574,24 +1574,24 @@
 		<button
 			type="button"
 			onclick={() => (selectedPropertyId = null)}
-			class="mb-4 inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+			class="mb-4 inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground shadow-sm transition hover:bg-secondary"
 		>
 			<ChevronLeft class="h-4 w-4" /> All properties
 		</button>
 
 		<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
 			<div class="flex items-start gap-3">
-				<div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
+				<div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
 					<Icon class="h-6 w-6" />
 				</div>
 				<div>
-					<h1 class="text-2xl font-bold text-slate-900 dark:text-slate-50">{property.name}</h1>
+					<h1 class="text-2xl font-bold text-foreground">{property.name}</h1>
 					<div class="mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 {badge.chip}">
 						<span class="h-1.5 w-1.5 rounded-full {badge.dot}"></span>
 						{badge.label}
 					</div>
 					{#if property.description}
-						<p class="mt-2 max-w-3xl text-sm text-slate-500 dark:text-slate-400">{property.description}</p>
+						<p class="mt-2 max-w-3xl text-sm text-muted-foreground">{property.description}</p>
 					{/if}
 				</div>
 			</div>
@@ -1600,18 +1600,18 @@
 		<!-- Property utility bills (placeholder) -->
 		<div class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
 			{#each [
-				{ key: 'electricity', label: 'Electricity', Icon: Zap, light: 'text-amber-600 bg-amber-50', dark: 'dark:text-amber-300 dark:bg-amber-950/40' },
-				{ key: 'water', label: 'Water', Icon: Droplets, light: 'text-sky-600 bg-sky-50', dark: 'dark:text-sky-300 dark:bg-sky-950/40' },
-				{ key: 'slt', label: 'SLT / Internet', Icon: Wifi, light: 'text-emerald-600 bg-emerald-50', dark: 'dark:text-emerald-300 dark:bg-emerald-950/40' }
+				{ key: 'electricity', label: 'Electricity', Icon: Zap, light: 'text-warning-foreground bg-warning/15', dark: 'dark:text-warning dark:bg-warning/15' },
+				{ key: 'water', label: 'Water', Icon: Droplets, light: 'text-primary bg-primary/15', dark: '' },
+				{ key: 'slt', label: 'SLT / Internet', Icon: Wifi, light: 'text-success bg-success/15', dark: '' }
 			] as bill}
-				<div class="rounded-2xl border border-dashed border-slate-300 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+				<div class="rounded-2xl border border-dashed border-input bg-background p-4 ">
 					<div class="flex items-center gap-2">
 						<div class="flex h-8 w-8 items-center justify-center rounded-lg {bill.light} {bill.dark}">
 							<bill.Icon class="h-4 w-4" />
 						</div>
 						<div class="flex-1">
-							<div class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{bill.label}</div>
-							<div class="text-sm italic text-slate-400 dark:text-slate-500">no bill recorded</div>
+							<div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">{bill.label}</div>
+							<div class="text-sm italic text-muted-foreground">no bill recorded</div>
 						</div>
 					</div>
 				</div>
@@ -1620,14 +1620,14 @@
 
 		<!-- Unit grid -->
 		{#if property.units.length === 0}
-			<div class="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+			<div class="rounded-2xl border border-border bg-card p-8 text-center text-muted-foreground">
 				No units recorded for this property yet.
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 				{#each property.units as unit (unit.id)}
-					<article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:shadow-slate-950">
-						<header class="mb-3 flex items-start justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+					<article class="rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:shadow-md  dark:hover:shadow-slate-950">
+						<header class="mb-3 flex items-start justify-between border-b border-border pb-3">
 							<div class="flex items-center gap-2">
 								<button
 									type="button"
@@ -1637,39 +1637,39 @@
 								>
 									<User class="h-4 w-4" />
 								</button>
-								<h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{unit.unitnumber}</h3>
+								<h3 class="text-base font-semibold text-foreground">{unit.unitnumber}</h3>
 							</div>
-							<span class="text-[11px] font-medium uppercase tracking-wide {unit.tenant_id ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}">
+							<span class="text-[11px] font-medium uppercase tracking-wide {unit.tenant_id ? 'text-success' : 'text-muted-foreground'}">
 								{unit.tenant_id ? 'occupied' : 'vacant'}
 							</span>
 						</header>
 
-						<div class="mb-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+						<div class="mb-3 rounded-xl bg-secondary/50 p-3">
 							<div class="mb-1 flex items-center justify-between">
-								<span class="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Resident</span>
+								<span class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Resident</span>
 								{#if unit.tenant_id}
-									<a href="/tenants/{unit.tenant_id}" class="text-[11px] font-medium text-sky-600 hover:underline dark:text-sky-400">view</a>
+									<a href="/tenants/{unit.tenant_id}" class="text-[11px] font-medium text-primary hover:underline">view</a>
 								{/if}
 							</div>
 							{#if unit.tenant_name}
-								<p class="text-sm font-semibold text-slate-900 dark:text-slate-100">{unit.tenant_name}</p>
-								{#if unit.rentee_nic}<p class="text-xs text-slate-500 dark:text-slate-400">NIC · {unit.rentee_nic}</p>{/if}
+								<p class="text-sm font-semibold text-foreground">{unit.tenant_name}</p>
+								{#if unit.rentee_nic}<p class="text-xs text-muted-foreground">NIC · {unit.rentee_nic}</p>{/if}
 							{:else}
-								<p class="text-sm italic text-slate-400 dark:text-slate-500">vacant</p>
+								<p class="text-sm italic text-muted-foreground">vacant</p>
 							{/if}
 
 							<dl class="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
-								<dt class="text-slate-500 dark:text-slate-400">Rent</dt>
-								<dd class="text-right font-mono font-semibold tabular-nums text-slate-900 dark:text-slate-100">{fmtMoney(unit.rentamount)}</dd>
-								<dt class="text-slate-500 dark:text-slate-400">Deposit</dt>
-								<dd class="text-right font-mono tabular-nums text-slate-700 dark:text-slate-300">{fmtMoney(unit.depositamount)}</dd>
+								<dt class="text-muted-foreground">Rent</dt>
+								<dd class="text-right font-mono font-semibold tabular-nums text-foreground">{fmtMoney(unit.rentamount)}</dd>
+								<dt class="text-muted-foreground">Deposit</dt>
+								<dd class="text-right font-mono tabular-nums text-foreground">{fmtMoney(unit.depositamount)}</dd>
 								{#if unit.latest_reading}
-									<dt class="text-slate-500 dark:text-slate-400">Reading</dt>
-									<dd class="text-right font-mono tabular-nums text-slate-700 dark:text-slate-300">{unit.latest_reading.currentreading} · {fmtDate(unit.latest_reading.readingdate)}</dd>
+									<dt class="text-muted-foreground">Reading</dt>
+									<dd class="text-right font-mono tabular-nums text-foreground">{unit.latest_reading.currentreading} · {fmtDate(unit.latest_reading.readingdate)}</dd>
 								{/if}
 								{#if unit.latest_invoice}
-									<dt class="text-slate-500 dark:text-slate-400">Invoice</dt>
-									<dd class="text-right font-mono tabular-nums text-slate-700 dark:text-slate-300">{unit.latest_invoice.billingperiod} · {fmtMoney(unit.latest_invoice.totalamount)}</dd>
+									<dt class="text-muted-foreground">Invoice</dt>
+									<dd class="text-right font-mono tabular-nums text-foreground">{unit.latest_invoice.billingperiod} · {fmtMoney(unit.latest_invoice.totalamount)}</dd>
 								{/if}
 							</dl>
 						</div>
@@ -1719,12 +1719,12 @@
 								use:enhance={() => {
 									return async ({ update }) => { await update(); activeFormUnit = null; };
 								}}
-								class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60"
+								class="mt-3 rounded-xl border border-border bg-secondary/50 p-3"
 							>
 								<input type="hidden" name="unitId" value={unit.id} />
 								<input type="hidden" name="propertyId" value={property.id} />
 								<input type="hidden" name="renteeId" value={unit.tenant_id} />
-								<label class="block text-xs font-medium text-slate-600 dark:text-slate-300">
+								<label class="block text-xs font-medium text-foreground">
 									Current meter (kWh)
 									<span class="mt-1 flex gap-2">
 										<input
@@ -1733,15 +1733,15 @@
 											name="currentReading"
 											required
 											placeholder={unit.latest_reading?.currentreading ?? '0'}
-											class="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-mono tabular-nums focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-sky-900"
+											class="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm font-mono tabular-nums focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 										/>
-										<button type="submit" class="rounded-lg bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300">
+										<button type="submit" class="rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90">
 											Log
 										</button>
 									</span>
 								</label>
 								{#if unit.latest_reading}
-									<p class="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">prev · {unit.latest_reading.currentreading} on {fmtDate(unit.latest_reading.readingdate)}</p>
+									<p class="mt-1.5 text-[11px] text-muted-foreground">prev · {unit.latest_reading.currentreading} on {fmtDate(unit.latest_reading.readingdate)}</p>
 								{/if}
 							</form>
 						{/if}

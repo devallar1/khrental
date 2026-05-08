@@ -86,7 +86,7 @@
 			<button
 				type="button"
 				onclick={openNew}
-				class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+				class="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 			>
 				<Plus class="h-4 w-4" />
 				New profile
@@ -104,7 +104,7 @@
 	</div>
 
 	{#if actionError}
-		<div class="mb-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+		<div class="mb-4 rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
 			{actionError}
 		</div>
 	{/if}
@@ -129,7 +129,7 @@
 									<span class="text-sm font-semibold text-foreground">{p.label}</span>
 									<span class="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{p.tenant_name}</span>
 									{#if !p.active}
-										<span class="rounded bg-slate-200 px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground">archived</span>
+										<span class="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground">archived</span>
 									{/if}
 								</div>
 								<div class="mt-1 grid grid-cols-1 gap-x-4 gap-y-0.5 text-xs text-muted-foreground sm:grid-cols-2">
@@ -153,7 +153,7 @@
 										<input type="hidden" name="id" value={p.id} />
 										<button
 											type="submit"
-											class="rounded-xl border border-border p-2 text-muted-foreground transition hover:bg-rose-50 hover:text-rose-700"
+											class="rounded-xl border border-border p-2 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
 											title="Archive"
 											onclick={(e) => { if (!confirm(`Archive "${p.label}"?`)) e.preventDefault(); }}
 										>
@@ -165,7 +165,7 @@
 										<input type="hidden" name="id" value={p.id} />
 										<button
 											type="submit"
-											class="rounded-xl border border-border p-2 text-muted-foreground transition hover:bg-emerald-50 hover:text-emerald-700"
+											class="rounded-xl border border-border p-2 text-muted-foreground transition hover:bg-success/10 hover:text-success"
 											title="Restore"
 										>
 											<RotateCcw class="h-3.5 w-3.5" />
@@ -281,7 +281,7 @@
 				>{p?.notes ?? ''}</textarea>
 			</label>
 
-			<div class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
+			<div class="flex items-center justify-end gap-2 border-t border-border pt-4">
 				<button
 					type="button"
 					onclick={back}
@@ -292,7 +292,7 @@
 				<button
 					type="submit"
 					disabled={submitting}
-					class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-50"
+					class="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary disabled:opacity-50"
 				>
 					<Save class="h-4 w-4" />
 					{submitting ? 'Saving…' : p ? 'Save changes' : 'Create profile'}

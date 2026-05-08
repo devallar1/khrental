@@ -34,7 +34,7 @@
 					name="name"
 					value={form?.name || ''}
 					required
-					class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-foreground placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+					class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 					placeholder="Full name"
 				/>
 			</div>
@@ -47,7 +47,7 @@
 					name="email"
 					value={form?.email || ''}
 					required
-					class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-foreground placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+					class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 					placeholder="email@example.com"
 				/>
 			</div>
@@ -58,7 +58,7 @@
 					id="role"
 					name="role"
 					required
-					class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+					class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 				>
 					<option value="">Select a role</option>
 					<option value="admin" selected={form?.role === 'admin'}>Admin</option>
@@ -73,7 +73,7 @@
 					id="notes"
 					name="notes"
 					rows="3"
-					class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-foreground placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+					class="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 					placeholder="Optional notes about this team member"
 				>{form?.notes || ''}</textarea>
 			</div>
@@ -81,11 +81,11 @@
 			<div class="flex items-center gap-3 pt-2">
 				<button
 					type="submit"
-					class="rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800 transition"
+					class="rounded-2xl bg-gradient-to-r from-primary to-accent px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary"
 				>
 					Add Member
 				</button>
-				<a href="/configure/team" class="rounded-2xl px-5 py-2.5 text-sm font-medium text-slate-600 hover:text-foreground transition">
+				<a href="/configure/team" class="rounded-2xl px-5 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground transition">
 					Cancel
 				</a>
 			</div>

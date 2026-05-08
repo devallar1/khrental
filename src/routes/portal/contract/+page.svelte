@@ -47,7 +47,7 @@
 
 	{#if !agreement}
 		<div class="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
-			<FileText class="mx-auto h-8 w-8 text-slate-300" />
+			<FileText class="mx-auto h-8 w-8 text-muted-foreground" />
 			<p class="mt-3 text-sm font-medium text-foreground">No contract on file yet</p>
 			<p class="mt-1 text-xs text-muted-foreground">Once your manager creates an agreement for you, it'll appear here.</p>
 		</div>

@@ -194,7 +194,7 @@
 								name="billingPeriod"
 								bind:value={billingPeriod}
 								placeholder="2026-05"
-								class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
+								class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 							/>
 						</label>
 						<label class="block">
@@ -203,7 +203,7 @@
 								type="date"
 								name="dueDate"
 								bind:value={dueDate}
-								class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
+								class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 							/>
 						</label>
 					</div>
@@ -224,14 +224,14 @@
 								type="text"
 								bind:value={rent.description}
 								placeholder="Monthly Rent"
-								class="rounded-lg border border-border px-3 py-2 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
+								class="rounded-lg border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 							/>
 							<input
 								type="number"
 								bind:value={rent.amount}
 								step="0.01"
 								min="0"
-								class="rounded-lg border border-border px-3 py-2 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
+								class="rounded-lg border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 							/>
 						</div>
 					{/if}
@@ -243,7 +243,7 @@
 						<h2 class="text-base font-semibold text-foreground">Electricity</h2>
 						<select
 							bind:value={elec.mode}
-							class="rounded-lg border border-border px-3 py-1.5 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
+							class="rounded-lg border border-border px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 						>
 							<option value="skip">Skip</option>
 							<option value="fixed">Fixed amount</option>
@@ -261,7 +261,7 @@
 									bind:value={elec.fixed_lkr}
 									step="0.01"
 									min="0"
-									class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
+									class="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 								/>
 							</label>
 						</div>
@@ -314,7 +314,7 @@
 						<h2 class="text-base font-semibold text-foreground">Water</h2>
 						<select
 							bind:value={water.mode}
-							class="rounded-lg border border-border px-3 py-1.5 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
+							class="rounded-lg border border-border px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 						>
 							<option value="skip">Skip</option>
 							<option value="fixed">Fixed amount</option>
@@ -358,7 +358,7 @@
 						<h2 class="text-base font-semibold text-foreground">Internet (SLT)</h2>
 						<select
 							bind:value={slt.mode}
-							class="rounded-lg border border-border px-3 py-1.5 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
+							class="rounded-lg border border-border px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 						>
 							<option value="skip">Skip</option>
 							<option value="passthrough">Pass-through (enter actual bill)</option>
@@ -391,7 +391,7 @@
 						<button
 							type="button"
 							onclick={addOther}
-							class="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-slate-200"
+							class="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"
 						>
 							<Plus class="h-3.5 w-3.5" />
 							Add row
@@ -419,7 +419,7 @@
 									<button
 										type="button"
 										onclick={() => removeOther(idx)}
-										class="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-red-600"
+										class="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
 										title="Remove"
 									>
 										<Trash2 class="h-4 w-4" />
@@ -438,7 +438,7 @@
 						bind:value={notes}
 						rows="3"
 						placeholder="Optional notes shown on the invoice."
-						class="mt-3 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-slate-200"
+						class="mt-3 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 					></textarea>
 				</div>
 			</div>
@@ -492,7 +492,7 @@
 					<p class="mt-1 text-xs text-muted-foreground">{components.length} line item{components.length === 1 ? '' : 's'}</p>
 
 					{#if components.length > 0}
-						<ul class="mt-4 space-y-1 border-t border-slate-100 pt-3">
+						<ul class="mt-4 space-y-1 border-t border-border pt-3">
 							{#each components as c}
 								<li class="flex justify-between text-xs">
 									<span class="text-muted-foreground">{c.description}</span>
@@ -508,14 +508,14 @@
 					<button
 						type="submit"
 						disabled={submitting || components.length === 0}
-						class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+						class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:glow-primary disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<Receipt class="h-4 w-4" />
 						{submitting ? 'Saving…' : 'Save as draft'}
 					</button>
 					<a
 						href="/manager"
-						class="block w-full rounded-lg bg-white px-4 py-2.5 text-center text-sm font-medium text-muted-foreground ring-1 ring-slate-200 transition hover:bg-slate-50"
+						class="block w-full rounded-2xl border border-border bg-card px-4 py-2.5 text-center text-sm font-medium text-foreground transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:bg-secondary"
 					>
 						Cancel
 					</a>

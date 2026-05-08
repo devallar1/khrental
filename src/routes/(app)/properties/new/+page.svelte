@@ -155,7 +155,7 @@
 					class="mt-1 w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 ease-smooth focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
 					placeholder="e.g. Pool, Gym, Parking (comma-separated)"
 				/>
-				<p class="mt-1 text-xs text-slate-500">Separate amenities with commas</p>
+				<p class="mt-1 text-xs text-muted-foreground">Separate amenities with commas</p>
 			</div>
 
 			<!-- Rates -->
